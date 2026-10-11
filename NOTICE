@@ -1,0 +1,22 @@
+Freemap
+=======
+
+Ce logiciel est distribué sous licence MIT (voir LICENSE).
+
+Les données qu'il met en forme ne sont pas couvertes par cette licence et
+restent sous celles de leurs producteurs :
+
+  Voirie, bâti, usage du sol, points d'intérêt, transports
+      © OpenStreetMap contributors — ODbL 1.0
+      https://www.openstreetmap.org/copyright
+      Mention obligatoire sur toute carte diffusée.
+
+  Altimétrie
+      Terrarium (AWS Open Data ; SRTM, USGS, EU-DEM) — domaine public
+      https://registry.opendata.aws/terrain-tiles/
+
+  Climat
+      NASA POWER — domaine public
+      https://power.larc.nasa.gov/
+
+Détail et implications dans docs/DONNEES.md.

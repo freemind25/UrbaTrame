@@ -64,6 +64,9 @@ Dix défauts trouvés pendant la mise au point — détail dans
   `public/js/plan-2d.mjs`.
 - La signature envoyée à OpenStreetMap porte désormais l'adresse du dépôt et
   une adresse de contact.
+- Fichier `LICENSE` ramené au texte MIT seul (GitHub n'identifiait pas la
+  licence à cause du paragraphe ajouté à la fin) ; la note sur les licences des
+  données est déplacée dans `NOTICE`.
 
 ### Notes
 

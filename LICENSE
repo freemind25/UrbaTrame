@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-──────────────────────────────────────────────────────────────────────────────
-Ce logiciel ne couvre pas les données qu'il met en forme : elles restent sous
-les licences de leurs producteurs (OpenStreetMap ODbL 1.0, NASA POWER, AWS
-Terrarium). Voir docs/DONNEES.md pour l'attribution à afficher.
