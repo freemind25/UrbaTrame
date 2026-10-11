@@ -1,9 +1,9 @@
-/* MapToNap-clone · renderers — série Pro (24 analyses)
+/* Freemap · renderers — série Pro (24 analyses)
    Morphologie, usage, mobilité, environnement, climat. Même contrat que le
    noyau : (ctx, palette) → SVG produit par wrap(). */
 (function (G) {
   'use strict';
-  const E = G.MTNEngine, R = G.MTNRender;
+  const E = G.FMEngine, R = G.FMRender;
   const {
     W, H, PAD, SCH, L, getBounds, proj, polyArea, centroid, polyLen,
     distToSeg, distToPolyline, projectOnSeg, azimuth, polylinePath, grid,

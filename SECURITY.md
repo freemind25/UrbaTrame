@@ -47,7 +47,7 @@ ne faites confiance à cet en-tête que s'il est posé par le proxy lui-même.
 
 Le point clé de l'architecture : le client envoie des identifiants d'analyse,
 un rayon et un point ; le serveur reconstruit la requête avec le planificateur
-partagé (`public/js/mtn-2d-plan.mjs`). Il n'existe aucune route acceptant une
+partagé (`public/js/plan-2d.mjs`). Il n'existe aucune route acceptant une
 requête Overpass arbitraire. Les identifiants d'analyse hors catalogue sont
 refusés (`INVALID_ANALYSES`), les rayons bornés à 200-3000 m, et la fenêtre
 géographique recalculée côté serveur.

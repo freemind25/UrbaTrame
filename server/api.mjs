@@ -3,7 +3,7 @@
      POST /            form    geocode= · refcheck= · refcode=
      GET  /api/status           état du service + clé publique Ed25519
    Les autres GET servent les fichiers de public/.                              */
-import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/mtn-2d-plan.mjs';
+import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/plan-2d.mjs';
 import { SOURCES } from './config.mjs';
 import {
   send, readBody, clientIp, serveStatic, TRACE, log

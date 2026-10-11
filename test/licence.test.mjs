@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { createLicence, validDevice, DAY } from '../server/licence.mjs';
 
 const DEVICE = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mtn-lic-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'freemap-lic-'));
 const licence = createLicence({ dataDir: dir });
 
 /* Vérification indépendante du titre, comme le fait le navigateur. */
@@ -92,7 +92,7 @@ describe('titre signé', () => {
   });
 
   test('une autre paire de clés ne valide pas le titre', () => {
-    const other = createLicence({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'mtn-lic2-')) });
+    const other = createLicence({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'freemap-lic2-')) });
     const r = licence.activate('cs_demo_pro', DEVICE);
     assert.equal(verifyEnt(r.ent, other.pubB64).ok, false);
   });

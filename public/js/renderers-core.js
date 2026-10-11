@@ -1,10 +1,10 @@
-/* MapToNap-clone · renderers — noyau (11 analyses)
+/* Freemap · renderers — noyau (11 analyses)
    Chaque renderer reçoit (ctx, paletteIndex) et renvoie une chaîne SVG produite
    par wrap(). ctx expose : sLat, sLng, curR, shape, isPro, lang, watermark,
    D = {roads, build, green, pois}, terrain, climate, time. */
 (function (G) {
   'use strict';
-  const E = G.MTNEngine, R = G.MTNRender;
+  const E = G.FMEngine, R = G.FMRender;
   const {
     W, H, PAD, SCH, L, getBounds, proj, wpts, polyArea, centroid, polyLen,
     distToSeg, distToPolyline, snapToNetwork, azimuth, polylinePath, grid,

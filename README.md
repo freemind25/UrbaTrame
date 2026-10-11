@@ -1,4 +1,4 @@
-# MapToNap · clone — analyse de site architecturale
+# Freemap — analyse de site architecturale
 
 Générateur de planches d'analyse de site : **35 analyses** rendues en SVG à
 partir d'OpenStreetMap, de NASA POWER et des tuiles d'altitude AWS Terrarium.
@@ -6,17 +6,19 @@ Le plan est calculé par un module partagé entre le navigateur et le serveur,
 les licences sont des titres signés Ed25519 liés à l'appareil, et l'application
 fonctionne sans réseau grâce à un extrait embarqué.
 
-> Projet d'étude : reproduction d'architecture d'après un rapport de
-> rétro-ingénierie. **Sans lien avec l'éditeur du service d'origine**, dont ni
-> le code ni les données ne sont repris. Le catalogue des analyses, les textes
-> et les rendus sont les nôtres.
+> **Origine du projet.** Freemap est né d'un travail de rétro-ingénierie :
+> comprendre l'architecture d'un générateur de planches d'analyse de site, puis
+> en écrire une mise en œuvre indépendante. Aucune ligne de code, aucun texte et
+> aucune donnée de ce service n'ont été repris ; le catalogue des analyses, les
+> rendus, les textes et le catalogue de licences sont les nôtres. Le projet
+> n'est **affilié à aucun éditeur tiers**.
 
 [![licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520.11-brightgreen.svg)](package.json)
 [![dépendances](https://img.shields.io/badge/d%C3%A9pendances-aucune-informational.svg)](package.json)
 [![tests](https://img.shields.io/badge/tests-135%20hors%20ligne-success.svg)](#bancs-d-essai)
 
-[![CI](https://github.com/freemind25/maptonap-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/maptonap-clone/actions/workflows/ci.yml)
+[![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
 
 ![Trois planches de rendus](docs/img/planche-1.png)
 ![Trois planches de rendus](docs/img/planche-2.png)
@@ -30,8 +32,8 @@ filigrane — la vue de l'essai gratuit est filigranée.*
 Aucune dépendance à installer : Node.js 20.11 et rien d'autre.
 
 ```bash
-git clone https://github.com/freemind25/maptonap-clone.git
-cd maptonap-clone
+git clone https://github.com/freemind25/freemap.git
+cd freemap
 npm start                  # http://localhost:4173
 ```
 
@@ -67,7 +69,7 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
 │       ├── engine.js        moteur : wrap(), palettes, géométrie, légendes
 │       ├── renderers-core.js  11 analyses gratuites
 │       ├── renderers-pro.js   24 analyses sous licence
-│       ├── mtn-2d-plan.mjs  planificateur partagé navigateur/serveur
+│       ├── plan-2d.mjs  planificateur partagé navigateur/serveur
 │       ├── osm.mjs          normalisation des données OpenStreetMap
 │       ├── routes.mjs       client HTTP, codes d'erreur FR/EN, repli direct
 │       ├── persist.mjs      cache IndexedDB, préférences locales

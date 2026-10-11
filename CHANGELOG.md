@@ -12,7 +12,7 @@ de licence fonctionnent de bout en bout.
 
 - **Moteur de rendu** — 35 analyses rendues en SVG 240 × 268 (`wrap()`), six
   palettes, cartouche, rosace, légende adaptative, filigrane en mode essai.
-- **Planificateur partagé** (`public/js/mtn-2d-plan.mjs`) — graphe de
+- **Planificateur partagé** (`public/js/plan-2d.mjs`) — graphe de
   dépendances, plafonds de rayon, sélecteurs OverpassQL, fusion des lots ;
   utilisé par le navigateur et par le serveur.
 - **Serveur** — `POST /analysis/2d` (check, begin, query, end, activate,
@@ -54,6 +54,17 @@ Dix défauts trouvés pendant la mise au point — détail dans
   altimétrique hors cadre, thème solaire illisible, bouton de restauration
   inopérant.
 
+### Modifié
+
+- **Nom du projet : Freemap.** Le filigrane des cartes d'essai, les noms de
+  fichiers exportés (`freemap-<analyse>.svg`), les identifiants internes
+  (`FMEngine`, `FMCatalog`, `FMRender`), les préfixes de stockage local (`fm_`)
+  et les variables d'environnement (`FM_DATA_DIR`, `FM_PUBLIC_DIR`, `FM_HOST`,
+  `FM_NET`) suivent ce nom. Le module partagé `mtn-2d-plan.mjs` devient
+  `public/js/plan-2d.mjs`.
+- La signature envoyée à OpenStreetMap porte désormais l'adresse du dépôt et
+  une adresse de contact.
+
 ### Notes
 
 - 9 analyses sur 44 restent déclarées au catalogue sans rendu (`impl:false`,
@@ -61,4 +72,4 @@ Dix défauts trouvés pendant la mise au point — détail dans
 - L'enregistrement des licences vit en mémoire : un redémarrage invalide les
   jetons de session (les titres signés, eux, restent valables).
 
-[0.1.0]: https://github.com/freemind25/maptonap-clone/releases/tag/v0.1.0
+[0.1.0]: https://github.com/freemind25/freemap/releases/tag/v0.1.0

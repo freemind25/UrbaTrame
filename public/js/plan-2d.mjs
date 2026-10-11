@@ -1,4 +1,4 @@
-/* MapToNap-clone · planificateur de requêtes
+/* Freemap · planificateur de requêtes
    ─────────────────────────────────────────────────────────────────────────
    Ce module est importé À LA FOIS par le navigateur (public/index.html) et
    par le serveur (server/api.mjs). C'est la propriété de sûreté décrite dans le

@@ -1,7 +1,7 @@
 /* API HTTP : le serveur est lancé sur un port éphémère, avec un dossier de
    données temporaire. Tout ce qui est testé ici est hors ligne ; les chemins
    qui interrogent Overpass, NASA POWER ou Terrarium ne s'exécutent qu'avec
-   MTN_NET=1 (voir test:net). */
+   FM_NET=1 (voir test:net). */
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import { createApp } from '../server/index.mjs';
 
 const DEVICE = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const NET = !!process.env.MTN_NET;
+const NET = !!process.env.FM_NET;
 
 let app, base, guarded, guardedBase;
 
@@ -19,12 +19,12 @@ before(async () => {
   /* Instance principale : sans temps de refroidissement, pour que les suites
      ne se bloquent pas mutuellement (le quota est indexé sur l'IP, identique
      dans toute la campagne de tests). */
-  app = createApp({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'mtn-api-')), cooldownMs: 0 });
+  app = createApp({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'freemap-api-')), cooldownMs: 0 });
   await new Promise(r => app.server.listen(0, '127.0.0.1', r));
   base = 'http://127.0.0.1:' + app.server.address().port;
 
   /* Seconde instance : réglage de production, pour le test de refroidissement. */
-  guarded = createApp({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'mtn-api-g-')) });
+  guarded = createApp({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'freemap-api-g-')) });
   await new Promise(r => guarded.server.listen(0, '127.0.0.1', r));
   guardedBase = 'http://127.0.0.1:' + guarded.server.address().port;
 });
@@ -221,7 +221,7 @@ describe('utilitaires', () => {
   });
 });
 
-describe('sources en réseau', { skip: NET ? false : 'MTN_NET=1 pour interroger les sources' }, () => {
+describe('sources en réseau', { skip: NET ? false : 'FM_NET=1 pour interroger les sources' }, () => {
   test('recherche de lieu (Nominatim)', async () => {
     const r = await post('/', { geocode: 'El Khroub' }, true);
     assert.equal(r.status, 200);

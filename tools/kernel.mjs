@@ -21,9 +21,9 @@ export function loadKernel() {
     loaded = true;
   }
   return {
-    catalog: globalThis.MTNCatalog,
-    groups: globalThis.MTN_GROUPS,
-    renderers: globalThis.MTNRender
+    catalog: globalThis.FMCatalog,
+    groups: globalThis.FM_GROUPS,
+    renderers: globalThis.FMRender
   };
 }
 

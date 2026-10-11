@@ -3,7 +3,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { plan, DEPS, LIMITS, FREE_IDS, MAX_IDS, VERSION } from '../public/js/mtn-2d-plan.mjs';
+import { plan, DEPS, LIMITS, FREE_IDS, MAX_IDS, VERSION } from '../public/js/plan-2d.mjs';
 import { loadKernel, ROOT } from '../tools/kernel.mjs';
 
 const { catalog } = loadKernel();

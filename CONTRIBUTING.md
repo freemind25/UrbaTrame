@@ -29,7 +29,7 @@ npm run personnaliser -- --compte <pseudo> --contact <adresse>     # écrit les 
 L'outil met à jour `package.json`, `README.md`, `CHANGELOG.md`,
 `.github/ISSUE_TEMPLATE/config.yml` et la signature de `server/config.mjs`,
 puis affiche les commandes de publication. Il ne touche à aucun autre fichier ;
-`--nom` permet de choisir un autre nom de dépôt que `maptonap-clone`.
+`--nom` permet de choisir un autre nom de dépôt que `freemap`.
 
 Le dépôt distant doit ensuite exister et être **vide** (sans README, sans
 licence, sans `.gitignore`) :
@@ -64,7 +64,7 @@ au premier envoi : le badge du README passe au vert en quelques minutes.
 1. `public/js/catalog.js` — ajouter l'entrée (identifiant, noms FR/EN,
    sous-titre, étiquette, palier, groupe). Tant que le rendu n'existe pas,
    `impl: false`.
-2. `public/js/mtn-2d-plan.mjs` — déclarer ses couches dans `DEPS` (le plafond de
+2. `public/js/plan-2d.mjs` — déclarer ses couches dans `DEPS` (le plafond de
    rayon est déduit automatiquement ; resserrer la liste `LIMITS` si besoin) et
    ses sélecteurs OverpassQL dans `SELECTORS`, ou dans `POI_SELECTORS` s'il
    s'agit d'un sous-ensemble de points d'intérêt.

@@ -31,7 +31,7 @@ jobs:
 
       - name: Démarrage du serveur et appel de santé
         run: |
-          MTN_DATA_DIR="$(mktemp -d)" node server/index.mjs --port 4173 &
+          FM_DATA_DIR="$(mktemp -d)" node server/index.mjs --port 4173 &
           SERVER_PID=$!
           for i in $(seq 1 20); do
             curl -sf http://127.0.0.1:4173/api/status > /tmp/status.json && break

@@ -26,7 +26,7 @@ function walk(dir, out = []) {
 }
 
 const files = walk(ROOT).sort();
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtn-lint-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'freemap-lint-'));
 let failures = 0, modules = 0;
 
 for (const f of files) {

@@ -33,7 +33,7 @@ describe('rendu des 35 analyses', () => {
       assert.ok(svg.length > 900, 'sortie non vide (' + svg.length + ' o)');
       for (const bad of ['NaN', 'undefined', 'Infinity'])
         assert.ok(!svg.includes(bad), 'aucune valeur « ' + bad + ' »');
-      assert.ok(svg.includes('data-mtn-watermark'), 'filigrane en mode essai');
+      assert.ok(svg.includes('data-fm-watermark'), 'filigrane en mode essai');
     });
   }
 });
@@ -53,7 +53,7 @@ describe('palettes', () => {
 describe('modes et langues', () => {
   test('le filigrane disparaît sous licence', () => {
     for (const meta of implemented)
-      assert.ok(!render(meta.id, { isPro: true }).includes('data-mtn-watermark'), meta.id);
+      assert.ok(!render(meta.id, { isPro: true }).includes('data-fm-watermark'), meta.id);
   });
 
   test('les légendes passent en anglais', () => {

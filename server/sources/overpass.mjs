@@ -1,6 +1,6 @@
 /* Overpass API (OpenStreetMap, ODbL 1.0).
    Le serveur n'exécute QUE des requêtes qu'il a lui-même planifiées avec
-   public/js/mtn-2d-plan.mjs : ce n'est pas un proxy Overpass ouvert. */
+   public/js/plan-2d.mjs : ce n'est pas un proxy Overpass ouvert. */
 import { SOURCES, UA, TIMEOUTS } from '../config.mjs';
 import { log } from '../http.mjs';
 

@@ -1,4 +1,4 @@
-/* MapToNap-clone · moteur graphique
+/* Freemap · moteur graphique
    ─────────────────────────────────────────────────────────────────────────
    Langage de composition décrit dans le rapport : toutes les analyses
    produisent un SVG de 240 × 268 unités (W=H=240, PAD=22) rendu par une
@@ -13,7 +13,7 @@
 
   const W = 240, H = 240, PAD = 22;
 
-  G.MTNEngine = { W, H, PAD };
+  G.FMEngine = { W, H, PAD };
 
   /* ════════════ Palettes ════════════
      Tableaux parallèles indexés par le même entier : changer la palette d'une
@@ -130,11 +130,11 @@
       { bg: '#F2F6F3', s1: '#D6E6DA', s2: '#AED2BA', s3: '#86BA98', s4: '#5E9E76', src: '#C0392B', dot: '#1E4A34', road: '#D6E2DA' }
     ]
   };
-  G.MTNEngine.SCH = SCH;
+  G.FMEngine.SCH = SCH;
 
   /* ════════════ Traduction ════════════ */
   const L = (ctx, fr, en) => (ctx && ctx.lang === 'en' ? en : fr);
-  G.MTNEngine.L = L;
+  G.FMEngine.L = L;
 
   /* ════════════ Géométrie de base ════════════ */
   function getBounds(ctx) {
@@ -402,8 +402,9 @@
       for (let yy = -20; yy < H + 40; yy += 46)
         for (let xx = -20; xx < W + 40; xx += 120)
           tiles += '<text x="' + xx + '" y="' + yy + '" font-family="ui-monospace,monospace" font-size="9" fill="' +
-                   (dark ? '#FFFFFF' : '#1A1917') + '" fill-opacity="0.14" transform="rotate(-30 ' + xx + ' ' + yy + ')">MapToNap · maptonap.com</text>';
-      wm = '<g data-mtn-watermark="true" pointer-events="none">' + tiles + '</g>';
+                   (dark ? '#FFFFFF' : '#1A1917') + '" fill-opacity="0.14" transform="rotate(-30 ' + xx + ' ' + yy + ')">' +
+                   (ctx.lang === 'en' ? 'Freemap · trial' : 'Freemap · essai') + '</text>';
+      wm = '<g data-fm-watermark="true" pointer-events="none">' + tiles + '</g>';
     }
 
     const vbH = H + 28;
@@ -440,29 +441,29 @@
     };
   }
 
-  G.MTNEngine.getBounds = getBounds;
-  G.MTNEngine.proj = proj;
-  G.MTNEngine.wpts = wpts;
-  G.MTNEngine.polyArea = polyArea;
-  G.MTNEngine.centroid = centroid;
-  G.MTNEngine.polyLen = polyLen;
-  G.MTNEngine.distToSeg = distToSeg;
-  G.MTNEngine.distToPolyline = distToPolyline;
-  G.MTNEngine.projectOnSeg = projectOnSeg;
-  G.MTNEngine.snapToNetwork = snapToNetwork;
-  G.MTNEngine.azimuth = azimuth;
-  G.MTNEngine.polylinePath = polylinePath;
-  G.MTNEngine.grid = grid;
-  G.MTNEngine.contours = contours;
-  G.MTNEngine.nearestField = nearestField;
-  G.MTNEngine.voronoiCells = voronoiCells;
-  G.MTNEngine.wrap = wrap;
-  G.MTNEngine.siteMark = siteMark;
-  G.MTNEngine.blank = blank;
-  G.MTNEngine.esc = esc;
-  G.MTNEngine.fmtM = fmtM;
-  G.MTNEngine.fmtA = fmtA;
-  G.MTNEngine.fmtN = fmtN;
-  G.MTNEngine.axono = axonoTransform;
-  G.MTNRender = G.MTNRender || {};
+  G.FMEngine.getBounds = getBounds;
+  G.FMEngine.proj = proj;
+  G.FMEngine.wpts = wpts;
+  G.FMEngine.polyArea = polyArea;
+  G.FMEngine.centroid = centroid;
+  G.FMEngine.polyLen = polyLen;
+  G.FMEngine.distToSeg = distToSeg;
+  G.FMEngine.distToPolyline = distToPolyline;
+  G.FMEngine.projectOnSeg = projectOnSeg;
+  G.FMEngine.snapToNetwork = snapToNetwork;
+  G.FMEngine.azimuth = azimuth;
+  G.FMEngine.polylinePath = polylinePath;
+  G.FMEngine.grid = grid;
+  G.FMEngine.contours = contours;
+  G.FMEngine.nearestField = nearestField;
+  G.FMEngine.voronoiCells = voronoiCells;
+  G.FMEngine.wrap = wrap;
+  G.FMEngine.siteMark = siteMark;
+  G.FMEngine.blank = blank;
+  G.FMEngine.esc = esc;
+  G.FMEngine.fmtM = fmtM;
+  G.FMEngine.fmtA = fmtA;
+  G.FMEngine.fmtN = fmtN;
+  G.FMEngine.axono = axonoTransform;
+  G.FMRender = G.FMRender || {};
 })(typeof globalThis !== 'undefined' ? globalThis : this);

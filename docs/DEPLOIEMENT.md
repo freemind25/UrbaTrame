@@ -11,33 +11,33 @@
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `PORT` | `4173` | port d'écoute |
-| `MTN_HOST` | `0.0.0.0` | interface d'écoute |
-| `MTN_DATA_DIR` | `<dépôt>/data` | clé Ed25519 et données locales |
-| `MTN_PUBLIC_DIR` | `<dépôt>/public` | fichiers servis |
+| `FM_HOST` | `0.0.0.0` | interface d'écoute |
+| `FM_DATA_DIR` | `<dépôt>/data` | clé Ed25519 et données locales |
+| `FM_PUBLIC_DIR` | `<dépôt>/public` | fichiers servis |
 
 ```bash
-PORT=8080 MTN_DATA_DIR=/var/lib/maptonap node server/index.mjs
+PORT=8080 FM_DATA_DIR=/var/lib/freemap node server/index.mjs
 ```
 
 ## Service systemd
 
 ```ini
-# /etc/systemd/system/maptonap.service
+# /etc/systemd/system/freemap.service
 [Unit]
-Description=MapToNap-clone
+Description=Freemap
 After=network-online.target
 
 [Service]
 Type=simple
-User=maptonap
-WorkingDirectory=/srv/maptonap-clone
+User=freemap
+WorkingDirectory=/srv/freemap
 Environment=PORT=4173
-Environment=MTN_DATA_DIR=/var/lib/maptonap
+Environment=FM_DATA_DIR=/var/lib/freemap
 ExecStart=/usr/bin/node server/index.mjs
 Restart=on-failure
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/maptonap
+ReadWritePaths=/var/lib/freemap
 
 [Install]
 WantedBy=multi-user.target
@@ -51,8 +51,8 @@ lui-même.
 ## Docker
 
 ```bash
-docker build -t maptonap-clone .
-docker run -p 4173:4173 -v mtn-data:/data -e MTN_DATA_DIR=/data maptonap-clone
+docker build -t freemap .
+docker run -p 4173:4173 -v fm-data:/data -e FM_DATA_DIR=/data freemap
 ```
 
 Le volume `/data` contient la clé de signature : sans lui, chaque redémarrage

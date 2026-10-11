@@ -1,20 +1,22 @@
 {
-  "name": "maptonap-clone",
+  "name": "freemap",
   "version": "0.1.0",
   "private": true,
-  "description": "Générateur de posters d'analyse de site : 35 analyses rendues en SVG depuis OpenStreetMap, NASA POWER et Terrarium. Moteur de plan partagé navigateur/serveur, licences signées Ed25519. Clone d'étude d'après un rapport de rétro-ingénierie.",
+  "description": "Freemap : 35 diagrammes d'analyse de site rendus en SVG depuis OpenStreetMap, NASA POWER et les tuiles d'altitude Terrarium. Moteur de plan partagé navigateur/serveur, licences signées Ed25519, aucune dépendance.",
   "keywords": [
     "urbanisme",
     "analyse-de-site",
     "openstreetmap",
     "overpass",
     "svg",
-    "generateur-de-planches",
+    "posters",
     "architecture",
-    "sig"
+    "sig",
+    "genie-civil",
+    "cartographie"
   ],
   "license": "MIT",
-  "author": "MapToNap-clone contributors",
+  "author": "Freemap contributors",
   "type": "module",
   "main": "server/index.mjs",
   "engines": {
@@ -24,7 +26,7 @@
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
     "test": "node tools/run-tests.mjs",
-    "test:net": "MTN_NET=1 node tools/run-tests.mjs",
+    "test:net": "FM_NET=1 node tools/run-tests.mjs",
     "lint": "node tools/check-syntax.mjs",
     "svg": "node tools/render-svg.mjs",
     "capture": "node tools/capture-sample.mjs",
@@ -32,12 +34,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/freemind25/maptonap-clone.git"
+    "url": "git+https://github.com/freemind25/freemap.git"
   },
   "bugs": {
-    "url": "https://github.com/freemind25/maptonap-clone/issues"
+    "url": "https://github.com/freemind25/freemap/issues"
   },
-  "homepage": "https://github.com/freemind25/maptonap-clone#readme",
+  "homepage": "https://github.com/freemind25/freemap#readme",
   "dependencies": {},
   "devDependencies": {}
 }

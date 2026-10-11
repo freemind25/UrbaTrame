@@ -12,7 +12,7 @@
 */
 import fs from 'node:fs';
 import path from 'node:path';
-import { plan, DEPS, LIMITS } from '../public/js/mtn-2d-plan.mjs';
+import { plan, DEPS, LIMITS } from '../public/js/plan-2d.mjs';
 import { overpass } from '../server/sources/overpass.mjs';
 import { terrain } from '../server/sources/terrain.mjs';
 import { climate } from '../server/sources/climate.mjs';

@@ -8,7 +8,7 @@
                  │                                                            │
    OpenStreetMap │  app.js  ── orchestration, état, i18n, cartes, exports    │
    (Overpass)  ◄──┤    │                                                       │
-   Nominatim    ◄──┤    ├── mtn-2d-plan.mjs   planificateur (module partagé)  │
+   Nominatim    ◄──┤    ├── plan-2d.mjs   planificateur (module partagé)  │
    NASA POWER   ◄──┤    ├── renderers-core.js 11 analyses gratuites            │
    Terrarium    ◄──┤    ├── renderers-pro.js  24 analyses sous licence        │
                  │    ├── engine.js         wrap(), palettes, géométrie       │
@@ -49,7 +49,7 @@ Trois conséquences pratiques :
 
 ## Le planificateur
 
-`public/js/mtn-2d-plan.mjs` contient les données de référence :
+`public/js/plan-2d.mjs` contient les données de référence :
 
 | Table | Rôle |
 |---|---|
@@ -104,7 +104,7 @@ interface), pas une protection. Voir `SECURITY.md`.
   expirent après 5 minutes ; l'enregistrement des licences également (un
   redémarrage déconnecte les sessions, les titres signés restant valides).
 - **Navigateur** : cache IndexedDB par texte de requête (TTL 7 jours) et
-  préférences `localStorage` préfixées `mtn_`. Le cache est volontairement
+  préférences `localStorage` préfixées `fm_`. Le cache est volontairement
   silencieux en navigation privée.
 
 ## Choix de structure

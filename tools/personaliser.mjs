@@ -13,7 +13,7 @@ import path from 'node:path';
 import { ROOT } from './kernel.mjs';
 
 const PLACEHOLDER = 'CHANGER-MOI';
-const DEFAULT_REPO = 'maptonap-clone';
+const DEFAULT_REPO = 'freemap';
 
 const args = process.argv.slice(2);
 const opt = name => {
@@ -40,9 +40,12 @@ if (args.includes('--etat')) {
 const compte = opt('compte');
 const nom = opt('nom') || DEFAULT_REPO;
 const contact = opt('contact');
+/* Nom affiché du produit : « freemap » devient « Freemap » par défaut. */
+const produit = opt('produit') ||
+  nom.replace(/(^|[-_])([a-z])/g, (_, s, c) => (s ? ' ' : '') + c.toUpperCase()).replace(/[-_]/g, ' ');
 
 if (!compte) {
-  console.error('Usage : npm run personnaliser -- --compte <pseudo> [--nom ' + DEFAULT_REPO + '] [--contact <adresse>]');
+  console.error('Usage : npm run personnaliser -- --compte <pseudo> [--nom ' + DEFAULT_REPO + '] [--contact <adresse>] [--produit <Nom>]');
   console.error('        npm run personnaliser -- --etat');
   process.exit(2);
 }
@@ -79,14 +82,17 @@ for (const file of targets()) {
     '$1\n'
   );
 
-  /* Signature envoyée aux sources externes. Remplacement ligne à ligne : la
-     chaîne contient elle-même des points-virgules, une expression trop courte
-     la tronquerait. */
-  if (file.endsWith('config.mjs'))
+  /* Signature envoyée aux sources externes, et nom du produit. Remplacement
+     ligne à ligne : la chaîne contient elle-même des points-virgules et des
+     parenthèses, une expression trop courte la tronquerait. */
+  if (file.endsWith('config.mjs')) {
+    after = after.replace(/^export const PRODUCT = .*$/m, `export const PRODUCT = ${JSON.stringify(produit)};`);
     after = after.replace(
       /^export const UA = .*$/m,
-      `export const UA = 'MapToNap-clone/${version()} (${base}${contact ? ' ; ' + contact : ''})';`
+      `export const UA = PRODUCT + '/${version()}' + ` +
+      `' (${base}${contact ? ' ; ' + contact : ''})';`
     );
+  }
 
   if (after !== before) {
     fs.writeFileSync(file, after);

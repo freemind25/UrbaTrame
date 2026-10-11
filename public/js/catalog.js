@@ -1,4 +1,4 @@
-/* MapToNap-clone · catalogue des analyses
+/* Freemap · catalogue des analyses
    Les 44 entrées reprises du plan fonctionnel décrit dans le rapport.
    `impl:false` ⇒ sur la feuille de route v0.2 (affichée mais non rendue).
    tier : 'free' (essai, filigrané) · 'pro' · 'max'. */
@@ -62,8 +62,8 @@
     { id: 'zoningplan', nom: 'Plan de zonage', en: 'Zoning plan', sub: 'synthèse réglementaire', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
     { id: 'radialnet', nom: 'Centralité & accès', en: 'Central & accessible', sub: 'réseau radial mesuré', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false }
   ];
-  G.MTNCatalog = A;
-  G.MTN_GROUPS = {
+  G.FMCatalog = A;
+  G.FM_GROUPS = {
     site: ['Le site', 'Site'],
     morpho: ['Morphologie', 'Morphology'],
     usage: ['Usage & vie urbaine', 'Use & urban life'],

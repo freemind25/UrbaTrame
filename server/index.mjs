@@ -1,8 +1,8 @@
 /* Point d'entrée du serveur.
    ─────────────────────────────────────────────────────────────────────────
      node server/index.mjs [--port 4173] [--host 0.0.0.0] [--data-dir data]
-   ou, par variables d'environnement : PORT, MTN_HOST, MTN_DATA_DIR,
-   MTN_PUBLIC_DIR.
+   ou, par variables d'environnement : PORT, FM_HOST, FM_DATA_DIR,
+   FM_PUBLIC_DIR.
    ─────────────────────────────────────────────────────────────────────────
    Importable : `createApp()` renvoie un serveur HTTP non démarré, ce qui
    permet aux bancs d'essai de le lancer sur un port éphémère.               */
@@ -10,13 +10,13 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PUBLIC_DIR, DATA_DIR, DEFAULT_PORT, DEFAULT_HOST } from './config.mjs';
+import { PRODUCT, PUBLIC_DIR, DATA_DIR, DEFAULT_PORT, DEFAULT_HOST } from './config.mjs';
 import { log } from './http.mjs';
 import { createLicence } from './licence.mjs';
 import { createQuota } from './quota.mjs';
 import { createRunStore } from './runs.mjs';
 import { createApi } from './api.mjs';
-import { VERSION } from '../public/js/mtn-2d-plan.mjs';
+import { VERSION } from '../public/js/plan-2d.mjs';
 
 export function createApp({
   publicDir = PUBLIC_DIR,
@@ -55,7 +55,7 @@ if (isMain) {
 
   const { server, licence } = createApp({ dataDir });
   server.listen(port, host, () => {
-    log(`MapToNap-clone v${VERSION} · serveur prêt sur http://${host}:${port}`);
+    log(`${PRODUCT} v${VERSION} · serveur prêt sur http://${host}:${port}`);
     log(`dossier public  : ${PUBLIC_DIR}`);
     log(`dossier données : ${dataDir}`);
     log(`clé publique Ed25519 : ${licence.pubB64}`);

@@ -3,7 +3,7 @@ FROM node:20-alpine
 
 # Les données (dont la clé de signature) vivent hors de l'image.
 VOLUME ["/data"]
-ENV MTN_DATA_DIR=/data \
+ENV FM_DATA_DIR=/data \
     NODE_ENV=production \
     PORT=4173
 

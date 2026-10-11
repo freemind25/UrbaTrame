@@ -1,4 +1,4 @@
-/* MapToNap-clone · normalisation OpenStreetMap
+/* Freemap · normalisation OpenStreetMap
    Transforme les « elements » bruts renvoyés par Overpass (ways, relations,
    nodes) en quatre listes simples consommées par les renderers :
      roads[{h,n,g}]  build[{t,h,u,g}]  green[{k,n,lu,g}]  pois[{k,n,x,y,a,s,l,to}]

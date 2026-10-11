@@ -1,9 +1,9 @@
-/* MapToNap-clone · persistance
+/* Freemap · persistance
    Cache IndexedDB indexé par le texte de la requête Overpass, réutilisé en cas
-   d'échec réseau — comportement repris du client analysé (mtn-2d-client.js).
+   d'échec réseau — comportement observé sur le client analysé pendant l'étude (voir docs/ARCHITECTURE.md).
    Préférences UI dans localStorage. */
 
-const DB = 'mtn_cache', STORE = 'queries', TTL = 7 * 864e5;
+const DB = 'fm_cache', STORE = 'queries', TTL = 7 * 864e5;
 let dbp = null;
 
 function open() {
@@ -57,7 +57,7 @@ export async function cacheClear() {
 export const hoursSince = t => Math.round((Date.now() - t) / 36e5);
 
 /* ── préférences ── */
-const k = n => 'mtn_' + n;
+const k = n => 'fm_' + n;
 export const store = {
   get(n, d) { try { const v = localStorage.getItem(k(n)); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(n, v) { try { v === null ? localStorage.removeItem(k(n)) : localStorage.setItem(k(n), JSON.stringify(v)); } catch {} },

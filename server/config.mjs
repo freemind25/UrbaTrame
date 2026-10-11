@@ -5,13 +5,17 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/** Nom du produit : sert au journal de démarrage et à la signature envoyée
+    aux sources externes (OpenStreetMap demande un contact joignable). */
+export const PRODUCT = 'Freemap';
+
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export const PUBLIC_DIR = process.env.MTN_PUBLIC_DIR || path.join(ROOT, 'public');
-export const DATA_DIR = process.env.MTN_DATA_DIR || path.join(ROOT, 'data');
+export const PUBLIC_DIR = process.env.FM_PUBLIC_DIR || path.join(ROOT, 'public');
+export const DATA_DIR = process.env.FM_DATA_DIR || path.join(ROOT, 'data');
 
 export const DEFAULT_PORT = Number(process.env.PORT) || 4173;
-export const DEFAULT_HOST = process.env.MTN_HOST || '0.0.0.0';
+export const DEFAULT_HOST = process.env.FM_HOST || '0.0.0.0';
 
 /* Sources de données — plusieurs miroirs pour les services qui en offrent. */
 export const SOURCES = {
@@ -23,7 +27,7 @@ export const SOURCES = {
             'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/']
 };
 
-export const UA = 'MapToNap-clone/0.1.0 (https://github.com/freemind25/maptonap-clone)';
+export const UA = PRODUCT + '/0.1.0 (https://github.com/freemind25/freemap ; freemind25@tutamail.com)';
 
 /* Quota : une génération en vol par IP, puis temps de refroidissement. */
 export const COOLDOWN_MS = 20_000;

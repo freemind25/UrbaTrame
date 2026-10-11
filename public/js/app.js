@@ -1,13 +1,13 @@
-/* MapToNap-clone · application
+/* Freemap · application
    Orchestration : catalogue, plan partagé, appels réseau, vérification des
    licences signées Ed25519, rendu des cartes, exports, interface.
    ───────────────────────────────────────────────────────────────────────── */
-import { plan, FREE_IDS, MAX_IDS, LIMITS, DEPS, VERSION } from './mtn-2d-plan.mjs';
+import { plan, FREE_IDS, MAX_IDS, LIMITS, DEPS, VERSION } from './plan-2d.mjs';
 import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 
-const CAT = globalThis.MTNCatalog, RND = globalThis.MTNRender, ENG = globalThis.MTNEngine;
+const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
@@ -125,7 +125,7 @@ const unlocked = id => {
 function renderCatalog() {
   const host = $('#catalog');
   host.innerHTML = '';
-  for (const [gk, label] of Object.entries(globalThis.MTN_GROUPS)) {
+  for (const [gk, label] of Object.entries(globalThis.FM_GROUPS)) {
     const items = CAT.filter(a => a.g === gk);
     if (!items.length) continue;
     const g = document.createElement('section');
@@ -263,7 +263,7 @@ function download(blob, name) {
 function downloadSVG(id, card) {
   const svg = svgOf(card).outerHTML;
   download(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svg], { type: 'image/svg+xml' }),
-    `maptonap-${id}.svg`);
+    `freemap-${id}.svg`);
   log('export SVG · ' + id);
 }
 function downloadPNG(id, card) {
@@ -277,7 +277,7 @@ function downloadPNG(id, card) {
     const x = c.getContext('2d');
     x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
     x.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(b => download(b, `maptonap-${id}.png`), 'image/png');
+    c.toBlob(b => download(b, `freemap-${id}.png`), 'image/png');
     log('export PNG ×' + scale + ' · ' + id);
   };
   img.onerror = () => toast(T('Export PNG impossible', 'PNG export failed'), false);

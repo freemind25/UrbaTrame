@@ -1,4 +1,4 @@
-/* MapToNap-clone · couche réseau
+/* Freemap · couche réseau
    Réplique la stratégie du client d'origine :
      • essai gratuit → Overpass PUBLIC interrogé directement par le navigateur
        (l'IP du visiteur passe mieux que celle d'un proxy partagé) ;
