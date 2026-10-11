@@ -14,6 +14,24 @@ npm start           # http://localhost:4173
 `npm run test:net` ajoute les tests qui interrogent réellement Overpass,
 Nominatim, NASA POWER et Terrarium (à lancer avant une livraison).
 
+## Publier votre propre copie du projet
+
+Le dépôt contient des adresses provisoires (`CHANGER-MOI`) tant qu'il n'a pas
+de compte GitHub de destination. Pour le personnaliser :
+
+```bash
+npm run personnaliser -- --etat                                   # ce qui reste à compléter
+npm run personnaliser -- --compte <pseudo> --contact <adresse>     # écrit les adresses,
+                                                                   # révèle le badge de CI
+                                                                   # et la signature OSM
+```
+
+L'outil met à jour `package.json`, `README.md`, `CHANGELOG.md`,
+`.github/ISSUE_TEMPLATE/config.yml` et la signature de `server/config.mjs`,
+puis affiche les commandes de publication (`git remote add`, `git push`).
+Il ne touche à aucun autre fichier ; `--nom` permet de choisir un autre nom
+de dépôt que `maptonap-clone`.
+
 ## Conventions
 
 - **Aucune étape de build.** Ce que le navigateur exécute est ce qui est dans

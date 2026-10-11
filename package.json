@@ -27,7 +27,8 @@
     "test:net": "MTN_NET=1 node tools/run-tests.mjs",
     "lint": "node tools/check-syntax.mjs",
     "svg": "node tools/render-svg.mjs",
-    "capture": "node tools/capture-sample.mjs"
+    "capture": "node tools/capture-sample.mjs",
+    "personnaliser": "node tools/personaliser.mjs"
   },
   "repository": {
     "type": "git",
