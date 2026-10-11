@@ -1,0 +1,33 @@
+name: Proposition
+description: Une idée d'analyse, de rendu ou d'ergonomie
+labels: [proposition]
+body:
+  - type: textarea
+    id: besoin
+    attributes:
+      label: Besoin
+      description: Quel problème cela résout-il, dans quel contexte de projet ?
+    validations:
+      required: true
+  - type: textarea
+    id: proposition
+    attributes:
+      label: Proposition
+      description: Décrivez le rendu ou le comportement souhaité, avec un croquis si utile
+    validations:
+      required: true
+  - type: input
+    id: donnees
+    attributes:
+      label: Données nécessaires
+      description: Si c'est une nouvelle analyse : quelles données, et d'où viendraient-elles ?
+      placeholder: OpenStreetMap (Overpass) · altimétrie · climat · calcul propre
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: Je souhaite proposer la modification moi-même
+          required: false

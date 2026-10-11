@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Node ${{ matrix.node }} sur ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Aucune dépendance npm : rien à installer.
+      - name: Contrôle de syntaxe
+        run: npm run lint
+
+      - name: Bancs d'essai (hors ligne)
+        run: npm test
+
+      - name: Démarrage du serveur et appel de santé
+        run: |
+          MTN_DATA_DIR="$(mktemp -d)" node server/index.mjs --port 4173 &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:4173/api/status > /tmp/status.json && break
+            sleep 0.5
+          done
+          cat /tmp/status.json
+          node -e "const s=require('/tmp/status.json'); if(!s.ok||!s.pub) process.exit(1)"
+          kill $SERVER_PID
+        shell: bash
+
+  sources:
+    name: Bancs d'essai en réseau
+    runs-on: ubuntu-latest
+    continue-on-error: true          # dépend de services tiers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Overpass, Nominatim, NASA POWER, Terrarium
+        run: npm run test:net

@@ -1,0 +1,32 @@
+# ── Données locales ─────────────────────────────────────────────
+# La paire de clés Ed25519 : sa régénération invaliderait toutes les licences
+# déjà délivrées. À sauvegarder, jamais à publier.
+/data/*
+!/data/.gitkeep
+
+# ── Tests et outils ─────────────────────────────────────────────
+/test/out/
+/test/png/
+
+# ── Node ────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+.npm/
+.cache/
+*.tgz
+
+# ── Systèmes et éditeurs ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# ── Divers ──────────────────────────────────────────────────────
+*.log
+.env
+.env.*
+!.env.example

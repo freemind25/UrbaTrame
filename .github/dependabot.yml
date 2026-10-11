@@ -1,0 +1,7 @@
+# Le projet n'a aucune dépendance npm : seule l'action de CI est surveillée.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

@@ -1,0 +1,59 @@
+name: Défaut
+description: Quelque chose ne se comporte pas comme attendu
+labels: [défaut]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de décrire le problème avec assez de détails pour qu'il soit
+        reproductible. Pour un défaut de rendu, joignez si possible le SVG
+        exporté depuis l'interface.
+  - type: input
+    id: analyse
+    attributes:
+      label: Analyse concernée
+      placeholder: massing, contour, climprecip… ou « toutes »
+    validations:
+      required: true
+  - type: input
+    id: lieu
+    attributes:
+      label: Lieu et rayon
+      placeholder: El Khroub, 600 m
+    validations:
+      required: true
+  - type: dropdown
+    id: palier
+    attributes:
+      label: Palier
+      options: [Essai (gratuit), Pro, Max]
+    validations:
+      required: true
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+  - type: textarea
+    id: obtenu
+    attributes:
+      label: Comportement observé
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version et environnement
+      description: Le numéro affiché dans le panneau « État », et votre navigateur ou la version de Node pour le serveur
+      placeholder: v0.1.0 · Firefox 141 · Node 20.20
+    validations:
+      required: true
+  - type: textarea
+    id: journal
+    attributes:
+      label: Journaux
+      description: Sortie du serveur (lignes commençant par une heure) et messages de la console du navigateur
+      render: shell
+    validations:
+      required: false

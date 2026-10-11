@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MapToNap · clone — analyse de site architecturale</title>
+<meta name="description" content="Clone d'étude : diagrammes d'analyse de site générés à partir d'OpenStreetMap, calculés dans le navigateur.">
+<link rel="stylesheet" href="styles.css">
+<script src="js/catalog.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/renderers-core.js"></script>
+<script src="js/renderers-pro.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo">MapToNap</span>
+    <span class="sub" data-fr="clone d'étude · analyse de site" data-en="study clone · site analysis">clone d'étude · analyse de site</span>
+  </div>
+  <div class="badge" id="badge">ESSAI</div>
+  <nav>
+    <button id="helpBtn" data-fr="Aide" data-en="Help">Aide</button>
+    <button id="devBtn" data-fr="État" data-en="State">État</button>
+    <button id="plansBtn" class="primary" data-fr="Tarifs" data-en="Plans">Tarifs</button>
+    <button id="langBtn">EN</button>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <aside>
+    <section class="panel">
+      <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
+      <div class="row">
+        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon">
+        <button id="search" class="primary" data-fr="Chercher" data-en="Search">Chercher</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="sample" data-fr="Exemple (El Khroub, 600 m)" data-en="Sample (El Khroub, 600 m)">Exemple (El Khroub, 600 m)</button>
+      </div>
+      <div id="siteInfo" class="site">…</div>
+      <div id="mini" class="mini"></div>
+    </section>
+
+    <section class="panel">
+      <label class="lab" data-fr="2 · Site" data-en="2 · Site">2 · Site</label>
+      <div class="row" id="radiusWrap">
+        <span class="lab2" data-fr="rayon" data-en="radius">rayon</span>
+        <input id="radius" type="range" min="200" max="3000" step="50" value="600">
+        <output id="radiusOut">600 m</output>
+      </div>
+      <div class="row">
+        <span class="lab2" data-fr="forme" data-en="shape">forme</span>
+        <select id="shape">
+          <option value="circle" data-fr="Cercle" data-en="Circle">Cercle</option>
+          <option value="rect" data-fr="Carré arrondi" data-en="Rounded square">Carré arrondi</option>
+          <option value="square" data-fr="Carré" data-en="Square">Carré</option>
+        </select>
+        <span class="lab2" data-fr="heure" data-en="hour">heure</span>
+        <output id="timeOut">12:00</output>
+        <input id="time" type="range" min="4" max="21" step="0.25" value="12">
+      </div>
+      <p class="hint" data-fr="L'heure pilote l'héliodon et les ombres portées."
+         data-en="The hour drives the sun path and cast shadows.">L'heure pilote l'héliodon et les ombres portées.</p>
+    </section>
+
+    <section class="panel">
+      <label class="lab" data-fr="3 · Analyses" data-en="3 · Analyses">3 · Analyses</label>
+      <div id="catalog"></div>
+    </section>
+
+    <section class="panel">
+      <label class="lab" data-fr="4 · Présentation" data-en="4 · Presentation">4 · Présentation</label>
+      <div class="row theme" id="theme">
+        <button data-th="0" class="on" data-fr="Neutre" data-en="Neutral">Neutre</button>
+        <button data-th="1" data-fr="Froid" data-en="Cool">Froid</button>
+        <button data-th="2" data-fr="Chaud" data-en="Warm">Chaud</button>
+        <button data-th="3" data-fr="Mono" data-en="Mono">Mono</button>
+      </div>
+      <div class="row">
+        <button id="expAll" data-fr="Exporter tout (SVG)" data-en="Export all (SVG)">Exporter tout (SVG)</button>
+        <button id="print" data-fr="Planche (impression)" data-en="Board (print)">Planche (impression)</button>
+      </div>
+      <div class="row">
+        <button id="clear" data-fr="Vider la carte" data-en="Clear map">Vider la carte</button>
+        <button id="cacheBtn" data-fr="Vider le cache" data-en="Clear cache">Vider le cache</button>
+      </div>
+    </section>
+
+    <p class="warn" id="warn"></p>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
+      <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
+            data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
+    </div>
+    <div id="grid" class="grid">
+      <p class="empty">Sélectionnez des analyses, puis lancez la génération.</p>
+    </div>
+    <div id="log" class="log" aria-live="polite"></div>
+  </main>
+</div>
+
+<div id="loader" class="loader"></div>
+<div id="toast" class="toast"></div>
+
+<section class="modal" id="plans">
+  <div class="sheet">
+    <button class="x" data-close>×</button>
+    <h2 data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
+    <p class="lead" data-fr="4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur."
+       data-en="4 watermarked analyses are always available. The rest require a server-signed licence.">4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur.</p>
+    <div id="planBody"></div>
+  </div>
+</section>
+
+<section class="modal" id="help">
+  <div class="sheet">
+    <button class="x" data-close>×</button>
+    <h2 data-fr="Comment ça marche" data-en="How it works">Comment ça marche</h2>
+    <ol class="help">
+      <li data-fr="<b>Lieu</b> : la recherche passe par le serveur (géocodage OpenStreetMap). Vous pouvez aussi saisir « lat,lon »."
+          data-en="<b>Place</b>: search goes through the server (OpenStreetMap geocoding). You can also type “lat,lon”."></li>
+      <li data-fr="<b>Site</b> : le rayon fixe l'emprise demandée ; certaines analyses ont un plafond (1500 à 3000 m) et sont alors retirées."
+          data-en="<b>Site</b>: the radius sets the requested extent; some analyses are capped (1500–3000 m) and get skipped."></li>
+      <li data-fr="<b>Analyses</b> : 4 gratuites + 26 Pro + 8 planches Max (sur la feuille de route v0.2)."
+          data-en="<b>Analyses</b>: 4 free + 26 Pro + 8 Max boards (on the v0.2 roadmap)."></li>
+      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, altimétrie Terrarium (SRTM/USGS, AWS Open Data)."
+          data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, Terrarium elevation (SRTM/USGS, AWS Open Data)."></li>
+      <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
+          data-en="<b>Licences</b>: Ed25519 token signed by the server, bound to this device. Demo codes: cs_demo_pro, cs_demo_max, cs_demo_lifetime."></li>
+      <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
+          data-en="<b>Exports</b>: each card exports as editable SVG or PNG ×3; “Board” prints the grid."></li>
+    </ol>
+    <p class="fine" data-fr="Clone réalisé à partir d'un reverse engineering public. Code d'étude, aucune affiliation."
+       data-en="Clone built from a public reverse engineering. Study code, no affiliation.">Clone réalisé à partir d'un reverse engineering public. Code d'étude, aucune affiliation.</p>
+  </div>
+</section>
+
+<div id="devPanel" class="dev"></div>
+
+<footer class="foot">
+  <span data-fr="Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org"
+        data-en="Map data © OpenStreetMap (ODbL) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
