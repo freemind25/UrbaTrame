@@ -61,4 +61,4 @@ Dix défauts trouvés pendant la mise au point — détail dans
 - L'enregistrement des licences vit en mémoire : un redémarrage invalide les
   jetons de session (les titres signés, eux, restent valables).
 
-[0.1.0]: https://github.com/CHANGER-MOI/maptonap-clone/releases/tag/v0.1.0
+[0.1.0]: https://github.com/freemind25/maptonap-clone/releases/tag/v0.1.0

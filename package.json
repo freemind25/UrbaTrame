@@ -32,12 +32,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CHANGER-MOI/maptonap-clone.git"
+    "url": "git+https://github.com/freemind25/maptonap-clone.git"
   },
   "bugs": {
-    "url": "https://github.com/CHANGER-MOI/maptonap-clone/issues"
+    "url": "https://github.com/freemind25/maptonap-clone/issues"
   },
-  "homepage": "https://github.com/CHANGER-MOI/maptonap-clone#readme",
+  "homepage": "https://github.com/freemind25/maptonap-clone#readme",
   "dependencies": {},
   "devDependencies": {}
 }

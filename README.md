@@ -16,9 +16,7 @@ fonctionne sans réseau grâce à un extrait embarqué.
 [![dépendances](https://img.shields.io/badge/d%C3%A9pendances-aucune-informational.svg)](package.json)
 [![tests](https://img.shields.io/badge/tests-135%20hors%20ligne-success.svg)](#bancs-d-essai)
 
-<!-- Badge de CI : remplacez CHANGER-MOI par votre compte GitHub, puis retirez ce commentaire.
-[![CI](https://github.com/CHANGER-MOI/maptonap-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/CHANGER-MOI/maptonap-clone/actions/workflows/ci.yml)
--->
+[![CI](https://github.com/freemind25/maptonap-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/maptonap-clone/actions/workflows/ci.yml)
 
 ![Trois planches de rendus](docs/img/planche-1.png)
 ![Trois planches de rendus](docs/img/planche-2.png)
@@ -32,7 +30,7 @@ filigrane — la vue de l'essai gratuit est filigranée.*
 Aucune dépendance à installer : Node.js 20.11 et rien d'autre.
 
 ```bash
-git clone https://github.com/CHANGER-MOI/maptonap-clone.git
+git clone https://github.com/freemind25/maptonap-clone.git
 cd maptonap-clone
 npm start                  # http://localhost:4173
 ```

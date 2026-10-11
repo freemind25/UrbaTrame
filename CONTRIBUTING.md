@@ -28,9 +28,22 @@ npm run personnaliser -- --compte <pseudo> --contact <adresse>     # écrit les 
 
 L'outil met à jour `package.json`, `README.md`, `CHANGELOG.md`,
 `.github/ISSUE_TEMPLATE/config.yml` et la signature de `server/config.mjs`,
-puis affiche les commandes de publication (`git remote add`, `git push`).
-Il ne touche à aucun autre fichier ; `--nom` permet de choisir un autre nom
-de dépôt que `maptonap-clone`.
+puis affiche les commandes de publication. Il ne touche à aucun autre fichier ;
+`--nom` permet de choisir un autre nom de dépôt que `maptonap-clone`.
+
+Le dépôt distant doit ensuite exister et être **vide** (sans README, sans
+licence, sans `.gitignore`) :
+
+```bash
+bash tools/publier.sh --dry-run   # montre ce qui sera fait
+bash tools/publier.sh             # SSH, clé déjà configurée
+bash tools/publier.sh --https     # HTTPS, jeton d'accès personnel
+```
+
+Le script lit l'adresse du dépôt dans `package.json`, refuse de s'exécuter si
+la personnalisation n'a pas été faite ou si des modifications ne sont pas
+enregistrées, puis pousse la branche `main`. L'intégration continue se déclenche
+au premier envoi : le badge du README passe au vert en quelques minutes.
 
 ## Conventions
 

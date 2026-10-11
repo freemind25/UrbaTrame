@@ -23,7 +23,7 @@ export const SOURCES = {
             'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/']
 };
 
-export const UA = 'MapToNap-clone/0.1 (étude technique ; données © OpenStreetMap ODbL)';
+export const UA = 'MapToNap-clone/0.1.0 (https://github.com/freemind25/maptonap-clone)';
 
 /* Quota : une génération en vol par IP, puis temps de refroidissement. */
 export const COOLDOWN_MS = 20_000;
