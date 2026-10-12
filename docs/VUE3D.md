@@ -19,6 +19,7 @@ Fonctions reprises de <https://osmbuildings.org> après démontage (voir
 | **Cours intérieures évidées** | partout (relations OSM, membres `inner`) |
 | Export PNG et SVG | vue interactive (boutons PNG / SVG) |
 | Export SVG/PNG de la planche | comme les 35 autres analyses |
+| **Modèle 3D OBJ et STL**, plan DXF | panneau *Exports CAO* → voir `docs/EXPORTS.md` |
 
 ## Comment c'est fait
 
@@ -129,6 +130,20 @@ moyenne des sommets (faussée par le point de fermeture répété, et parfois ho
 d'un anneau concave) mais le **centre de gravité de la surface** (formule des
 lacets) : `centroidePoly`.
 
+### Ce que la scène expose pour les exports
+
+`scene()` renvoie, en plus des faces écran, de quoi écrire des fichiers de CAO
+(`docs/EXPORTS.md`) :
+
+| Champ | Contenu |
+|---|---|
+| `pts3` (sur chaque face `mur`, `pan`, `toit`) | les sommets en **mètres locaux**, X est, Y nord, Z vers le haut, relatifs à `terrainRef` ; les faces écran (`pts`) restent, elles, en coordonnées de canevas |
+| `terrainRef` | l'altitude vraie du zéro local : l'ajouter donne des altitudes absolues |
+| `grille` | la grille d'altitudes qui a servi au maillage (utile à la coupe) |
+
+Les exports ne touchent pas au rendu : ce sont des champs en plus, sans effet
+sur les planches.
+
 ### Tri des volumes
 
 Le tri reste du type peintre (pas de tampon de profondeur), mais il se fait
@@ -144,6 +159,9 @@ rend le bâtiment **le plus proche** sous le curseur.
   (peintre). Deux bâtiments **entrelacés** (une passerelle qui traverse un
   volume, par exemple) resteront approximatifs : c'est le prix d'un moteur sans
   WebGL.
+- **Cours intérieures** : évidées à l'écran et dans le plan DXF (anneau
+  intérieur), mais **pleines** dans l'OBJ et le STL — ces formats ne savent pas
+  décrire un trou dans une face.
 - **Relief en escalier** : la grille est échantillonnée à 24 × 24 (un point tous
   ~50 m au rayon 600) et les quadrilatères sont plats ; la couronne du maillage
   prolonge l'altitude du bord, donc le sol du cadre reste plat au-delà de la

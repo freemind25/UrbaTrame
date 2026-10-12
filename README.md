@@ -1,10 +1,11 @@
 # Freemap — analyse de site architecturale
 
 Générateur de planches d'analyse de site : **35 analyses** rendues en SVG à
-partir d'OpenStreetMap, de NASA POWER et des tuiles d'altitude AWS Terrarium.
-Le plan est calculé par un module partagé entre le navigateur et le serveur,
-les licences sont des titres signés Ed25519 liés à l'appareil, et l'application
-fonctionne sans réseau grâce à un extrait embarqué.
+partir d'OpenStreetMap, de NASA POWER et des tuiles d'altitude AWS Terrarium,
+plus des **exports pour la CAO** — plan topographique DXF, coupe, modèle 3D
+OBJ/STL. Le plan est calculé par un module partagé entre le navigateur et le
+serveur, les licences sont des titres signés Ed25519 liés à l'appareil, et
+l'application fonctionne sans réseau grâce à un extrait embarqué.
 
 > **Origine du projet.** Freemap est né d'un travail de rétro-ingénierie :
 > comprendre l'architecture d'un générateur de planches d'analyse de site, puis
@@ -16,7 +17,7 @@ fonctionne sans réseau grâce à un extrait embarqué.
 [![licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520.11-brightgreen.svg)](package.json)
 [![dépendances](https://img.shields.io/badge/d%C3%A9pendances-aucune-informational.svg)](package.json)
-[![tests](https://img.shields.io/badge/tests-135%20hors%20ligne-success.svg)](#bancs-d-essai)
+[![tests](https://img.shields.io/badge/tests-281%20hors%20ligne-success.svg)](#bancs-d-essai)
 
 [![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
 
@@ -146,6 +147,30 @@ Deux sources de hauteurs : nos requêtes Overpass (autonome) ou les tuiles
 d'osmbuildings.org, qui fournissent une hauteur pour chaque bâtiment.
 Détail et limites : **[docs/VUE3D.md](docs/VUE3D.md)**.
 
+## Exports CAO
+
+Le bouton **« Exports CAO »** ouvre un panneau à trois onglets, avec aperçu
+avant téléchargement :
+
+| Export | Format | Ce qu'il contient |
+|---|---|---|
+| Plan topographique | `.dxf` R12 | courbes de niveau (altitude en Z), bâti fermé à sa hauteur, voirie, eau, végétation, POI, emprise, cartouche |
+| Coupe | `.dxf`, `.svg` | profil du terrain entre deux points, bâti traversé, cotes |
+| Modèle 3D | `.obj`, `.stl` | maillage du relief et bâti, sommets en mètres, altitudes vraies |
+
+Tout est en mètres, X vers l'est, Y vers le nord, Z vers le haut — et le repère
+peut être géoréférencé en **UTM (WGS 84)** pour se superposer à un fond
+cadastral. Les emprises bâties portent leur hauteur en Z : dans AutoCAD,
+`EXTRUDE` en fait des volumes. Hors navigateur :
+
+```bash
+node tools/exporter.mjs --out /tmp/freemap        # plan, coupe, modèle, aperçus
+node tools/exporter.mjs --quoi plan --geolocate --equi 5
+```
+
+Conventions, options, vérifications (relecture des fichiers par `ezdxf` et
+`trimesh`) et limites : **[docs/EXPORTS.md](docs/EXPORTS.md)**.
+
 ## Accès : période d'essai ouverte
 
 **Aujourd'hui, tout est ouvert** : les 35 analyses, sans licence, sans
@@ -170,6 +195,7 @@ npm run lint      # contrôle de syntaxe de tout le dépôt
 npm run svg -- --ids massing,gw --png   # rendus hors navigateur
 npm run capture   # recapture l'exemple embarqué depuis les sources réelles
 npm run genere-cle   # clé de signature Ed25519 (serveur : fichier · Vercel : variable)
+node tools/exporter.mjs --out /tmp/freemap    # exports DXF · coupe · OBJ/STL
 ```
 
 Les tests couvrent le rendu des 35 analyses et de leurs palettes, la cohérence
@@ -177,7 +203,9 @@ du catalogue et du planificateur, les licences (signature vérifiée
 indépendamment du serveur), le contrat HTTP, le quota, l'accès libre et le basculement
 en régime sous licence, le repli entre miroirs Overpass, la vue 3D (soleil,
 caméra, ombres, désignation au clic, lecture des deux sources), le décodeur PNG
-des tuiles d'altitude et la projection Mercator.
+des tuiles d'altitude et la projection Mercator, et les exports CAO (projection
+UTM comparée à des valeurs de référence, structure du DXF, recadrage à
+l'emprise, coupe et bâti traversé, triangulation du STL).
 
 ## Déploiement
 

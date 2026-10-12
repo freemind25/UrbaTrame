@@ -170,3 +170,83 @@ aux 35 analyses existantes. Seul le chemin 3D (lecture dédiée
 `batimentsDepuisOverpass`) les évide. Modifier le jeu normalisé changerait le
 tracé de toutes les planches 2D — ce n'est pas l'objet de cette étape, et le
 comportement est désormais écrit noir sur blanc dans les deux fichiers.
+
+---
+
+# Exports CAO : plan DXF, coupe, modèle 3D — 12/10/2026
+
+Troisième étape, après les 35 analyses et la vue 3D : produire des **fichiers
+exploitables dans un logiciel de CAO**, à partir des mêmes données. Le
+répertoire de départ est le rapport `docs/reverse-topoexport.md` — ce qui a été
+retenu, et ce qui a été écarté, est expliqué dans `docs/EXPORTS.md`.
+
+## 14. Ce qui est produit
+
+| Export | Format | Contenu |
+|---|---|---|
+| Plan | DXF R12 (AC1009) | 8 calques : courbes (altitude en Z), bâti fermé à sa hauteur, voirie, eau, végétation, POI, emprise, cartouche |
+| Coupe | DXF, SVG | profil échantillonné, bâti traversé, cotes, axe |
+| Modèle | OBJ, STL | maillage du relief (`TERRAIN`) et bâti (`BATI`/`TOIT`), altitudes vraies |
+
+## 15. Défauts trouvés et corrigés
+
+| # | Défaut | Cause | Correctif |
+|---|---|---|---|
+| 1 | Les cours intérieures disparaissaient du plan | `anneauPropre` appelait le projeteur avec **un** argument (`f(p)`) alors qu'il attend un couple (`f(lat, lon)`) : `lat` recevait un tableau, tout devenait `NaN`, l'anneau était rejeté | signature clarifiée (`projeter(x, y)` → `[x, y]`, identité par défaut) et test unitaire de l'anneau |
+| 2 | `TypeError: entites is not iterable` dans l'aperçu | `dxfTopo` renvoyait `entites` = **le compte** alors que `entitesTopo` renvoie la **liste** | liste dans `entites`, compte dans `nbEntites` |
+| 3 | Normale `(0,0,0)` dans le STL | les anneaux OSM se referment sur leur premier point : l'éventail de triangulation produisait un dernier triangle plat | `triangles()` écarte le sommet de fermeture (en 3D, pas seulement en 2D) ; même nettoyage à l'écriture de l'OBJ |
+| 4 | Deux emprises bâties (et des milliers ailleurs) absentes du plan | seuil `g.length < 4` : une emprise triangulaire (3 sommets) était prise pour un anneau dégénéré | seuil ramené à 3 sommets **distincts**, point de fermeture retiré (la polyligne DXF est déclarée fermée) |
+| 5 | `TEXT` vide dans le DXF | les noms de POI en arabe ne survivent pas à la translittération ANSI de la R12 et donnaient une chaîne vide | un texte qui ne survit pas n'est pas écrit du tout |
+| 6 | « Cote sud — église » devenait « Cote sud  eglise » | la translittération **supprimait** les caractères hors ASCII (tiret cadratin, apostrophe typographique, œ…) | table de translittération (`—` → `-`, `’` → `'`, `œ` → `oe`, `°` → ` deg`) avant l'élagage |
+| 7 | Le plan s'étendait sur des kilomètres autour du site | le jeu de données peut couvrir bien plus large que le rayon demandé (ici un relevé large) | **recadrage analytique** au disque d'emprise (intersection segment/cercle), les anneaux à cheval étant refermés sur la corde ; option `recadrer: false` pour l'ancien comportement |
+| 8 | Aperçu illisible (noms empilés, cartouche au milieu du dessin) | 48 noms de POI écrits d'office, cartouche placé dans l'emprise | noms facultatifs (`nomsPoi`, décochés par défaut) et sur leur calque ; cartouche **sous** l'emprise |
+| 9 | Le dernier point du profil était à 1e-12 m de B | accumulation du pas d'échantillonnage | recalage du dernier point sur B (abscisse, coordonnées, altitude) |
+| 10 | Le banc d'essai supposait 9 m partout | l'échantillon contient **200 emprises à hauteur mesurée** (12,4 m) et 1 136 sans | tests réécrits : hauteur mesurée conservée, valeur par défaut seulement à défaut |
+| 11 | `NOYAU_ABSENT` dans `tools/exporter.mjs` | `loadKernel()` n'était pas appelé (il installe le moteur et les renderers dans `globalThis`) | appel ajouté en tête d'outil, comme dans les autres |
+| 12 | Caméra plein nord : 5 faces pour deux bâtiments | à l'azimut 0, les murs est et ouest sont exactement de profil (écartés) — c'est correct, mais un test comptait les faces | caméra tournée à 35° dans le banc d'essai, et invariants de structure (`un toit plat par bâtiment`) au lieu de comptes bruts |
+| 13 | Position des valeurs d'en-tête DXF supposée | le bloc `HEADER` est une suite de couples `9/variable` puis `code/valeur` : l'indexation fixe ne tenait pas | le contrôle relit la paire qui **suit** le nom de la variable |
+
+## 16. Choix de format
+
+- **DXF R12 plutôt que R13+** : la R12 est lue par tout le monde, y compris les
+  lecteurs anciens ; en contrepartie les polylignes s'écrivent en
+  `POLYLINE/VERTEX/SEQEND` (pas de `LWPOLYLINE`, apparue en R13) et le texte est
+  translittéré.
+- **Hauteur en Z sur les emprises** : un lecteur CAO extrude en un geste ; la
+  valeur est celle de la donnée quand elle existe, 9 m sinon — la même valeur
+  par défaut que le moteur 3D (`H_DEFAUT`).
+- **Altitudes vraies** dans l'OBJ/STL : les faces 3D sont écrites en mètres
+  locaux, l'altitude de référence du relief (`terrainRef`) est ajoutée à
+  l'écriture — un toit à 640 m d'altitude est bien à 640 m.
+- **Repère UTM maison** : la projection de Krüger (série de Snyder) est écrite
+  dans le projet plutôt que d'appeler une bibliothèque ; elle est vérifiée
+  contre des valeurs de référence (écart < 1 cm sur cinq points).
+- **Les cours intérieures** sont des **anneaux fermés** dans le DXF (contrairement
+  aux rendus 2D, qui les remplissent, voir §13) ; elles restent pleines dans
+  l'OBJ et le STL, faute de description du trou dans ces formats.
+
+## 17. Vérifications
+
+| Contrôle | Résultat |
+|---|---|
+| `npm test` | **281 / 281** (46 suites, dont 51 pour les exports) |
+| `npm run test:net` | **285 / 285** |
+| `npm run lint` | 46 fichiers, aucun échec |
+| `node tools/exporter.mjs` | plan 19 courbes / 1 208 polylignes, coupe 1 000 m (sol 616,7–640,9 m, 6 bâtiments), modèle 22 297 sommets / 11 911 triangles |
+| **ezdxf 1.4.4** (relecture tierce) | plan et coupe : `AC1009`, unités 6, **0 erreur, 0 correction** à l'audit ; entités relues (`POLYLINE`, `POINT`, `TEXT`) et calques conformes |
+| **trimesh 5.1.1** | OBJ et STL : 11 911 triangles, **0 facette dégénérée**, étendue 1 840 × 1 840 m × 84 m de relief, altitudes absolues correctes |
+| Aperçus rendus | `apercu-plan-dxf.png` (plan recadré, cartouche lisible), `apercu-coupe.png` (profil coté, A et B sous le sol) |
+
+## 18. Reste à faire (mis à jour)
+
+- 9 analyses sont déclarées au catalogue sans rendu (`impl:false`, badge
+  « v0.2 ») : planches composées, vent, réseau radial.
+- Le parrainage répond (`refcheck`, `refcode`) mais n'applique aucune remise.
+- L'impression d'une planche multi-cartes en A3 n'a pas été vérifiée sur une
+  imprimante réelle.
+- Le quota et les sessions d'activation vivent en mémoire : à rendre partagés
+  avant toute exploitation à plusieurs instances.
+- **Exports** : pas de `DWG`, `RVT`, `SKP`, `3DM` ni `IFC` (formats
+  propriétaires ou BIM), pas de LoD2 (pas d'équivalent libre mondial), et pas
+  d'écriture des noms de POI non translittérables. Le maillage 3D est ouvert
+  (nappe de terrain) : le fermer serait nécessaire pour un calcul de volume.

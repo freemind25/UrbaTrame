@@ -7,6 +7,7 @@ import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
+import { ouvrirExports } from './exports-ui.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -152,6 +153,17 @@ function vue3D(opts = {}) {
     terrain: S.terrain || null,
     device: S.device, compte: S.session?.account, jeton: S.session?.token,
     fondParDefaut: false
+  });
+}
+
+/* Panneau des exports CAO : plan DXF, coupe topographique, modèle OBJ/STL.
+   Il partage l'état de l'application (jeu de données, relief, site). */
+function vueExports() {
+  return ouvrirExports({
+    lat: S.site.lat, lon: S.site.lon, rayon: S.site.R,
+    nom: S.site.name, langue: S.lang,
+    D: S.D, terrain: S.terrain,
+    device: S.device, compte: S.session?.account, jeton: S.session?.token
   });
 }
 
@@ -686,6 +698,7 @@ function wireUI() {
     }
     toast(T('Exports SVG lancés', 'SVG exports started'));
   });
+  $('#proExport').addEventListener('click', () => vueExports());
   $('#print').addEventListener('click', () => {
     document.body.classList.add('printing');
     window.print();

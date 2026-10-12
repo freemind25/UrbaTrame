@@ -414,6 +414,13 @@
           facesB.push({
             type: 'mur', b, prof, ext: !dedans,
             pts: ecr.map(p2 => [p2[0], p2[1]]),
+            /* géométrie 3D en mètres locaux (X est, Y nord, Z vers le haut) :
+               c'est elle, et non les coordonnées écran, qu'écrivent les exports
+               DXF/OBJ. Z est relatif à l'altitude de référence du terrain. */
+            pts3: [
+              [p[0], p[1], zBase + h0], [q[0], q[1], zBase + h0],
+              [q[0], q[1], zBase + h], [p[0], p[1], zBase + h]
+            ],
             fill: nuance(base, [nx, ny, 0], sun.vecteur, k)
           });
         }
@@ -449,6 +456,10 @@
           const prof = camPts.reduce((s2, x) => s2 + x[2], 0) / camPts.length;
           facesB.push({
             type: 'pan', b, prof, pts: ecr.map(x => [x[0], x[1]]),
+            pts3: [
+              [p[0], p[1], zBase + h], [q[0], q[1], zBase + h],
+              [cx, cy, zBase + h + hToit]
+            ],
             fill: nuance(baseToit, [nx / nn, ny / nn, nz / nn], sun.vecteur, k)
           });
         }
@@ -466,6 +477,10 @@
             facesB.push({
               type: 'toit', b, prof, trous: trousEcr,
               pts: ecr.map(p => [p[0], p[1]]),
+              /* anneau extérieur seul : ni l'OBJ ni le STL ASCII ne savent
+                 décrire un trou dans une face (les cours restent pleines dans
+                 ces deux formats, elles ne le sont pas à l'écran). */
+              pts3: ptsLocal.map(p2 => [p2[0], p2[1], zBase + h]),
               fill: nuance(baseToit, [0, 0, 1], sun.vecteur, k)
             });
           }
@@ -506,7 +521,14 @@
     for (const gr of groupes) gr.faces.sort((x, y) => y.prof - x.prof);
     const faces = groupes.reduce((acc, gr) => acc.concat(gr.faces), []);
 
-    return { pal, ombres, faces, groupes, maille, solFill, sun, k, cam, jour, batiments: ring, terrain: terr };
+    /* `terrainRef` : altitude absolue du zéro local — les exports s'en servent
+       pour écrire des altitudes vraies (celles d'un plan topographique). */
+    return {
+      pal, ombres, faces, groupes, maille, solFill, sun, k, cam, jour,
+      batiments: ring, terrain: terr,
+      terrainRef: terr ? terr.ref : 0,
+      grille: opts.terrain || null
+    };
   }
 
   /* Centre de gravité de la surface d'un anneau (formule des lacets) ; retombe

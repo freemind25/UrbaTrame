@@ -3,6 +3,61 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ;
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [0.1.1] — 2026-10-12
+
+Exports pour la CAO, et le rapport de rétro-ingénierie qui les a motivés.
+
+### Ajouté — exports CAO
+
+- **Panneau « Exports CAO »** (bouton du panneau de droite) : trois onglets —
+  plan topographique DXF, coupe, modèle 3D — avec aperçu avant téléchargement,
+  choix des calques, de l'équidistance, de la hauteur par défaut du bâti, du
+  repère (local ou **UTM WGS 84**) et de l'axe de coupe (clic sur l'aperçu).
+- **Plan topographique DXF** (`public/js/exports.mjs`) : **R12/AC1009** (la
+  version la plus largement lue), mètres, huit calques — `COURBES` (altitude de
+  la courbe en Z), `BATI` (**hauteur du bâtiment en Z**, emprises fermées, cours
+  intérieures en anneaux), `VOIRIE`, `EAU`, `VERT`, `POI`, `EMPRISE`, `TEXTE`
+  (cartouche : site, altitudes, équidistance, repère, sources). Les tracés sont
+  **recadrés à l'emprise** (un tracé qui sort du site est coupé à la limite), les
+  noms de POI sont facultatifs et translittérés (la R12 se lit en ANSI).
+- **Coupe topographique** : deux points sur l'aperçu, profil échantillonné
+  (161 points par kilomètre), altitude interpolée dans la grille, bâti traversé
+  détecté par changement de signe de l'écart perpendiculaire de ses murs ;
+  sortie SVG (profil coté) ou DXF (`TERRAIN`, `BATI`, `AXE`, `TEXTE`).
+- **Modèle 3D** OBJ et STL : maillage du relief et bâti, groupes
+  `TERRAIN`/`BATI`/`TOIT`, sommets en mètres, **altitudes vraies** (l'altitude de
+  référence du relief est ajoutée), triangulation à normales unitaires.
+- **`tools/exporter.mjs`** : les mêmes fichiers en ligne de commande, hors
+  navigateur (`--quoi`, `--avec`, `--equi`, `--hauteur`, `--geolocate`,
+  `--coupe`, `--sans-sol`).
+- La scène 3D expose désormais sa géométrie : `pts3` (sommets en mètres locaux)
+  sur chaque face, `terrainRef` (altitude du zéro local) et `grille` — c'est ce
+  que lisent les exports.
+- **51 tests** (281 hors ligne) : projection UTM comparée à des valeurs de
+  référence, structure du DXF relue par un lecteur minimal (sections, tables,
+  entités, `EOF`, polylignes, textes), recadrage à l'emprise, équidistance,
+  fermeture des anneaux et cours intérieures, cohérence du profil (longueur,
+  échantillonnage, bornes d'altitude, extrémités), bâti traversé, maillage,
+  triangulation et normales du STL.
+
+### Ajouté — rapport
+
+- **`docs/reverse-topoexport.md`** : ce que fait le service TopoExport
+  (cartes vectorielles, modèles 3D, coupes), son architecture, ses jeux de
+  données et leur sélection, la forme de son `POST /compute`, ses formats et sa
+  grille de prix — relevé sans compte, sur des ressources publiques. Ce qui en a
+  été retenu est dans les exports ci-dessus ; ce qui a été écarté (DWG, RVT, SKP,
+  IFC, LoD2, arbres « IA », comptes et quotas) est expliqué dans
+  **`docs/EXPORTS.md`**.
+
+### Notes
+
+- Les exports sont produits par le moteur du projet, sans aucune dépendance :
+  DXF, OBJ et STL sont du texte, écrit ici.
+- Les fichiers ont été relus par des bibliothèques tierces (ezdxf 1.4.4,
+  trimesh 5.1.1) en plus des tests : aucune erreur d'audit, aucune facette
+  dégénérée.
+
 ## [0.1.0] — 2026-10-11
 
 Première version utilisable : le moteur de plan, les 35 analyses et le parcours
@@ -189,4 +244,5 @@ Dix défauts trouvés pendant la mise au point — détail dans
 - L'enregistrement des licences vit en mémoire : un redémarrage invalide les
   jetons de session (les titres signés, eux, restent valables).
 
+[0.1.1]: https://github.com/freemind25/freemap/releases/tag/v0.1.1
 [0.1.0]: https://github.com/freemind25/freemap/releases/tag/v0.1.0
