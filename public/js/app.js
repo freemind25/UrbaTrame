@@ -18,6 +18,7 @@ const S = {
   session: store.get('session', null),
   ent: store.get('ent', null),
   tier: 'free',
+  access: 'licence',   /* 'open' = période d'essai ouverte, annoncée par /api/status */
   pub: null,
   D: { roads: [], build: [], green: [], pois: [] },
   terrain: null,
@@ -80,6 +81,8 @@ async function loadPublicKey() {
   try {
     const d = await (await fetch('/api/status')).json();
     S.pub = d.pub;
+    /* Mode d'accès : `open` = toutes les analyses ouvertes (période d'essai). */
+    if (d.access === 'open' || d.access === 'licence') S.access = d.access;
     PUB_KEY = await crypto.subtle.importKey(
       'raw', b64uToBytes(d.pub), { name: 'Ed25519' }, false, ['verify']);
     log(`clé publique Ed25519 chargée (${d.pub.slice(0, 12)}…)`);
@@ -106,14 +109,26 @@ async function refreshEntitlement() {
   else if (S.ent) { store.set('ent', null); S.ent = null; }
   const changed = tier !== S.tier;
   S.tier = tier;
+  if (S.access === 'open') { applyAccessLabel(); return tier; }
   $('#badge').textContent = tier === 'max' ? 'MAX ✓' : tier === 'pro' ? 'PRO ✓' : T('ESSAI', 'TRIAL');
   $('#badge').className = 'badge ' + tier;
   if (exp) log(`licence ${tier.toUpperCase()} valable jusqu'au ${new Date(exp).toLocaleDateString('fr-FR')}`);
   if (changed) { renderCatalog(); renderCards(); }
   return tier;
 }
-const isPaid = () => S.tier === 'pro' || S.tier === 'max';
+/* Période d'essai ouverte : tout est débloqué, sans licence ni filigrane. */
+const isOpenAccess = () => S.access === 'open';
+const isPaid = () => isOpenAccess() || S.tier === 'pro' || S.tier === 'max';
+function applyAccessLabel() {
+  const b = $('#badge');
+  b.textContent = T('LIBRE', 'OPEN');
+  b.className = 'badge open';
+  const btn = $('#plansBtn');
+  if (btn) btn.textContent = T('Accès libre', 'Open access');
+  document.body.classList.toggle('open-access', isOpenAccess());
+}
 const unlocked = id => {
+  if (isOpenAccess()) return true;
   const a = CAT.find(x => x.id === id);
   if (!a) return false;
   if (a.tier === 'free') return true;
@@ -188,7 +203,7 @@ function ctxFor(id) {
     sLat: S.site.lat, sLng: S.site.lon, curR: S.site.R,
     shape: S.shape, sitePolygon: S.poly,
     isPro: isPaid(), lang: S.lang === 'en' ? 'en' : 'fr',
-    watermark: true, time: S.time, siteName: S.site.name,
+    watermark: !isOpenAccess(), time: S.time, siteName: S.site.name,
     D: S.D, terrain: S.terrain, climate: S.climate, noSiteMark: false
   };
 }
@@ -367,7 +382,10 @@ async function generate() {
   drawLoader(list, state, t0);
 
   const freeRun = p.selected.every(id => FREE_IDS.includes(id));
-  let run = null, useServer = false;
+  /* En accès libre, l'échec du serveur n'est jamais bloquant : on se rabat
+     toujours sur les miroirs publics interrogés par le navigateur. */
+  const softTrial = freeRun || isOpenAccess();
+  let run = null, useServer = isOpenAccess() || !freeRun;
 
   try {
     /* 1 · ouverture de session (le serveur rejoue le plan de son côté) */
@@ -375,11 +393,11 @@ async function generate() {
       const b = await S.routes.begin(p.selected, S.site.R, S.site.lat, S.site.lon,
         { device: S.device, session: S.session, free: freeRun });
       run = b.run;
-      log(`session ouverte · ${run.slice(0, 8)} · mode ${b.tier}`);
-      useServer = !freeRun;
+      log(`session ouverte · ${run.slice(0, 8)} · mode ${b.tier}${b.access === 'open' ? ' (accès libre)' : ''}`);
+      useServer = isOpenAccess() || !freeRun;
     } catch (e) {
       const code = e.error || e.message;
-      if (!freeRun) {
+      if (!softTrial) {
         if (code === 'LICENCE_REQUIRED') { openPlans(); throw new Error('licence refusée par le serveur'); }
         if (code === 'GENERATION_IN_PROGRESS' || code === 'RATE_LIMITED') {
           toast(errText(code, S.lang) + (e.retryAfter ? ` (${e.retryAfter} s)` : ''), false);
@@ -466,7 +484,7 @@ async function loadSample() {
     log(`exemple : ${S.D.build.length} emprises · ${S.D.roads.length} tronçons · ${S.D.green.length} vert/eau · ${S.D.pois.length} POI`
         + (S.terrain ? ` · altimétrie ${S.terrain.n}×${S.terrain.n}` : '')
         + (S.climate ? ' · climat NASA POWER' : ''));
-    toast(T('Exemple chargé — changez de palier pour voir les analyses Pro.', 'Sample loaded — switch tier to see the Pro analyses.'));
+    toast(isOpenAccess() ? T('Exemple chargé.', 'Sample loaded.') : T('Exemple chargé — changez de palier pour voir les analyses Pro.', 'Sample loaded — switch tier to see the Pro analyses.'));
   } catch (e) { toast(T('Exemple indisponible', 'Sample unavailable'), false); log('exemple : ' + e.message); }
 }
 
@@ -499,6 +517,19 @@ function openModal(id) { $('#' + id).classList.add('on'); }
 function closeModal(id) { $('#' + id).classList.remove('on'); }
 function openPlans() {
   const p = $('#planBody');
+  if (isOpenAccess()) {
+    p.innerHTML = `
+    <div class="plans-open">
+      <h3>${T('Accès libre', 'Open access')}</h3>
+      <p>${T(
+        'Pendant la période d\'essai, <strong>toutes les analyses sont ouvertes</strong> : ni licence, ni filigrane, ni limite de génération.',
+        'During the trial period, <strong>every analysis is open</strong>: no licence, no watermark, no generation limit.')}</p>
+      <p class="fine">${T(
+        'Les abonnements Pro et Max seront proposés plus tard. Cette page les présentera à ce moment-là.',
+        'Pro and Max subscriptions will come later. This page will show them then.')}</p>
+    </div>`;
+    return;
+  }
   p.innerHTML = `
     <div class="plans">
       <section class="plan">
@@ -691,7 +722,9 @@ async function init() {
     $('#q').value = qp.get('q');
     setTimeout(doSearch, 400);
   }
-  log(`prêt · ${T('essai gratuit = 4 analyses filigranées', 'free trial = 4 watermarked analyses')}`);
+  log(isOpenAccess()
+    ? `prêt · ${T('accès libre — toutes les analyses, sans filigrane', 'open access — every analysis, no watermark')}`
+    : `prêt · ${T('essai gratuit = 4 analyses filigranées', 'free trial = 4 watermarked analyses')}`);
 }
 
 init();

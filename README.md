@@ -128,10 +128,25 @@ titre signé est vérifié **dans le navigateur** (`crypto.subtle`) avant d'ouvr
 l'accès. Modifier `localStorage` ne donne donc rien. Avant une mise en ligne,
 remplacez ces codes et lisez [SECURITY.md](SECURITY.md).
 
+## Accès : période d'essai ouverte
+
+**Aujourd'hui, tout est ouvert** : les 35 analyses, sans licence, sans
+filigrane et sans quota. C'est le mode par défaut.
+
+```
+FM_ACCESS=open      # défaut — toutes les analyses pour tout le monde
+FM_ACCESS=licence   # 4 analyses gratuites filigranées, Pro/Max sur code, quota par IP
+```
+
+Le serveur annonce son mode dans `/api/status` (champ `access`) et le client
+s'y adapte seul : catalogue déverrouillé, filigrane retiré, badge « LIBRE ».
+Le jour où les abonnements reviennent, il suffit de basculer la variable.
+Détail et marche à suivre : **[docs/ACCES.md](docs/ACCES.md)**.
+
 ## Bancs d'essai
 
 ```bash
-npm test          # 135 tests, hors ligne (aucun accès réseau requis)
+npm test          # tests hors ligne (aucun accès réseau requis)
 npm run test:net  # + Overpass, Nominatim, NASA POWER, Terrarium
 npm run lint      # contrôle de syntaxe de tout le dépôt
 npm run svg -- --ids massing,gw --png   # rendus hors navigateur
@@ -141,7 +156,8 @@ npm run genere-cle   # clé de signature Ed25519 (serveur : fichier · Vercel : 
 
 Les tests couvrent le rendu des 35 analyses et de leurs palettes, la cohérence
 du catalogue et du planificateur, les licences (signature vérifiée
-indépendamment du serveur), le contrat HTTP, le quota, le décodeur PNG des
+indépendamment du serveur), le contrat HTTP, le quota, l'accès libre et le basculement
+en régime sous licence, le repli entre miroirs Overpass, le décodeur PNG des
 tuiles d'altitude et la projection Mercator.
 
 ## Déploiement
@@ -152,6 +168,9 @@ Deux modes, selon l'endroit où le serveur tourne :
 |---|---|---|
 | **Serveur Node** (défaut) | VPS, Docker, Render, Railway | tout : quota par IP, licences révocables, clé sur disque |
 | **Serverless** | Vercel | tout sauf la révocation et le quota global : l'état vit en mémoire d'instance |
+
+À ceci près : en accès libre (le défaut), ni licence ni quota intervient, donc
+les deux modes se comportent pareil pour l'utilisateur.
 
 Sur Vercel, l'API est exposée par trois fonctions (`api/`) et le reste est
 servi en statique ; il faut poser une variable d'environnement pour que les

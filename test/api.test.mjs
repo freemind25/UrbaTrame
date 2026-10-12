@@ -13,6 +13,12 @@ import { createApp } from '../server/index.mjs';
 const DEVICE = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const NET = !!process.env.FM_NET;
 
+/* Ce banc éprouve le parcours SOUS LICENCE (4 gratuites, Pro/Max, quota).
+   L'accès libre — le mode par défaut depuis la période d'essai — a son propre
+   banc : test/acces.test.mjs. La variable est lue à chaque requête, donc la
+   poser ici suffit. */
+process.env.FM_ACCESS = 'licence';
+
 let app, base, guarded, guardedBase;
 
 before(async () => {

@@ -14,6 +14,18 @@ de licence fonctionnent de bout en bout.
   budget Overpass passe à 45 s sous Vercel — la fonction étant coupée à 60 s —
   pour répondre `MAP_SOURCE_UNAVAILABLE` au lieu d'expirer.
 
+### Ajouté
+
+- **Période d'essai ouverte** (`FM_ACCESS=open`, le défaut) : toutes les
+  analyses sont accessibles à tout le monde, sans licence, sans filigrane et
+  sans quota. Le serveur annonce son mode dans `/api/status` (`access`) et le
+  client s'y adapte seul — catalogue déverrouillé, badge « LIBRE », panneau
+  « Tarifs » remplacé par une note d'accès libre, échec du serveur jamais
+  bloquant (repli sur les miroirs publics dans le navigateur).
+  `FM_ACCESS=licence` rétablit exactement le régime précédent (4 gratuites,
+  Pro/Max sur code, quota, filigrane) : une variable, aucun code à changer.
+  Voir `docs/ACCES.md`.
+
 ### Modifié
 
 - **Repli entre miroirs Overpass** : la source cartographique publique tombe

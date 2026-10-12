@@ -4,7 +4,7 @@
      GET  /api/status           état du service + clé publique Ed25519
    Les autres GET servent les fichiers de public/.                              */
 import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/plan-2d.mjs';
-import { SOURCES } from './config.mjs';
+import { SOURCES, accessMode, isOpenAccess } from './config.mjs';
 import {
   send, readBody, clientIp, serveStatic, TRACE, log
 } from './http.mjs';
@@ -22,6 +22,7 @@ export function createStatusHandler({ licence }) {
       version: VERSION,
       trace: TRACE,
       pub: licence.pubB64,
+      access: accessMode(),
       free: FREE_IDS,
       max: MAX_IDS,
       limits: LIMITS,
@@ -92,6 +93,22 @@ export function createAnalysisHandler({ licence, quota, runs }) {
       let p;
       try { p = plan(ids, Number(body.radius), Number(body.lat), Number(body.lon)); }
       catch (e) { return send(res, 400, { error: e.message }); }
+
+      /* Accès libre (période d'essai) : toutes les analyses, sans licence,
+         sans quota, sans filigrane. Voir docs/ACCES.md. */
+      if (isOpenAccess()) {
+        const libre = runs.open({
+          groups: p.groups.map(g => ({ id: g.id, query: g.query, keys: g.keys })),
+          tier: 'open', device, ip, slot: null,
+          radius: body.radius, lat: body.lat, lon: body.lon
+        });
+        log('begin', libre.slice(0, 8), 'open', p.selected.length + ' analyse(s)',
+            p.groups.length + ' requête(s)');
+        return send(res, 200, {
+          ok: true, run: libre, tier: 'open', access: 'open',
+          groups: p.groups.map(g => ({ id: g.id, fr: g.fr, en: g.en }))
+        });
+      }
 
       /* Paliers : la licence décide, `public:true` force l'essai gratuit. */
       let tier = 'free', slot = null;

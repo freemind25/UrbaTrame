@@ -28,6 +28,10 @@ output{font:600 12px var(--mono);color:var(--mut)}
 .badge{font:700 11px var(--mono);border:1px solid var(--line);padding:4px 9px;border-radius:999px;color:var(--mut)}
 .badge.pro{color:#0E0E10;background:#E0A83A;border-color:#E0A83A}
 .badge.max{color:#fff;background:var(--red);border-color:var(--red)}
+.badge.open{color:#05230F;background:#7BD88F;border-color:#7BD88F}
+.plans-open{padding:18px 4px}
+.plans-open h3{font:700 15px var(--mono);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
+.plans-open p{margin:0 0 12px;line-height:1.55;color:var(--ink)}
 .top nav{display:flex;gap:8px}
 
 /* ── structure ── */

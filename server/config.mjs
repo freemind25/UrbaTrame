@@ -17,6 +17,18 @@ export const DATA_DIR = process.env.FM_DATA_DIR || path.join(ROOT, 'data');
 export const DEFAULT_PORT = Number(process.env.PORT) || 4173;
 export const DEFAULT_HOST = process.env.FM_HOST || '0.0.0.0';
 
+/* Accès aux analyses.
+     open    (défaut) : TOUT est ouvert à tout le monde — ni licence, ni
+                        quota, ni filigrane. C'est la période d'essai.
+     licence          : découpage 4 analyses gratuites / Pro / Max, quota par
+                        IP et filigrane d'essai (comportement commercial).
+   Lue à chaque appel : le mode change au redémarrage, sans reconstruire. */
+export const accessMode = () =>
+  String(process.env.FM_ACCESS || 'open').trim().toLowerCase() === 'licence'
+    ? 'licence' : 'open';
+
+export const isOpenAccess = () => accessMode() === 'open';
+
 /* Sources de données — plusieurs miroirs pour les services qui en offrent. */
 export const SOURCES = {
   /* Plusieurs miroirs : les instances publiques tombent souvent (surcharge,

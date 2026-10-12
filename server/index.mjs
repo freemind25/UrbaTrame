@@ -10,7 +10,9 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PRODUCT, PUBLIC_DIR, DATA_DIR, DEFAULT_PORT, DEFAULT_HOST } from './config.mjs';
+import {
+  PRODUCT, PUBLIC_DIR, DATA_DIR, DEFAULT_PORT, DEFAULT_HOST, accessMode
+} from './config.mjs';
 import { log } from './http.mjs';
 import { createRuntime } from './runtime.mjs';
 import { createApi } from './api.mjs';
@@ -63,6 +65,9 @@ if (isMain) {
     log(`dossier public  : ${PUBLIC_DIR}`);
     log(`dossier données : ${dataDir}`);
     log(`état      : ${stateLine(licence)}`);
+    log(accessMode() === 'open'
+      ? 'accès     : libre — toutes les analyses, sans licence ni quota (FM_ACCESS=licence pour rétablir les paliers)'
+      : 'accès     : sous licence — 4 analyses gratuites, Pro/Max sur code');
     log(`codes     : ${licence.knownCodes().join(' · ')}`);
   });
   for (const sig of ['SIGINT', 'SIGTERM'])

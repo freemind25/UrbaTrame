@@ -138,6 +138,9 @@ describe('catalogue de licences', async () => {
 describe('fonctions serverless', () => {
   let mods;
 
+  /* Comme test/api.test.mjs : ce banc décrit le parcours sous licence. */
+  process.env.FM_ACCESS = 'licence';
+
   before(async () => {
     process.env.FM_SIGNING_KEY = Buffer.from(JSON.stringify(JWK)).toString('base64');
     mods = {

@@ -6,7 +6,9 @@ commun à l'instance, qui permet de rattacher un incident à un journal serveur.
 
 ## `GET /api/status`
 
-État du service et paramètres publics.
+État du service et paramètres publics. Le champ `access` dit le régime en
+vigueur : `open` (période d'essai ouverte — toutes les analyses, sans licence
+ni quota) ou `licence` (4 gratuites / Pro / Max). Voir `docs/ACCES.md`.
 
 ```json
 {
@@ -14,6 +16,7 @@ commun à l'instance, qui permet de rattacher un incident à un journal serveur.
   "version": "0.1.0",
   "trace": "9f2c1a4e",
   "pub": "…",                       // clé publique Ed25519 (base64, 32 octets)
+  "access": "open",                 // « open » (période d'essai) ou « licence »
   "free": ["roads", "landuse", "gw", "fabric"],
   "max": ["mappingboard", "…"],
   "limits": { "roads": 3000, "poiheat": 1500, "…" },
@@ -47,14 +50,15 @@ Ouvre une session de génération et renvoie les lots planifiés.
 | `ids` | tableau | identifiants d'analyse du catalogue |
 | `radius` | nombre | 200 à 3 000 mètres |
 | `lat`, `lon` | nombres | centre de la fenêtre |
-| `account`, `token` | chaîne | requis pour les analyses hors essai |
+| `account`, `token` | chaîne | requis pour les analyses hors essai (sans objet en accès libre) |
 | `public` | booléen | force le palier gratuit (utilisé par l'essai) |
 
 ```json
 {
   "ok": true,
   "run": "3f5c…",
-  "tier": "free",
+  "tier": "open",                    // « open » en accès libre, sinon « free », « pro » ou « max »
+  "access": "open",
   "groups": [
     { "id": "base", "fr": "Lecture : voirie, emprises bâties", "en": "Fetching roads + building footprints" }
   ]
