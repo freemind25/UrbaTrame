@@ -8,6 +8,15 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 Première version utilisable : le moteur de plan, les 35 analyses et le parcours
 de licence fonctionnent de bout en bout.
 
+### Corrigé
+
+- **`vercel.json` refusé au build** (`Error: Function Runtimes must have a valid
+  version`) : le champ `functions.runtime` n'accepte pas `nodejs22.x` — il
+  attend un paquet de runtime communautaire (`@vercel/node@…`) et se laisse vide
+  pour du Node.js. La version de Node vient de `engines.node` dans
+  `package.json`. Le fichier est désormais validé contre le schéma officiel de
+  Vercel, et le piège est documenté dans docs/VERCEL.md.
+
 ### Ajouté
 
 - **Moteur de rendu** — 35 analyses rendues en SVG 240 × 268 (`wrap()`), six
@@ -58,7 +67,7 @@ Dix défauts trouvés pendant la mise au point — détail dans
 
 - **Déploiement serverless** — trois fonctions dans `api/` (analyse, état,
   utilitaires), un `vercel.json` (dossier de sortie `public`, réécriture de
-  `/analysis/2d`, runtime `nodejs22.x`) et un mode de session **sans état** :
+  `/analysis/2d`) et un mode de session **sans état** :
   le jeton renvoyé à l'activation est le titre signé, que le serveur revérifie
   avec sa clé publique. Permet de faire tourner l'application sans disque ni
   base, avec deux limites documentées (pas de révocation, quota par instance).

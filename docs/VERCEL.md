@@ -70,8 +70,32 @@ curl https://<votre-domaine>/api/status
 - `outputDirectory: public` — Vercel sert le dossier `public/` tel quel ;
 - deux réécritures : `/analysis/2d` → `/api/analysis/2d` (le client garde le
   contrat d'origine) et `/api/util` ;
-- runtime `nodejs22.x` et `maxDuration: 60` pour les fonctions (une requête
-  Overpass peut dépasser les 10 secondes par défaut).
+- `maxDuration: 60` et `memory: 512` pour les fonctions (une requête Overpass
+  dépasse facilement les 10 secondes accordées par défaut).
+
+### Piège : ne pas renseigner `runtime` dans `functions`
+
+Un déploiement a échoué avec :
+
+```
+Error: Function Runtimes must have a valid version, for example `now-php@1.0.0`.
+```
+
+Cause : `functions.runtime` n'accepte pas un identifiant de plateforme du type
+`nodejs22.x`. D'après le schéma officiel, ce champ attend **le nom d'un paquet
+npm de runtime avec sa version** (`@vercel/node@3.0.0`) et sert aux runtimes
+communautaires : pour du Node.js, on le laisse vide.
+
+La version de Node.js se choisit ailleurs :
+
+1. `engines.node` dans `package.json` — c'est ce que fait ce dépôt (`>=20.11`
+   se résout sur la dernière version disponible, 24.x ; nos tests couvrent
+   Node 20, 22 et 24) ;
+2. à défaut, *Project Settings → Build and Deployment → Node.js Version*.
+
+`vercel.json` est validé contre le schéma officiel
+(`https://openapi.vercel.sh/vercel.json`) : `functions` n'y contient que
+`maxDuration` et `memory`.
 
 Le client, lui, poste désormais ses utilitaires sur `/api/util` : sur Vercel,
 `/` doit rester l'interface, alors que le serveur Node accepte les deux.
