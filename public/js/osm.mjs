@@ -17,6 +17,9 @@ export function normalizeElements(into, elements) {
     const t = e.tags || {};
     if (e.type === 'relation' && (t.building || t.natural === 'water' || t.water) && e.members) {
       for (const m of e.members) {
+        /* Les rendus 2D dessinent des emprises pleines : les membres « inner »
+           (cours intérieures, îles) sont donc écartés ici. La vue 3D, elle, les
+           évide — voir batimentsDepuisOverpass() plus bas. */
         if (m.geometry && m.geometry.length > 2 && m.role !== 'inner')
           relationGeoms.push({ tags: t, geometry: m.geometry });
       }

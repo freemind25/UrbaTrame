@@ -120,6 +120,10 @@ chaque emprise, la liste de ses `trous` :
   seulement celles qui regardent la caméra. Le sens d'enroulement OSM n'est
   jamais supposé : pour une cour, la normale est simplement retournée.
 
+Les rendus **2D** du projet, eux, continuent de remplir les cours
+(`normalizeElements` écarte les membres `inner`) : c'est un choix assumé, la
+modification du jeu normalisé changerait le tracé des 35 analyses existantes.
+
 Au passage, le centre qui décide du côté « extérieur » d'un mur n'est plus la
 moyenne des sommets (faussée par le point de fermeture répété, et parfois hors
 d'un anneau concave) mais le **centre de gravité de la surface** (formule des

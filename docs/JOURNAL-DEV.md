@@ -111,3 +111,62 @@ présenter dans un aperçu isolé où Overpass et NASA POWER sont inaccessibles.
   imprimante réelle.
 - Le quota et les sessions d'activation vivent en mémoire : à rendre partagés
   avant toute exploitation à plusieurs instances.
+
+---
+
+# Vue 3D : relief et cours intérieures — 12/10/2026
+
+Suite de la mise au point, sur les deux limites annoncées dans
+`docs/VUE3D.md` : « relief ignoré » (les volumes reposaient sur un plan à
+altitude zéro) et « cours intérieures remplies ». Même méthode : chaque défaut
+est constaté, expliqué, corrigé, puis couvert par un test.
+
+## 10. Défauts trouvés et corrigés
+
+| # | Défaut | Cause | Correctif |
+|---|---|---|---|
+| 1 | La cour intérieure se réduisait à un point à l'écran (5 px au lieu de 63) | `projLocal` attend des **mètres locaux** ; la cour lui était passée en degrés (lat/lon ≈ 36 et 6,7, soit deux « mètres » du centre) | conversion `toLocal` avant projection ; test qui vérifie que le trou occupe 16/40 de l'emprise à l'écran |
+| 2 | Avec le relief, presque tout disparaissait : 4 677 faces → **218** | la grille d'altitudes était appliquée en altitude **absolue** : un site à 629 m plaçait toute la scène à 2 516 m au-dessus de la caméra, hors du plan proche | repère local : `prepareTerrain` renvoie `ref` (altitude du centre) et `z()` = altitude **relative**, déjà multipliée par l'exagération |
+| 3 | Assise du bâti dépendante du point de fermeture de l'anneau | le centre retenu était la moyenne des sommets ; le point répété en fin d'anneau la décalait (et la sortait d'un anneau concave) | `centroidePoly`, centre de gravité de la surface (formule des lacets) ; test : même assise avec et sans le point répété |
+| 4 | Normales `NaN` aux coins du maillage du sol | les indices de nœuds étant bornés, les quatre coins du maillage prolongé se réduisaient au **même point** (quad dégénéré) | positions prolongées au-delà de la grille (altitude du bord répétée) et garde-fou `|| 1` sur la norme de la normale |
+| 5 | `rgb(NaN,NaN,NaN)` sur les 529 cases du maillage | la teinte du sol (`pal.sol`, **texte** hexadécimal) était passée à `melange`, qui attend des valeurs numériques | `hex2rgb()` puis extraction de `nuanceN()` (noyau numérique), `nuance()` en dérivant le texte |
+| 6 | Moyenne de teinte impossible | `hex2rgb()` ne sait pas relire une couleur produite par `rgb()` (il renvoie `null`) | la moyenne de la couronne passe par `nuanceN()`, jamais par la chaîne de caractères |
+| 7 | Membres `inner` perdus (ou remplis) | la lecture 3D écartait les membres `inner` des relations, et une relation à plusieurs `outer` ne savait pas où rattacher une cour | chaque cour rejoint l'emprise **qui la contient** (test point-dans-anneau sur son centre) ; test à deux emprises |
+
+## 11. Choix de rendu du sol
+
+Trois raccords ont été essayés, puis comparés en image :
+
+| Essai | Résultat |
+|---|---|
+| Prolongement par la pente du bord | longues bandes obliques au-delà de la grille |
+| Raccord vers le plan général | falaise sombre du côté où le terrain s'éloigne du plan |
+| **Altitude du bord répétée** (retenu) | couronne plate, sans falaise ; le fond plat reçoit la **teinte moyenne de cette couronne** (304 cases sur 529), donc la couture ne se voit pas |
+
+La voirie, l'eau et les ombres sont projetées à l'altitude du terrain sous
+elles : un coteau les fait monter et descendre, et les ombres ne s'enfoncent
+plus dans la pente.
+
+## 12. Vérifications
+
+| Contrôle | Résultat |
+|---|---|
+| `npm test` | **230 / 230** (217 avant, +13 : repère local, débord du maillage, assise sur la pente, note de relief, taille de la cour, toit évité, murs de cour, rattachement de la cour, tri groupé, clic du plus proche, canevas) |
+| `npm run test:net` | **234 / 234** |
+| `npm run lint` | 42 fichiers, aucun échec |
+| Serveur réel, El Khroub 600 m | altimétrie 24 × 24, zoom 14 : **595,1 → 661,2 m** ; scène 3 762 faces, 1 017 ombres, 961 cases de sol ; assises de −112 m à +133 m ; SVG 563 936 o, aucune valeur invalide |
+| Échantillon 800 m, H ×3 | 4 677 faces, 1 336 ombres, 529 cases, amplitude relative 75,9 m, teinte de couronne `rgb(227,224,219)` |
+| Cas à cour (fabriqué) | toit évité (tracé à deux anneaux), murs de cour visibles côté caméra, trou à 40 % de l'emprise à l'écran |
+
+El Khroub ne possède **aucune** cour intérieure dans OSM (vérifié sur
+l'échantillon embarqué et par une requête Overpass directe) : le cas à cour est
+donc fabriqué dans les tests et dans l'aperçu (emprises de 40 m et 120 m).
+
+## 13. Différence voulue avec les rendus 2D
+
+Les renderers 2D continuent de **remplir** les cours : `normalizeElements`
+(`public/js/osm.mjs`) écarte toujours les membres `inner`, comportement commun
+aux 35 analyses existantes. Seul le chemin 3D (lecture dédiée
+`batimentsDepuisOverpass`) les évide. Modifier le jeu normalisé changerait le
+tracé de toutes les planches 2D — ce n'est pas l'objet de cette étape, et le
+comportement est désormais écrit noir sur blanc dans les deux fichiers.
