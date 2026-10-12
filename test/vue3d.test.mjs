@@ -257,6 +257,26 @@ describe('lecture des bâtiments', () => {
     assert.equal(b[0].h, 12);
     assert.equal(b[1].h, 9.3, '3 niveaux × 3,1 m');
     assert.ok(b.every(x => x.g.length >= 4));
+    /* La cour intérieure (membre « inner ») devient un trou de l'emprise,
+       au lieu d'être jetée ou remplie. */
+    assert.equal(b[0].trous.length, 0, 'un way n’a pas de cour');
+    assert.equal(b[1].trous.length, 1, 'la relation à cour garde sa cour');
+    assert.ok(b[1].trous[0].length >= 4, 'la cour est un anneau');
+  });
+
+  test('relation à plusieurs emprises : la cour revient à celle qui la contient', () => {
+    const carreGeo = (lat, lon, cote) => carre(lat, lon, cote).map(p => ({ lat: p[0], lon: p[1] }));
+    const b = batimentsDepuisOverpass([{
+      type: 'relation', id: 9, tags: { building: 'yes', height: '10' },
+      members: [
+        { role: 'outer', geometry: carreGeo(LAT, LON, 40) },        // grande emprise
+        { role: 'outer', geometry: carreGeo(LAT + 0.01, LON, 20) }, // voisine, sans cour
+        { role: 'inner', geometry: carreGeo(LAT, LON, 10) }         // cour de la grande
+      ]
+    }]);
+    assert.equal(b.length, 2, 'deux emprises');
+    assert.equal(b[0].trous.length, 1, 'la cour est attachée à la grande emprise');
+    assert.equal(b[1].trous.length, 0, 'la voisine n’hérite pas de la cour');
   });
 
   test('tuile GeoJSON : ordre [lon, lat] remis en [lat, lon], attributs repris', () => {
@@ -306,8 +326,10 @@ describe('requête de bâtiments (planificateur)', () => {
     assert.throws(() => buildingsQuery(LAT, 179.999, 3000), /SITE_CROSSES_DATELINE/);
   });
 
-  test('l’analyse « volumes » déclare bien la couche bâtiments', () => {
-    assert.deepEqual(DEPS.volumes, ['buildings']);
+  test('l’analyse « volumes » demande le bâti et l’altimétrie', () => {
+    /* sans la grille d'altitudes, les volumes ne peuvent pas se poser sur le
+       terrain : les deux couches montent ensemble */
+    assert.deepEqual(DEPS.volumes, ['buildings', 'terrain']);
   });
 });
 
@@ -338,5 +360,219 @@ describe('fond de carte (tuiles raster)', () => {
   test('l’URL de tuile est correctement remplie', () => {
     const u = V.urlTuile('https://{s}.tile.example/{z}/{x}/{y}.png', { x: 3, y: 4, z: 5 }, 'b');
     assert.equal(u, 'https://b.tile.example/5/3/4.png');
+  });
+});
+
+describe('relief : les volumes se posent sur le terrain', () => {
+  /* Grille d'essai : 5 × 5 sur 800 m, en pente douce d'ouest en est
+     (100 m à l'ouest, +10 m par colonne). */
+  const N = 5, R = 400;
+  const grille = (f = (i) => 100 + 10 * i) =>
+    Array.from({ length: N }, () => Array.from({ length: N }, (_, i) => f(i)));
+  const t = { n: N, zoom: 14, lat: LAT, lon: LON, radius: R, grid: grille() };
+
+  test('la grille se lit en repère local : zéro au centre du site', () => {
+    const terr = V.prepareTerrain(t, 1);
+    assert.equal(terr.n, N);
+    assert.ok(Math.abs(terr.z(LAT, LON)) < 1e-9, 'centre à zéro');
+    assert.ok(Math.abs(terr.altitude(LAT, LON) - 120) < 1e-6, 'altitude absolue au centre : ' + terr.altitude(LAT, LON));
+    const dx = (R / 111320) / Math.cos(LAT * D2R);
+    assert.ok(terr.z(LAT, LON - dx) < -19.9, 'bord ouest plus bas : ' + terr.z(LAT, LON - dx).toFixed(1));
+    assert.ok(terr.z(LAT, LON + dx) > 19.9, 'bord est plus haut : ' + terr.z(LAT, LON + dx).toFixed(1));
+    assert.equal(terr.mini, 100);
+    assert.equal(terr.maxi, 140);
+  });
+
+  test('le maillage déborde de la grille et garde l’altitude du bord', () => {
+    const terr = V.prepareTerrain(t, 1);
+    const q = V.maillageRelief(terr);
+    assert.equal(q.length, (N - 1 + 2 * V.RELIEF_MARGE) ** 2, 'quads : ' + q.length);
+    assert.ok(q.every(x => Number.isFinite(x.z) && x.n.every(Number.isFinite)), 'valeurs finies');
+    /* les nœuds s'étendent au-delà du carré de la grille (rayon R) … */
+    const xMax = Math.max(...q.flatMap(x => x.pts.map(p => Math.abs(p[0]))));
+    const yMax = Math.max(...q.flatMap(x => x.pts.map(p => Math.abs(p[1]))));
+    assert.ok(xMax > R && yMax > R, 'débord : ' + xMax.toFixed(0) + ' × ' + yMax.toFixed(0) + ' m');
+    /* … mais leur altitude reste celle du bord : aucun quad plus haut que la
+       grille elle-même, aucune extrapolation. */
+    const hors = q.filter(x => x.pts.some(p => Math.hypot(p[0], p[1]) > R * 1.02));
+    const bas = terr.mini - terr.ref, haut = terr.maxi - terr.ref;   // repère local
+    assert.ok(hors.length > 0, 'des quads hors grille : ' + hors.length);
+    assert.ok(hors.every(x => x.z >= bas - 1e-9 && x.z <= haut + 1e-9),
+      'altitudes bornées (' + bas + ' … ' + haut + ' m)');
+  });
+
+  test('sans relief, l’assise est à zéro ; avec relief, elle suit la pente', () => {
+    const bat = [
+      { g: carre(LAT, LON - 0.002), h: 10, t: 'yes' },
+      { g: carre(LAT, LON + 0.002), h: 10, t: 'yes' }
+    ];
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
+    const plat = V.scene(bat, cam, {});
+    assert.equal(plat.batiments[0].z, 0);
+    assert.equal(plat.batiments[1].z, 0);
+    const sc = V.scene(bat, cam, { terrain: t });
+    const [ouest, est] = sc.batiments;
+    assert.ok(ouest.z < -8, 'bâti de l’ouest en contrebas : ' + ouest.z.toFixed(1) + ' m');
+    assert.ok(est.z > 8, 'bâti de l’est en surplomb : ' + est.z.toFixed(1) + ' m');
+    /* 4,5 mm de longitude par mètre : 0,002° ≈ 200 m de part et d'autre du
+       centre, soit ≈ 0,9 cellule de 200 m et 10 m de pente par cellule */
+    assert.ok(Math.abs((est.z - ouest.z) - 18) < 0.5, 'dénivelé : ' + (est.z - ouest.z).toFixed(1) + ' m');
+    /* le centre retenu est bien le centre de gravité, pas le sommet de
+       fermeture répété : l'assise ne dépend pas du point écrit en double */
+    const sansDouble = V.scene([{ ...bat[1], g: bat[1].g.slice(0, -1) }], cam, { terrain: t });
+    assert.ok(Math.abs(sansDouble.batiments[0].z - est.z) < 0.05,
+      'assise identique (' + sansDouble.batiments[0].z.toFixed(2) + ' vs ' + est.z.toFixed(2) + ')');
+    /* la hauteur dessinée, elle, ne dépend pas du relief */
+    assert.equal(ouest.h, 10);
+  });
+
+  test('un relief plat ne change pas l’image, mais annonce son altitude', () => {
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
+    const bat = [{ g: carre(LAT, LON), h: 12, t: 'yes' }];
+    const sc = V.scene(bat, cam, { terrain: { ...t, grid: grille(() => 630) } });
+    assert.equal(sc.batiments[0].z, 0, 'relief plat : assise à zéro');
+    assert.equal(sc.batiments[0].h, 12);
+  });
+
+  test('la planche annonce l’amplitude du relief', () => {
+    const p = V.planche(makeCtx(), {});
+    assert.ok(/sol 589–665 m/.test(p.note), p.note);
+    assert.deepEqual(p.relief.map(Math.round), [589, 665]);
+    /* sans grille, la note reste celle d'avant */
+    const sans = V.planche(makeCtx({ terrain: null }), {});
+    assert.ok(!/ sol /.test(sans.note), sans.note);
+    assert.equal(sans.relief, null);
+  });
+});
+
+describe('cours intérieures et volumes imbriqués', () => {
+  /* Immeuble de 40 m à cour centrale de 16 m. */
+  const avecCour = {
+    g: carre(LAT, LON, 40), h: 14, t: 'yes',
+    trous: [carre(LAT, LON, 16)]
+  };
+  const plein = { g: carre(LAT, LON, 40), h: 14, t: 'yes' };
+  const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
+  const midi = V.soleil(V.instantLocal(12, LAT, LON), LAT, LON);
+
+  test('la cour ajoute des murs intérieurs, sans remplacer l’emprise', () => {
+    const sc = V.scene([avecCour], cam, { soleil: midi });
+    const murs = sc.faces.filter(f => f.type === 'mur');
+    assert.ok(murs.some(f => f.ext === false), 'murs de cour');
+    assert.ok(murs.some(f => f.ext !== false), 'murs d’emprise');
+    const sans = V.scene([plein], cam, { soleil: midi }).faces.filter(f => f.type === 'mur');
+    assert.ok(murs.length > sans.length, murs.length + ' murs avec cour > ' + sans.length + ' sans');
+  });
+
+  test('la cour est dessinée à sa taille, pas réduite à un point', () => {
+    /* Projeter une cour en degrés au lieu de mètres locaux la réduit à un
+       pixel : le trou doit occuper la part attendue de l'emprise (16/40). */
+    const sc = V.scene([avecCour], cam, { soleil: midi });
+    const toit = sc.faces.find(f => f.type === 'toit');
+    const largeur = pts => Math.max(...pts.map(p => p[0])) - Math.min(...pts.map(p => p[0]));
+    const part = largeur(toit.trous[0]) / largeur(toit.pts);
+    assert.ok(part > 0.25 && part < 0.6, 'part de la cour à l’écran : ' + part.toFixed(2));
+    assert.ok(largeur(toit.trous[0]) > 3, 'cour large de ' + largeur(toit.trous[0]).toFixed(1) + ' px');
+  });
+
+  test('le toit est évidé, pas dessiné par-dessus la cour', () => {
+    const sc = V.scene([avecCour], cam, { soleil: midi });
+    const toit = sc.faces.find(f => f.type === 'toit');
+    assert.ok(toit, 'un toit');
+    assert.equal(toit.trous.length, 1, 'un trou');
+    assert.equal(toit.trous[0].length, toit.pts.length, 'trou et emprise de même finesse');
+    /* deux sous-tracés : l'emprise, puis la cour */
+    const d = V.toitSVG(toit);
+    assert.ok(d.includes('fill-rule="evenodd"'), 'remplissage pair-impair');
+    assert.equal((d.match(/M/g) || []).length, 2, 'deux anneaux dans le tracé');
+    assert.ok(d.trim().endsWith('/>'), d.slice(-14));
+    /* sans cour : un simple polygone plein */
+    const pleinSvg = V.toitSVG(V.scene([plein], cam, { soleil: midi }).faces.find(f => f.type === 'toit'));
+    assert.ok(pleinSvg.startsWith('<polygon') && !pleinSvg.includes('evenodd'), pleinSvg.slice(0, 40));
+  });
+
+  test('l’image SVG évide bien la cour et la signale au clic', () => {
+    const svg = V.versSVG([avecCour], {
+      lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, soleil: midi
+    });
+    assert.ok(svg.includes('fill-rule="evenodd"'), 'un tracé évidé');
+    for (const bad of ['NaN', 'undefined', 'Infinity']) assert.ok(!svg.includes(bad), bad);
+    const sc = V.scene([avecCour], cam, { soleil: midi });
+    const c = cam.proj(LAT, LON - 0.0001, 14);           // sur le toit, près du bord sud
+    assert.equal(V.designer(sc, c[0], c[1]), avecCour, 'le bâti se désigne toujours');
+  });
+
+  test('le tri groupe les faces par bâtiment, du plus lointain au plus proche', () => {
+    /* une grande barre au nord (loin), une petite au sud (près) */
+    const loin = { g: carre(LAT + 0.0025, LON, 60), h: 20, t: 'yes' };
+    const près = { g: carre(LAT - 0.0015, LON, 12), h: 20, t: 'yes' };
+    const sc = V.scene([loin, près], cam, { soleil: midi });
+    assert.equal(sc.groupes.length, 2, 'un groupe par bâtiment');
+    assert.ok(sc.groupes[0].prof > sc.groupes[1].prof, 'du plus lointain au plus proche');
+    assert.equal(sc.groupes[1].faces[0].b, près, 'le groupe suivant est le plus proche');
+    /* les faces sont bien celles des groupes, mises bout à bout */
+    assert.equal(sc.faces.length, sc.groupes.reduce((n, g) => n + g.faces.length, 0));
+    for (let i = 1; i < sc.faces.length; i++) {
+      const avant = sc.faces[i - 1], après = sc.faces[i];
+      if (avant.b === après.b) assert.ok(avant.prof >= après.prof, 'faces d’un même bâti triées');
+    }
+  });
+
+  test('au clic, c’est le bâtiment le plus proche qui répond', () => {
+    const loin = { g: carre(LAT + 0.0022, LON, 80), h: 24, t: 'yes', nom: 'loin' };
+    const près = { g: carre(LAT - 0.0022, LON, 24), h: 24, t: 'yes', nom: 'près' };
+    const sc = V.scene([loin, près], cam, { soleil: midi });
+    const c = cam.proj(LAT - 0.0022, LON, 12);           // sur le bâtiment proche
+    assert.equal(V.designer(sc, c[0], c[1]), près, 'le proche l’emporte sur l’arrière-plan');
+    /* et le bâtiment lointain reste désignable là où il est seul */
+    const haut = cam.proj(LAT + 0.0022, LON, 12);
+    assert.equal(V.designer(sc, haut[0], haut[1]), loin);
+  });
+});
+
+describe('vue interactive : rendu sur canevas', () => {
+  /* Faux contexte 2D : on n'évalue pas le dessin, on vérifie seulement que le
+     chemin de la vue interactive accepte le relief et les cours sans broncher,
+     et qu'il évide bien les toits à cour. */
+  function fauxContexte() {
+    const appels = [];
+    const g = {
+      appels,
+      canvas: { width: 400, height: 400 },
+      save() {}, restore() {}, clearRect() {}, beginPath() {}, closePath() {},
+      moveTo() {}, lineTo() {}, arc() {}, stroke() {}, fillRect() {},
+      createLinearGradient: () => ({ addColorStop() {} }), drawImage() {}, setTransform() {},
+      arcTo() {}, quadraticCurveTo() {},
+      fill(regle) { appels.push({ op: 'fill', regle: regle || 'nonzero', style: g.fillStyle }); },
+      stroke() { appels.push({ op: 'stroke' }); },
+      set fillStyle(v) { this._f = v; }, get fillStyle() { return this._f; },
+      set strokeStyle(v) { this._s = v; }, get strokeStyle() { return this._s; },
+      set globalAlpha(v) {}, get globalAlpha() { return 1; },
+      set lineWidth(v) {}, set lineJoin(v) {}, set font(v) {}, set textAlign(v) {},
+      set textBaseline(v) {}, set globalCompositeOperation(v) {}, set lineCap(v) {},
+      setTransform(a, b, c, d, e, f) {}, measureText: () => ({ width: 10 }),
+      fillText() {}, strokeText() {}
+    };
+    return g;
+  }
+
+  test('le relief et les cours passent par le canevas', () => {
+    const terr = {
+      n: 5, zoom: 14, lat: LAT, lon: LON, radius: 400,
+      grid: Array.from({ length: 5 }, (_, j) => Array.from({ length: 5 }, (_, i) => 100 + 6 * i - 4 * j))
+    };
+    const bat = [
+      { g: carre(LAT, LON, 40), h: 14, t: 'yes', trous: [carre(LAT, LON, 16)] },
+      { g: carre(LAT + 0.002, LON, 20), h: 8, t: 'yes' }
+    ];
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
+    const sc = V.scene(bat, cam, { soleil: V.soleil(V.instantLocal(12, LAT, LON), LAT, LON), terrain: terr });
+    const g = fauxContexte();
+    assert.doesNotThrow(() => V.dessiner(g, sc, { routes: [] }), 'rendu sans erreur');
+    assert.ok(g.appels.filter(a => a.op === 'fill').length > sc.maille.length,
+      'le maillage du sol est peint : ' + g.appels.length + ' appels');
+    assert.ok(g.appels.some(a => a.regle === 'evenodd'), 'le toit à cour est évidé');
+    assert.doesNotThrow(() => V.dessiner(g, V.scene(bat, cam, {}), { routes: [] }),
+      'rendu sans relief ni cour, sans erreur');
   });
 });

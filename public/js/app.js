@@ -149,6 +149,7 @@ function vue3D(opts = {}) {
     batiments: (S.D.build || []).length ? S.D.build : null,
     routes: S.D.roads || [],
     eaux: (S.D.green || []).filter(x => x.k === 'w').map(x => x.g),
+    terrain: S.terrain || null,
     device: S.device, compte: S.session?.account, jeton: S.session?.token,
     fondParDefaut: false
   });

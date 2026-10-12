@@ -197,6 +197,9 @@ body.v3d-ouvert{overflow:hidden}
 .v3d-scene canvas:active{cursor:grabbing}
 .v3d-aide{position:absolute;left:14px;bottom:12px;color:#CFCCC4;font:11px var(--mono);
   background:rgba(18,19,15,.55);padding:5px 9px;border-radius:4px;pointer-events:none}
+.v3d-alt{position:absolute;left:14px;top:12px;color:#CFCCC4;font:11px var(--mono);
+  background:rgba(18,19,15,.55);padding:4px 9px;border-radius:4px;pointer-events:none}
+.v3d-alt:empty{display:none}
 .v3d-attr{position:absolute;right:14px;bottom:12px;color:#CFCCC4;font:10px var(--mono);
   background:rgba(18,19,15,.55);padding:4px 8px;border-radius:4px;pointer-events:none}
 .v3d-etat{position:absolute;left:50%;top:18px;transform:translateX(-50%);color:#EDEAE3;

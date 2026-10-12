@@ -45,6 +45,7 @@ export function ouvrir3D(o) {
         <input type="range" id="v3d-pal" min="0" max="3" step="1" value="0"></label>
       <label class="v3d-c v3d-case"><input type="checkbox" id="v3d-fond" ${o.fondParDefaut ? 'checked' : ''}> ${t('Fond de carte', 'Basemap')}</label>
       <label class="v3d-c v3d-case"><input type="checkbox" id="v3d-ombres" checked> ${t('Ombres', 'Shadows')}</label>
+      <label class="v3d-c v3d-case"><input type="checkbox" id="v3d-relief" checked> ${t('Relief', 'Terrain')}</label>
       <span class="v3d-spacer"></span>
       <button id="v3d-png" title="${t('Image PNG de la vue', 'PNG image of the view')}">PNG</button>
       <button id="v3d-svg" title="${t('Géométrie vectorielle', 'Vector geometry')}">SVG</button>
@@ -54,6 +55,7 @@ export function ouvrir3D(o) {
       <canvas id="v3d-cv"></canvas>
       <div class="v3d-aide">${t(FR.aide, 'drag: rotate · wheel: zoom · click: info')}</div>
       <div class="v3d-attr" id="v3d-attr"></div>
+      <div class="v3d-alt" id="v3d-alt"></div>
       <div class="v3d-etat" id="v3d-etat">${t(FR.chargement, 'Loading buildings…')}</div>
       <aside class="v3d-fiche" id="v3d-fiche" hidden></aside>
     </div>`;
@@ -73,6 +75,7 @@ export function ouvrir3D(o) {
     cap: 0, inclinaison: o.inclinaison ?? 50, heure: o.heure ?? 12,
     palette: 0, rayon: o.rayon, fond: !!o.fondParDefaut, ombres: true,
     selection: null, batiments: o.batiments || [], routes: o.routes || [],
+    terrain: o.terrain || null, relief: true,   // le relief est acquis par défaut ; la case le débraye
     eaux: o.eaux || [], images: new Map(), chargement: 0
   };
 
@@ -114,6 +117,7 @@ export function ouvrir3D(o) {
     const soleil = V.soleil(V.instantLocal(et.heure, o.lat, o.lon), o.lat, o.lon);
     const sc = V.scene(et.batiments, cam, {
       palette: et.palette, soleil, echelleH: 4,
+      terrain: et.relief ? et.terrain : null,
       /* sans ombre : le soleil monte au zénith, les ombres disparaissent */
       ...(et.ombres ? {} : { soleil: { hauteur: Math.PI / 2, azimut: 180, vecteur: [0, 0, 1] } })
     });
@@ -221,6 +225,11 @@ export function ouvrir3D(o) {
   q('#v3d-inc').addEventListener('input', e => { et.inclinaison = Number(e.target.value); dessiner(); });
   q('#v3d-pal').addEventListener('input', e => { et.palette = Number(e.target.value); dessiner(); });
   q('#v3d-ombres').addEventListener('change', e => { et.ombres = e.target.checked; dessiner(); });
+  q('#v3d-relief').addEventListener('change', async e => {
+    et.relief = e.target.checked;
+    if (et.relief && !et.terrain) await chargerRelief();
+    dessiner();
+  });
   q('#v3d-fond').addEventListener('change', e => {
     et.fond = e.target.checked;
     if (et.fond) chargerFond();
@@ -231,7 +240,7 @@ export function ouvrir3D(o) {
     const svg = V.versSVG(et.batiments, {
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap, inclinaison: et.inclinaison,
       palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
-      routes: et.routes, eaux: et.eaux,
+      routes: et.routes, eaux: et.eaux, terrain: et.relief ? et.terrain : null,
       soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon), o.lat, o.lon),
       attribution: et.fond ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · Freemap'
     });
@@ -305,6 +314,7 @@ export function ouvrir3D(o) {
             ' · ' + et.batiments.filter(b => b.h > 0).length + ' ' + t('avec hauteur', 'with height');
         }
       }
+      if (et.relief && !et.terrain) await chargerRelief();
       etat.hidden = true;
     } catch (e) {
       etat.hidden = false;
@@ -317,8 +327,37 @@ export function ouvrir3D(o) {
     dessiner();
   }
 
+  /* Relief : grille d'altitudes (tuiles Terrarium), servie par l'action
+     `terrain` — la même que l'analyse « relief » du catalogue. */
+  async function chargerRelief() {
+    if (et.terrain) return;
+    try {
+      const r = await fetch('/analysis/2d', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'terrain', device: o.device, lat: o.lat, lon: o.lon,
+          radius: et.rayon, n: 24, account: o.compte, token: o.jeton
+        })
+      });
+      const d = await r.json();
+      if (d.ok && d.grid?.length) {
+        et.terrain = d;
+        q('#v3d-relief').checked = true;
+        et.relief = true;
+        const v = d.grid.flat();
+        q('#v3d-alt').textContent = Math.round(Math.min(...v)) + '–' + Math.round(Math.max(...v)) + ' m';
+      } else {
+        q('#v3d-relief').checked = false;
+        et.relief = false;
+      }
+    } catch { q('#v3d-relief').checked = false; et.relief = false; }
+  }
+
   dimensionner();
   charger(o.source || 'overpass');
+  q('#v3d-alt').textContent = et.terrain
+    ? (() => { const v = et.terrain.grid.flat(); return Math.round(Math.min(...v)) + '–' + Math.round(Math.max(...v)) + ' m'; })()
+    : '';
   if (et.fond) chargerFond();
   dessiner();
 

@@ -137,7 +137,10 @@ relevées puis réimplémentées sans dépendance) :
 - analyse **Volumes 3D** dans le catalogue, exportable comme les autres ;
 - **vue interactive** plein écran (bouton `3D` ou `?vue3d=1`) : rotation,
   inclinaison, zoom, curseur d'heure, fiche au clic, fond de carte optionnel,
-  export PNG et SVG.
+  export PNG et SVG ;
+- **posés sur le terrain réel** (altimétrie Terrarium, la même que l'analyse
+  « relief ») et **cours intérieures évidées** : les volumes suivent la pente,
+  les toits à cour sont troués.
 
 Deux sources de hauteurs : nos requêtes Overpass (autonome) ou les tuiles
 d'osmbuildings.org, qui fournissent une hauteur pour chaque bâtiment.

@@ -53,7 +53,7 @@ export const DEPS = {
   access: ['roads'],
   pedestrian: ['roads'],
   typology: ['buildings'],
-  volumes: ['buildings'],          /* vue 3D : emprises + hauteurs */
+  volumes: ['buildings', 'terrain'],  /* vue 3D : emprises, hauteurs, sol */
   isogrid: ['buildings'],
   nodes: ['roads', 'poi'],
   soundmap: ['roads', 'poi', 'green', 'sound'],

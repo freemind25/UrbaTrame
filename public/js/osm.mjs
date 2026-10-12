@@ -85,14 +85,33 @@ function hauteurEtage(tags) {
   return Number.isFinite(lv) && lv > 0 ? lv * 3.1 : 0;
 }
 
+/* Le point (lat, lon) est-il à l'intérieur de l'anneau ? (lancer de rayon)
+   Sert à rattacher une cour intérieure à la bonne emprise extérieure. */
+function dansAnneau(lat, lon, ring) {
+  let dedans = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [yi, xi] = ring[i], [yj, xj] = ring[j];
+    if (((xi > lon) !== (xj > lon)) && (lat < (yj - yi) * (lon - xi) / (xj - xi) + yi))
+      dedans = !dedans;
+  }
+  return dedans;
+}
+const centroide = ring => {
+  let la = 0, lo = 0;
+  for (const p of ring) { la += p[0]; lo += p[1]; }
+  return [la / ring.length, lo / ring.length];
+};
+
 export function batimentsDepuisOverpass(elements) {
   const out = [];
-  const pousse = (tags, geometry, id) => {
+  const pousse = (tags, geometry, id, trous) => {
     const g = geometry.map(p => [p.lat, p.lon]);
     if (g.length < 3) return;
     const h = heightOf(tags) || hauteurEtage(tags);
     out.push({
       g, h, id: 'osm-' + id,
+      /* Cours intérieures : anneaux évidés au rendu (règle pair-impair). */
+      trous: (trous || []).map(r => r.map(p => [p[0], p[1]])),
       minH: parseFloat(tags['building:min_height']) || 0,
       hauteurToit: parseFloat(tags['roof:height']) || 0,
       t: tags.building === 'yes' ? (tags.amenity || tags.shop || tags.office || 'yes') : (tags.building || 'yes'),
@@ -105,13 +124,20 @@ export function batimentsDepuisOverpass(elements) {
     const t = e.tags || {};
     if (!t.building) continue;
     if (e.type === 'relation' && e.members) {
-      /* Une relation = bâtiment à cour : chaque membre « outer » est un anneau. */
-      let i = 0;
-      for (const m of e.members)
-        /* les membres « inner » sont des cours intérieures : on remplit, comme
-           les autres renderers du projet, plutôt que de les dessiner à part */
-        if (m.geometry && m.geometry.length > 3 && m.role !== 'inner')
-          pousse(t, m.geometry, e.id + '-' + (i++));
+      /* Une relation peut décrire plusieurs emprises et des cours intérieures.
+         Chaque cours revient à l'emprise qui la contient (sinon elle serait
+         silencieusement perdue, ou pire, rattachée au mauvais bâtiment). */
+      const outers = [], inners = [];
+      for (const m of e.members) {
+        if (!m.geometry || m.geometry.length <= 3) continue;
+        const ring = m.geometry.map(p => [p.lat, p.lon]);
+        if (m.role === 'inner') inners.push(ring);
+        else outers.push(ring);
+      }
+      outers.forEach((ring, i) => {
+        const trous = inners.filter(inr => dansAnneau(...centroide(inr), ring));
+        pousse(t, ring.map(p => ({ lat: p[0], lon: p[1] })), e.id + (outers.length > 1 ? '-' + i : ''), trous);
+      });
       continue;
     }
     if (e.geometry && e.geometry.length > 3) pousse(t, e.geometry, e.id);

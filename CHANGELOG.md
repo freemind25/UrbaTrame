@@ -34,6 +34,36 @@ de licence fonctionnent de bout en bout.
   tri des faces, ombres (longueur, côté, absence la nuit), désignation au clic,
   lecture des deux formats, requête de bâtiments.
 
+### Ajouté — la 3D tient compte du relief et des cours
+
+- **Les volumes se posent sur le terrain** : l'altimétrie du projet (tuiles
+  Terrarium, action `terrain`, jusqu'ici réservée aux analyses « relief »,
+  « courbes de niveau » et « exposition ») est appliquée à la vue 3D. La grille
+  est maillée en quadrilatères ombrés par la pente, prolongée au-delà de son
+  emprise pour que le sol ne s'arrête pas net au bord du cadre ; voirie, eau et
+  ombres suivent la pente. Le zéro du dessin est l'altitude du centre du site —
+  sans ce recalage, un site à 630 m placerait toute la scène 630 m au-dessus de
+  la caméra. Case *Relief* dans la vue interactive (acquise par défaut, une
+  requête au premier affichage), amplitude annoncée dans la note de la planche
+  (`sol 589–665 m`). `DEPS.volumes` demande désormais `buildings` **et**
+  `terrain`.
+- **Cours intérieures évidées** : les membres `inner` des relations OSM
+  deviennent des **trous** du toit (chemin unique, remplissage « pair-impair »),
+  rattachés à l'emprise qui les contient ; les murs de la cour sont dessinés avec
+  la bonne orientation. Le centre qui décide du côté extérieur d'un mur est
+  maintenant le centre de gravité de la surface (formule des lacets) : la
+  moyenne des sommets se décalait vers le point de fermeture répété et pouvait
+  tomber hors d'un anneau concave.
+- **Tri par bâtiment** : les faces sont groupées par bâtiment, les groupes
+  rangés du plus lointain au plus proche. Un toit lointain ne passe plus devant
+  le mur d'un voisin proche, et le clic rend le bâtiment le plus proche sous le
+  curseur.
+- 13 tests supplémentaires (230 au total, hors ligne) : repère local du relief,
+  débord du maillage et altitude du bord, assise du bâti sur la pente, indice de
+  relief dans la note, taille de la cour à l'écran, toit évité, murs de cour,
+  rattachement d'une cour à la bonne emprise, tri groupé, désignation du plus
+  proche, rendu sur canvas.
+
 ### Ajouté
 
 - **Période d'essai ouverte** (`FM_ACCESS=open`, le défaut) : toutes les
