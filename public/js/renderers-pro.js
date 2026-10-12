@@ -1096,4 +1096,19 @@
       { type: 'rect', c: s.warm, s: s.warm, l: L(ctx, 'MAX ' + peak.toFixed(1), 'PEAK ' + peak.toFixed(1)) }
     ], L(ctx, 'CUMUL ≈ ', 'ANNUAL ≈ ') + fmtN(anual) + ' kWh/m²/an · ' + L(ctx, 'RAPPORT ÉTÉ/HIVER ', 'SUMMER/WINTER ') + (peak / (low || 1)).toFixed(1) + '×');
   };
+  /* ═══════════════ 36 · VOLUMES 3D ═══════════════
+     Vue oblique des bâtiments extrudés, ombres portées selon l'heure du site.
+     Le moteur vit dans vue3d.js (partagé avec la vue interactive) : la planche
+     et l'écran affichent donc exactement la même géométrie. */
+  R.volumes = (ctx, sc) => {
+    const V = G.FMVue3D;
+    if (!V) return blank(ctx, 'MOTEUR 3D ABSENT');
+    const p = V.planche(ctx, { palette: sc, cap: 0, inclinaison: 42 });
+    const sansHauteur = p.batiments - p.mesures;
+    return wrap(ctx, p.svg, p.legende,
+      p.note + (sansHauteur > 0
+        ? L(ctx, ' · ' + sansHauteur + ' à 9 m', ' · ' + sansHauteur + ' at 9 m')
+        : ''),
+      { dark: sc % 4 === 3 });
+  };
 })(globalThis);

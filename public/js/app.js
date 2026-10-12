@@ -6,6 +6,7 @@ import { plan, FREE_IDS, MAX_IDS, LIMITS, DEPS, VERSION } from './plan-2d.mjs';
 import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
+import { ouvrir3D } from './vue3d-ui.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -136,6 +137,23 @@ const unlocked = id => {
   return S.tier === 'max';
 };
 
+/* ═══════════════ vue 3D ═══════════════
+   Ouvre la fenêtre de volumes bâtis : mêmes données que l'analyse « Volumes 3D »
+   quand elles sont déjà chargées, sinon le serveur les fournit (action
+   `buildings`), avec repli sur les tuiles osmbuildings.org si on le demande. */
+function vue3D(opts = {}) {
+  return ouvrir3D({
+    lat: S.site.lat, lon: S.site.lon, rayon: S.site.R,
+    nom: S.site.name, langue: S.lang,
+    heure: Math.round(S.time), inclinaison: 50,
+    batiments: (S.D.build || []).length ? S.D.build : null,
+    routes: S.D.roads || [],
+    eaux: (S.D.green || []).filter(x => x.k === 'w').map(x => x.g),
+    device: S.device, compte: S.session?.account, jeton: S.session?.token,
+    fondParDefaut: false
+  });
+}
+
 /* ═══════════════ catalogue ═══════════════ */
 function renderCatalog() {
   const host = $('#catalog');
@@ -237,6 +255,7 @@ function renderCards() {
         <span class="title" contenteditable="true" spellcheck="false">${esc(S.names[id] || T(a.nom, a.en))}</span>
         <span class="tag">${a.tag}</span>
         <span class="ctl">
+          ${id === 'volumes' ? `<button title="${T('ouvrir la vue 3D interactive', 'open interactive 3D view')}" data-3d>3D</button>` : ''}
           <button title="${T('palette suivante', 'next palette')}" data-pal>◨</button>
           <button title="${T('texte on/off', 'text on/off')}" data-txt class="${S.noText.has(id) ? 'off' : ''}">✎</button>
           <button title="SVG" data-svg>SVG</button>
@@ -260,6 +279,8 @@ function renderCards() {
       e.currentTarget.classList.toggle('off', S.noText.has(id));
       card.querySelector('.body').innerHTML = renderOne(id);
     });
+    const b3d = card.querySelector('[data-3d]');
+    if (b3d) b3d.addEventListener('click', () => vue3D());
     card.querySelector('[data-svg]').addEventListener('click', () => downloadSVG(id, card));
     card.querySelector('[data-png]').addEventListener('click', () => downloadPNG(id, card));
     grid.appendChild(card);
@@ -716,6 +737,7 @@ async function init() {
   }
   await refreshEntitlement();
 
+  if (qp.get('vue3d') === '1') setTimeout(() => vue3D(), 400);
   if (qp.get('upgrade')) openPlans();
   if (qp.get('sample') === '1') setTimeout(loadSample, 300);
   if (qp.get('q')) {

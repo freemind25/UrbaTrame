@@ -176,3 +176,44 @@ button.gen.ready:hover{background:var(--red2)}
   aside{position:static;max-height:none;order:2}
   main{order:1}
 }
+
+/* ═══════════ Vue 3D ═══════════ */
+body.v3d-ouvert{overflow:hidden}
+.v3d{position:fixed;inset:0;z-index:90;background:#12130F;display:flex;flex-direction:column}
+.v3d-barre{display:flex;align-items:center;gap:14px;padding:9px 14px;background:#1D1F1A;color:#EDEAE3;
+  font:12px/1.4 var(--mono);flex-wrap:wrap;border-bottom:1px solid #2E3129}
+.v3d-barre strong{font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.v3d-c{display:flex;align-items:center;gap:6px;color:#B9B6AD;white-space:nowrap}
+.v3d-c input[type=range]{width:92px;accent-color:#C0392B}
+.v3d-c output{min-width:34px;color:#EDEAE3}
+.v3d-c.v3d-case{gap:4px}
+.v3d-spacer{flex:1}
+.v3d-barre button{background:#2A2D25;color:#EDEAE3;border:1px solid #3C4036;border-radius:4px;
+  padding:5px 10px;font:700 11px var(--mono);cursor:pointer}
+.v3d-barre button:hover{background:#343830}
+.v3d-barre button.fermer{background:#3A201C;border-color:#5A2E28;padding:5px 9px}
+.v3d-scene{position:relative;flex:1;overflow:hidden}
+.v3d-scene canvas{display:block;touch-action:none;cursor:grab}
+.v3d-scene canvas:active{cursor:grabbing}
+.v3d-aide{position:absolute;left:14px;bottom:12px;color:#CFCCC4;font:11px var(--mono);
+  background:rgba(18,19,15,.55);padding:5px 9px;border-radius:4px;pointer-events:none}
+.v3d-attr{position:absolute;right:14px;bottom:12px;color:#CFCCC4;font:10px var(--mono);
+  background:rgba(18,19,15,.55);padding:4px 8px;border-radius:4px;pointer-events:none}
+.v3d-etat{position:absolute;left:50%;top:18px;transform:translateX(-50%);color:#EDEAE3;
+  background:rgba(29,31,26,.92);border:1px solid #3C4036;border-radius:4px;padding:6px 12px;
+  font:12px var(--mono)}
+.v3d-etat.erreur{background:#3A201C;border-color:#5A2E28}
+.v3d-fiche{position:absolute;right:14px;top:14px;width:250px;background:#F4F2ED;color:#1A1917;
+  border-radius:6px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.v3d-fiche h4{margin:0 0 8px;font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.v3d-l{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dotted #CFCBC2;
+  font:11px/1.5 var(--mono)}
+.v3d-l span{color:#6E6A62}
+.v3d-l b{text-align:right;word-break:break-word}
+.v3d-fiche button{margin-top:10px;width:100%;background:#E4E0D8;border:1px solid #CFCBC2;border-radius:4px;
+  padding:6px;font:700 11px var(--mono);cursor:pointer}
+@media (max-width:720px){
+  .v3d-barre{gap:9px;font-size:11px}
+  .v3d-c input[type=range]{width:64px}
+  .v3d-fiche{width:200px}
+}

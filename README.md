@@ -128,6 +128,21 @@ titre signé est vérifié **dans le navigateur** (`crypto.subtle`) avant d'ouvr
 l'accès. Modifier `localStorage` ne donne donc rien. Avant une mise en ligne,
 remplacez ces codes et lisez [SECURITY.md](SECURITY.md).
 
+## Vue 3D
+
+Les bâtiments peuvent être affichés **en volume**, avec ombres portées selon
+l'heure et le lieu (comme sur `osmbuildings.org`, dont les fonctions ont été
+relevées puis réimplémentées sans dépendance) :
+
+- analyse **Volumes 3D** dans le catalogue, exportable comme les autres ;
+- **vue interactive** plein écran (bouton `3D` ou `?vue3d=1`) : rotation,
+  inclinaison, zoom, curseur d'heure, fiche au clic, fond de carte optionnel,
+  export PNG et SVG.
+
+Deux sources de hauteurs : nos requêtes Overpass (autonome) ou les tuiles
+d'osmbuildings.org, qui fournissent une hauteur pour chaque bâtiment.
+Détail et limites : **[docs/VUE3D.md](docs/VUE3D.md)**.
+
 ## Accès : période d'essai ouverte
 
 **Aujourd'hui, tout est ouvert** : les 35 analyses, sans licence, sans
@@ -157,8 +172,9 @@ npm run genere-cle   # clé de signature Ed25519 (serveur : fichier · Vercel : 
 Les tests couvrent le rendu des 35 analyses et de leurs palettes, la cohérence
 du catalogue et du planificateur, les licences (signature vérifiée
 indépendamment du serveur), le contrat HTTP, le quota, l'accès libre et le basculement
-en régime sous licence, le repli entre miroirs Overpass, le décodeur PNG des
-tuiles d'altitude et la projection Mercator.
+en régime sous licence, le repli entre miroirs Overpass, la vue 3D (soleil,
+caméra, ombres, désignation au clic, lecture des deux sources), le décodeur PNG
+des tuiles d'altitude et la projection Mercator.
 
 ## Déploiement
 

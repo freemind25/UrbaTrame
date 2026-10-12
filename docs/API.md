@@ -103,6 +103,24 @@ Ferme la session et libère le quota : `{ ok: true }`.
 }
 ```
 
+### `action: "buildings"`
+
+Emprises bâties avec leurs hauteurs, pour la vue 3D. La requête Overpass est
+composée par le serveur (`buildingsQuery`) : le client ne transmet que le point
+et le rayon. Hors accès libre, une licence est exigée.
+
+| Champ | Type | |
+|---|---|---|
+| `device` | chaîne | obligatoire |
+| `lat`, `lon` | nombres | centre de la fenêtre |
+| `radius` | nombre | 200 à 3 000 mètres |
+| `account`, `token` | chaîne | requis hors accès libre |
+
+Réponse : `{ ok, elements, source }` — `elements` au format Overpass (`out geom`).
+Le client les normalise (`batimentsDepuisOverpass`) ou lit les tuiles
+osmbuildings.org (`batimentsDepuisTuiles`). Erreurs : `MAP_SOURCE_UNAVAILABLE`
+(502) si aucun miroir ne répond, `RADIUS_200_3000`, `INVALID_LOCATION`.
+
 ### `action: "terrain"`
 
 Grille d'altitudes. `device`, `lat`, `lon`, `radius`, `n` (12 à 40 points de

@@ -3,7 +3,7 @@
      POST /            form    geocode= · refcheck= · refcode=
      GET  /api/status           état du service + clé publique Ed25519
    Les autres GET servent les fichiers de public/.                              */
-import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/plan-2d.mjs';
+import { plan, buildingsQuery, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/plan-2d.mjs';
 import { SOURCES, accessMode, isOpenAccess } from './config.mjs';
 import {
   send, readBody, clientIp, serveStatic, TRACE, log
@@ -168,6 +168,28 @@ export function createAnalysisHandler({ licence, quota, runs }) {
       const r = runs.close(body.run);
       if (r?.slot) quota.release(r.slot, r.device);
       return send(res, 200, { ok: true });
+    }
+
+    /* ── buildings : emprises + hauteurs pour la vue 3D ──
+       Comme le reste : la requête est composée par le planificateur, jamais
+       transmise par le client. Hors accès libre, elle exige une licence. */
+    if (action === 'buildings') {
+      if (!isOpenAccess()) {
+        const s = licence.check(body);
+        if (s.error) return send(res, s.status, s);
+      }
+      let q;
+      try { q = buildingsQuery(Number(body.lat), Number(body.lon), Number(body.radius)); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+      try {
+        const t0 = Date.now();
+        const d = await overpass(q);
+        log('buildings', d.elements.length + ' emprises', (Date.now() - t0) + ' ms');
+        return send(res, 200, { ok: true, elements: d.elements, source: 'overpass' });
+      } catch (e) {
+        log('buildings échec', e.message);
+        return send(res, 502, { error: 'MAP_SOURCE_UNAVAILABLE', detail: e.message });
+      }
     }
 
     /* ── terrain : grille d'altitude ── */

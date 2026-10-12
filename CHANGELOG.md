@@ -14,6 +14,26 @@ de licence fonctionnent de bout en bout.
   budget Overpass passe à 45 s sous Vercel — la fonction étant coupée à 60 s —
   pour répondre `MAP_SOURCE_UNAVAILABLE` au lieu d'expirer.
 
+### Ajouté — vue 3D
+
+- **Analyse « Volumes 3D »** : bâtiments extrudés, ombres portées selon l'heure
+  du site, exportable en SVG/PNG comme les autres analyses.
+- **Vue interactive** (bouton `3D` sur la fiche, ou `?vue3d=1`) : rotation,
+  inclinaison, zoom à la molette, curseur d'heure, fiche d'un bâtiment au clic,
+  fond de carte OpenStreetMap optionnel, export PNG et SVG.
+- **Moteur maison** (`public/js/vue3d.js`, aucune dépendance) : position du
+  soleil (éphéméride abrégée), caméra perspective avec découpage du plan proche,
+  murs et toits triés par profondeur, ombres, désignation au clic, sortie SVG et
+  canvas. Fonctions relevées sur osmbuildings.org (rapport dans
+  `docs/reverse-osmbuildings.md`, mode d'emploi dans `docs/VUE3D.md`).
+- **Deux sources de bâtiments** : Overpass via une requête composée par le
+  serveur (nouvelle action `buildings`, même modèle de sûreté que `begin`) et,
+  en option, les tuiles d'osmbuildings.org — toutes pourvues d'une hauteur.
+- 42 tests supplémentaires (217 au total, hors ligne) : course du soleil dans
+  les deux hémisphères, géométrie de la caméra (centre, cardinaux, plan proche),
+  tri des faces, ombres (longueur, côté, absence la nuit), désignation au clic,
+  lecture des deux formats, requête de bâtiments.
+
 ### Ajouté
 
 - **Période d'essai ouverte** (`FM_ACCESS=open`, le défaut) : toutes les

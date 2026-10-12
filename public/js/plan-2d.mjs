@@ -53,6 +53,7 @@ export const DEPS = {
   access: ['roads'],
   pedestrian: ['roads'],
   typology: ['buildings'],
+  volumes: ['buildings'],          /* vue 3D : emprises + hauteurs */
   isogrid: ['buildings'],
   nodes: ['roads', 'poi'],
   soundmap: ['roads', 'poi', 'green', 'sound'],
@@ -159,6 +160,24 @@ const POI_SELECTORS = {
   soundmap: [...SELECTORS.sound],
   walkroutes: [...SELECTORS.destinations]
 };
+
+/* Requête dédiée à la vue 3D : bâtiments (ways et relations) avec leurs
+   étiquettes de hauteur, lues puis normalisées par le client. Même modèle de
+   sûreté que plan() : c'est le serveur qui compose la requête, jamais le
+   client — il ne fait que demander ces emprises pour un point et un rayon. */
+export function buildingsQuery(lat, lon, radius) {
+  if (!Number.isFinite(radius) || radius < 200 || radius > 3000) throw new Error('RADIUS_200_3000');
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180)
+    throw new Error('INVALID_LOCATION');
+  const dy = radius / 111320;
+  const dx = dy / Math.cos(lat * Math.PI / 180);
+  if (lon - dx < -180 || lon + dx > 180) throw new Error('SITE_CROSSES_DATELINE');
+  const bbox = [lat - dy, lon - dx, lat + dy, lon + dx].map(n => n.toFixed(7)).join(',');
+  return '[out:json][timeout:25][maxsize:67108864];(' +
+    'way["building"](' + bbox + ');' +
+    'relation["building"](' + bbox + ');' +
+    ');out geom;';
+}
 
 /* ─────────────────────────── le plan ─────────────────────────── */
 export function plan(ids, radius, lat, lon) {
