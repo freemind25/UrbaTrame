@@ -45,6 +45,21 @@ export function send(res, code, body, type = 'application/json; charset=utf-8', 
 }
 
 export function readBody(req, limit = 4 * 1024 * 1024) {
+  /* Certaines plateformes serverless analysent le corps avant de nous appeler
+     et le posent sur `req.body` : on le reprend tel quel plutôt que d'attendre
+     un flux déjà consommé. Ailleurs (serveur Node), c'est le flux qui parle. */
+  const pre = req.body;
+  if (pre !== undefined && pre !== null) {
+    if (Buffer.isBuffer(pre)) return Promise.resolve(pre);
+    if (typeof pre === 'string') return Promise.resolve(Buffer.from(pre));
+    if (typeof pre === 'object') {
+      const ct = String(req.headers?.['content-type'] || '');
+      const text = ct.includes('application/x-www-form-urlencoded')
+        ? new URLSearchParams(Object.entries(pre).map(([k, v]) => [k, String(v)])).toString()
+        : JSON.stringify(pre);
+      return Promise.resolve(Buffer.from(text));
+    }
+  }
   return new Promise((resolve, reject) => {
     let n = 0;
     const chunks = [];

@@ -33,5 +33,16 @@ export const UA = PRODUCT + '/0.1.0 (https://github.com/freemind25/freemap ; fre
 export const COOLDOWN_MS = 20_000;
 export const RUN_TTL_MS = 5 * 60_000;
 
-/* Délais des appels sortants, en millisecondes. */
-export const TIMEOUTS = { overpass: 60_000, nominatim: 15_000, climate: 30_000, tile: 20_000 };
+/* Délais des appels sortants, en millisecondes.
+   Sur Vercel, une fonction est interrompue à 60 s (offre gratuite) : on rend
+   la main un peu avant, pour répondre MAP_SOURCE_UNAVAILABLE au lieu d'un
+   délai d'attente côté navigateur. */
+const OVERPASS_BUDGET = Number(process.env.FM_OVERPASS_TIMEOUT) ||
+  (process.env.VERCEL ? 45_000 : 60_000);
+
+export const TIMEOUTS = {
+  overpass: OVERPASS_BUDGET,
+  nominatim: 15_000,
+  climate: 30_000,
+  tile: 20_000
+};

@@ -3,7 +3,7 @@
    vercel.json fait arriver cette fonction à l'adresse attendue par le client. */
 import { createAnalysisHandler } from '../../server/api.mjs';
 import { clientIp } from '../../server/http.mjs';
-import { runtime } from '../_lib/runtime.mjs';
+import { runtime } from '../../server/vercel.mjs';
 
 const handle = createAnalysisHandler(runtime);
 const CORS = {

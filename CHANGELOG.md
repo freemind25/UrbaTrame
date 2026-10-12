@@ -8,6 +8,12 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 Première version utilisable : le moteur de plan, les 35 analyses et le parcours
 de licence fonctionnent de bout en bout.
 
+- **Fonctions Vercel durcies** : le corps déjà analysé par la plateforme
+  (`req.body`) est pris en charge dans `readBody()`, le runtime partagé sort de
+  `api/` (tout fichier de ce dossier est déployé comme une fonction), et le
+  budget Overpass passe à 45 s sous Vercel — la fonction étant coupée à 60 s —
+  pour répondre `MAP_SOURCE_UNAVAILABLE` au lieu d'expirer.
+
 ### Corrigé
 
 - **`vercel.json` refusé au build** (`Error: Function Runtimes must have a valid

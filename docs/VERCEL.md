@@ -100,6 +100,25 @@ La version de Node.js se choisit ailleurs :
 Le client, lui, poste désormais ses utilitaires sur `/api/util` : sur Vercel,
 `/` doit rester l'interface, alors que le serveur Node accepte les deux.
 
+## Deux pièges de la plateforme, déjà traités
+
+**Le corps des requêtes arrive parfois déjà analysé.** Le runtime Node de Vercel
+(@vercel/node) fournit `req.body` en objet et le flux brut n'est pas toujours
+relisible. `readBody()` (server/http.mjs) utilise donc `req.body` quand il est
+présent, et retombe sur la lecture du flux sinon : le même code sert le serveur
+Node et les fonctions, sans branche spécifique ailleurs.
+
+**Tout fichier de `api/` est déployé comme une fonction.** Un module partagé
+placé là (`api/_lib/runtime.mjs`) aurait été traité comme un gestionnaire sans
+export par défaut. Le runtime des fonctions vit donc dans
+`server/vercel.mjs`, hors de `api/`.
+
+**Budget Overpass réduit.** Une fonction Vercel est interrompue à 60 s (offre
+gratuite). Le budget Overpass passe donc de 60 s à 45 s dès que la variable
+d'environnement `VERCEL` est présente, pour répondre proprement
+`MAP_SOURCE_UNAVAILABLE` plutôt que d'être coupée en plein vol. Réglable par
+`FM_OVERPASS_TIMEOUT`.
+
 ## Ce qui ne change pas
 
 Le planificateur reste dans `public/js/plan-2d.mjs`, partagé par le navigateur

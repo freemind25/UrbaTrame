@@ -1,6 +1,6 @@
 /* GET /api/status — état du service et clé publique Ed25519. */
 import { createStatusHandler } from '../server/api.mjs';
-import { runtime } from './_lib/runtime.mjs';
+import { runtime } from '../server/vercel.mjs';
 
 const handle = createStatusHandler(runtime);
 

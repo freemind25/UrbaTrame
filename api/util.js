@@ -1,7 +1,7 @@
 /* POST /api/util — recherche de lieu (Nominatim) et parrainage.
    Le client poste ici plutôt qu'à la racine : sur Vercel, « / » sert l'interface. */
 import { createUtilityHandler } from '../server/api.mjs';
-import { runtime } from './_lib/runtime.mjs';
+import { runtime } from '../server/vercel.mjs';
 
 const handle = createUtilityHandler(runtime);
 

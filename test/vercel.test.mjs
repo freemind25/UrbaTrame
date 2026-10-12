@@ -27,7 +27,7 @@ function fakeRes() {
     get json() { try { return JSON.parse(this.body); } catch { return null; } }
   };
 }
-function fakeReq({ method = 'POST', url = '/analysis/2d', body = {}, form = null, headers = {} } = {}) {
+function fakeReq({ method = 'POST', url = '/analysis/2d', body = {}, form = null, headers = {}, prepared } = {}) {
   const payload = form ? new URLSearchParams(form).toString() : JSON.stringify(body);
   const listeners = {};
   const req = {
@@ -35,6 +35,13 @@ function fakeReq({ method = 'POST', url = '/analysis/2d', body = {}, form = null
     on(ev, fn) { listeners[ev] = fn; return req; },
     destroy() {}
   };
+  /* `prepared` reproduit le comportement de Vercel : le corps est fourni déjà
+     analysé sur req.body, et le flux n'est plus alimenté. */
+  if (prepared !== undefined) {
+    req.body = prepared;
+    req.on = () => req;
+    return req;
+  }
   /* Les gestionnaires lisent le corps de façon asynchrone : on émettra après
      que le gestionnaire se soit abonné. */
   queueMicrotask(() => {
@@ -43,22 +50,6 @@ function fakeReq({ method = 'POST', url = '/analysis/2d', body = {}, form = null
   });
   return req;
 }
-
-const load = async (env) => {
-  /* Import frais : les modules serverless figent leur runtime au chargement. */
-  for (const [k, v] of Object.entries(env)) process.env[k] = v;
-  const stamp = crypto.randomBytes(4).toString('hex');
-  const copy = (rel) => path.join('/tmp', 'fm-vercel-' + stamp + '-' + rel.replace(/\//g, '_'));
-  const files = ['api/_lib/runtime.mjs', 'api/status.js', 'api/util.js', 'api/analysis/2d.js'];
-  for (const f of files) fs.copyFileSync(path.join(ROOT, f), copy(f));
-  /* Les copies importent « ../../server/… » : on les laisse dans l'arborescence
-     du projet, à côté d'un dossier temporaire, pour que les chemins résolvent. */
-  const dir = path.join(ROOT, '.vercel-test-' + stamp);
-  fs.mkdirSync(path.join(dir, 'api/_lib'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'api/analysis'), { recursive: true });
-  for (const f of files) fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
-  return { dir, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
-};
 
 describe('licence sans état (mode Vercel)', () => {
   const keys = (() => {
@@ -145,7 +136,7 @@ describe('catalogue de licences', async () => {
 });
 
 describe('fonctions serverless', () => {
-  let mods, cleanupEnv;
+  let mods;
 
   before(async () => {
     process.env.FM_SIGNING_KEY = Buffer.from(JSON.stringify(JWK)).toString('base64');
@@ -154,7 +145,6 @@ describe('fonctions serverless', () => {
       util: (await import('../api/util.js')).default,
       analysis: (await import('../api/analysis/2d.js')).default
     };
-    cleanupEnv = () => { delete process.env.FM_SIGNING_KEY; };
   });
 
   test('GET /api/status expose la clé publique et les paliers', async () => {
@@ -232,6 +222,33 @@ describe('fonctions serverless', () => {
     const utilGet = fakeRes();
     await mods.util(fakeReq({ method: 'GET', url: '/api/util' }), utilGet);
     assert.equal(utilGet.statusCode, 405);
+  });
+
+  test('corps déjà analysé par la plateforme (req.body) : JSON', async () => {
+    const res = fakeRes();
+    await mods.analysis(fakeReq({ prepared: { action: 'check', device: DEVICE } }), res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json.tier, 'free', JSON.stringify(res.json));
+  });
+
+  test('corps déjà analysé par la plateforme (req.body) : formulaire', async () => {
+    const res = fakeRes();
+    await mods.util(fakeReq({
+      url: '/api/util',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      prepared: { refcheck: 'MTN-ABCDE' }
+    }), res);
+    assert.equal(res.json.ok, true, JSON.stringify(res.json));
+    assert.equal(res.json.ref, 'MTN-ABCDE');
+  });
+
+  test('corps déjà analysé : activation complète', async () => {
+    const res = fakeRes();
+    await mods.analysis(fakeReq({
+      prepared: { action: 'activate', device: DEVICE, code: 'cs_demo_max' }
+    }), res);
+    assert.equal(res.json.ok, true, JSON.stringify(res.json));
+    assert.equal(res.json.tier, 'max');
   });
 
   test('POST /api/util : utilitaire inconnu et recherche vide, sans réseau', async () => {
