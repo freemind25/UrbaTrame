@@ -54,7 +54,9 @@ export class Routes {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), timeout);
     try {
-      const r = await fetch(this.base + '/', {
+      /* /api/util plutôt que la racine : le serveur Node accepte les deux, et
+         sur Vercel « / » doit rester l'interface. */
+      const r = await fetch(this.base + '/api/util', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(params).toString(),

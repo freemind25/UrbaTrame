@@ -54,6 +54,26 @@ Dix défauts trouvés pendant la mise au point — détail dans
   altimétrique hors cadre, thème solaire illisible, bouton de restauration
   inopérant.
 
+### Ajouté
+
+- **Déploiement serverless** — trois fonctions dans `api/` (analyse, état,
+  utilitaires), un `vercel.json` (dossier de sortie `public`, réécriture de
+  `/analysis/2d`, runtime `nodejs22.x`) et un mode de session **sans état** :
+  le jeton renvoyé à l'activation est le titre signé, que le serveur revérifie
+  avec sa clé publique. Permet de faire tourner l'application sans disque ni
+  base, avec deux limites documentées (pas de révocation, quota par instance).
+- `server/runtime.mjs` : un seul endroit décide où vit l'état (`node` ou
+  `vercel`), partagé par le serveur et les fonctions.
+- `FM_SIGNING_KEY` (clé de signature par variable d'environnement) et
+  `FM_CODES` (catalogue de licences en JSON).
+- `npm run genere-cle` : génère la paire de clés, l'écrit ou l'affiche pour la
+  coller dans une variable d'environnement.
+- 18 tests supplémentaires (153 hors ligne, 157 avec les sources réelles) :
+  sessions sans état, jeton falsifié ou expiré, fonctions serverless appelées
+  directement, en-têtes CORS, méthodes refusées.
+- `docs/VERCEL.md` : ce qui fonctionne en ligne, ce qui change, mise en place,
+  vérifications et chemin pour lever les limites.
+
 ### Modifié
 
 - **Nom du projet : Freemap.** Le filigrane des cartes d'essai, les noms de

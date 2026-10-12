@@ -12,9 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { PRODUCT, PUBLIC_DIR, DATA_DIR, DEFAULT_PORT, DEFAULT_HOST } from './config.mjs';
 import { log } from './http.mjs';
-import { createLicence } from './licence.mjs';
-import { createQuota } from './quota.mjs';
-import { createRunStore } from './runs.mjs';
+import { createRuntime } from './runtime.mjs';
 import { createApi } from './api.mjs';
 import { VERSION } from '../public/js/plan-2d.mjs';
 
@@ -23,10 +21,9 @@ export function createApp({
   dataDir = DATA_DIR,
   cooldownMs
 } = {}) {
-  const licence = createLicence({ dataDir });
   /* `typeof` et non un test de véracité : 0 est une valeur légitime (tests). */
-  const quota = createQuota(typeof cooldownMs === 'number' ? { cooldownMs } : {});
-  const runs = createRunStore();
+  const runtime = createRuntime({ mode: 'node', dataDir, cooldownMs });
+  const licence = runtime.licence, quota = runtime.quota, runs = runtime.runs;
   const api = createApi({ licence, quota, runs, publicDir });
 
   const server = http.createServer((req, res) => {
@@ -37,7 +34,14 @@ export function createApp({
     });
   });
 
-  return { server, licence, quota, runs, publicDir, dataDir };
+  return { server, licence, quota, runs, runtime, publicDir, dataDir };
+}
+
+/* Petite ligne de journal : dit d'un coup d'œil si les licences sont actives. */
+function stateLine(licence) {
+  return licence.disabled
+    ? 'licences inactives : essai gratuit seulement (aucune clé de signature)'
+    : 'licences actives · clé publique ' + licence.pubB64;
 }
 
 /* ── exécution directe ── */
@@ -58,8 +62,8 @@ if (isMain) {
     log(`${PRODUCT} v${VERSION} · serveur prêt sur http://${host}:${port}`);
     log(`dossier public  : ${PUBLIC_DIR}`);
     log(`dossier données : ${dataDir}`);
-    log(`clé publique Ed25519 : ${licence.pubB64}`);
-    log(`codes de démonstration : ${licence.knownCodes().join(' · ')}`);
+    log(`état      : ${stateLine(licence)}`);
+    log(`codes     : ${licence.knownCodes().join(' · ')}`);
   });
   for (const sig of ['SIGINT', 'SIGTERM'])
     process.on(sig, () => { log('arrêt'); server.close(() => process.exit(0)); });

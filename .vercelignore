@@ -1,0 +1,17 @@
+# Ce qui n'a pas besoin de partir chez Vercel : le déploiement reste petit et
+# rapide. Les fonctions api/ n'importent que server/ et public/js/.
+.git
+.github
+.vscode
+test
+tools
+docs
+data
+Dockerfile
+.dockerignore
+.nvmrc
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
+*.log

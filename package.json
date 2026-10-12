@@ -30,7 +30,9 @@
     "lint": "node tools/check-syntax.mjs",
     "svg": "node tools/render-svg.mjs",
     "capture": "node tools/capture-sample.mjs",
-    "personnaliser": "node tools/personaliser.mjs"
+    "personnaliser": "node tools/personaliser.mjs",
+    "genere-cle": "node tools/genere-cle.mjs",
+    "dev:vercel": "vercel dev"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,8 @@
-# Déploiement
+# Déploiement d'un serveur Node
+
+Ce document couvre le mode serveur classique (VPS, Docker, Render, Railway),
+celui qui conserve tout : quota par IP, licences révocables, clé sur disque.
+Pour un déploiement serverless sur Vercel, voir **[VERCEL.md](VERCEL.md)**.
 
 ## Prérequis
 

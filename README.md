@@ -74,9 +74,11 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
 │       ├── routes.mjs       client HTTP, codes d'erreur FR/EN, repli direct
 │       ├── persist.mjs      cache IndexedDB, préférences locales
 │       └── app.js           orchestration, i18n, exports, état
+├── api/                     fonctions serverless (Vercel) : analysis/2d · status · util
 ├── server/
 │   ├── index.mjs            point d'entrée, createApp(), CLI
-│   ├── api.mjs              contrat HTTP
+│   ├── api.mjs              contrat HTTP (gestionnaires réutilisés par les deux modes)
+│   ├── runtime.mjs          où vit l'état : mode « node » ou « vercel »
 │   ├── licence.mjs          clés Ed25519, codes, titres signés
 │   ├── quota.mjs            une génération en vol par IP
 │   ├── runs.mjs             sessions de génération
@@ -134,6 +136,7 @@ npm run test:net  # + Overpass, Nominatim, NASA POWER, Terrarium
 npm run lint      # contrôle de syntaxe de tout le dépôt
 npm run svg -- --ids massing,gw --png   # rendus hors navigateur
 npm run capture   # recapture l'exemple embarqué depuis les sources réelles
+npm run genere-cle   # clé de signature Ed25519 (serveur : fichier · Vercel : variable)
 ```
 
 Les tests couvrent le rendu des 35 analyses et de leurs palettes, la cohérence
@@ -143,9 +146,21 @@ tuiles d'altitude et la projection Mercator.
 
 ## Déploiement
 
-Variables d'environnement, service systemd, image Docker et points de vigilance :
-**[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**. À retenir avant toute mise en
-ligne : sauvegarder `data/keys.json` (clé privée de signature), remplacer les
+Deux modes, selon l'endroit où le serveur tourne :
+
+| Mode | Où | Ce que vous obtenez |
+|---|---|---|
+| **Serveur Node** (défaut) | VPS, Docker, Render, Railway | tout : quota par IP, licences révocables, clé sur disque |
+| **Serverless** | Vercel | tout sauf la révocation et le quota global : l'état vit en mémoire d'instance |
+
+Sur Vercel, l'API est exposée par trois fonctions (`api/`) et le reste est
+servi en statique ; il faut poser une variable d'environnement pour que les
+licences fonctionnent. Détail, limites et vérifications :
+**[docs/VERCEL.md](docs/VERCEL.md)**.
+
+Pour le serveur classique (variables d'environnement, systemd, Docker, points
+de vigilance) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**. À retenir avant
+toute mise en ligne : sauvegarder la clé privée de signature, remplacer les
 codes de démonstration, régler le `User-Agent` sur votre contact, et rendre le
 quota partagé si vous lancez plusieurs instances.
 

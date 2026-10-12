@@ -13,8 +13,10 @@ import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
 import { terrain } from './sources/terrain.mjs';
 
-export function createApi({ licence, quota, runs, publicDir }) {
-  async function status(res) {
+/* Chaque route est exportée séparément : le serveur Node les compose,
+   les fonctions Vercel en exposent une chacune. */
+export function createStatusHandler({ licence }) {
+  return async function status(_req, res) {
     return send(res, 200, {
       ok: true,
       version: VERSION,
@@ -29,10 +31,11 @@ export function createApi({ licence, quota, runs, publicDir }) {
       },
       codes: licence.knownCodes()
     });
-  }
+  };
+}
 
-  /* ── utilitaires (recherche de lieu, parrainage) ── */
-  async function utility(req, res) {
+export function createUtilityHandler({ licence }) {
+  return async function utility(req, res) {
     try {
       const p = new URLSearchParams((await readBody(req)).toString('utf8'));
 
@@ -61,10 +64,11 @@ export function createApi({ licence, quota, runs, publicDir }) {
     } catch (e) {
       return send(res, 400, { error: e.message });
     }
-  }
+  };
+}
 
-  /* ── POST /analysis/2d ── */
-  async function analysis(req, res, ip) {
+export function createAnalysisHandler({ licence, quota, runs }) {
+  return async function analysis(req, res, ip) {
     let body;
     try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}'); }
     catch { return send(res, 400, { error: 'BAD_JSON' }); }
@@ -173,14 +177,20 @@ export function createApi({ licence, quota, runs, publicDir }) {
     }
 
     return send(res, 200, { error: 'UNKNOWN_ACTION' });
-  }
+  };
+}
+
+export function createApi({ licence, quota, runs, publicDir }) {
+  const status = createStatusHandler({ licence });
+  const utility = createUtilityHandler({ licence });
+  const analysis = createAnalysisHandler({ licence, quota, runs });
 
   return async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
     const ip = clientIp(req);
     if (req.method === 'OPTIONS') return send(res, 200, '');
 
-    if (url.pathname === '/api/status') return status(res);
+    if (url.pathname === '/api/status') return status(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
     if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip);
