@@ -1,17 +1,23 @@
 # Ce qui n'a pas besoin de partir chez Vercel : le déploiement reste petit et
 # rapide. Les fonctions api/ n'importent que server/ et public/js/.
-.git
-.github
-.vscode
-test
-tools
-docs
-data
-Dockerfile
-.dockerignore
-.nvmrc
-CHANGELOG.md
-CODE_OF_CONDUCT.md
-CONTRIBUTING.md
-SECURITY.md
+#
+# Les motifs sont TOUS ancrés à la racine (barre oblique initiale). Sans elle,
+# « data » exclurait aussi public/data/ — donc l'exemple de carte servi par
+# l'application (constaté : /data/sample-elkhroub.json renvoyait 404).
+# Vérifié avec git check-ignore, et gardé par un test (test/vercel.test.mjs).
+
+/.git
+/.github
+/.vscode
+/test
+/tools
+/docs
+/data
+/Dockerfile
+/.dockerignore
+/.nvmrc
+/CHANGELOG.md
+/CODE_OF_CONDUCT.md
+/CONTRIBUTING.md
+/SECURITY.md
 *.log

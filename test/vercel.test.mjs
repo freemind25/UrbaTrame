@@ -261,3 +261,28 @@ describe('fonctions serverless', () => {
     assert.equal(r2.json.error, 'EMPTY_QUERY');
   });
 });
+
+describe('fichiers envoyés à Vercel', () => {
+  test('.vercelignore : uniquement des motifs ancrés à la racine', () => {
+    /* Sans barre oblique initiale, « data » exclut AUSSI public/data/, donc
+       l'exemple de carte : ce défaut a réellement provoqué un 404 en ligne.
+       La règle posée ici est donc : tout motif de dossier ancré, seuls
+       « *.log » et les commentaires échappent à l'exigence. */
+    const lignes = fs.readFileSync(new URL('../.vercelignore', import.meta.url), 'utf8')
+      .split('\n').map(l => l.trim())
+      .filter(l => l && !l.startsWith('#') && !l.startsWith('*'));
+    const nonAncres = lignes.filter(l => !l.startsWith('/'));
+    assert.deepEqual(nonAncres, [],
+      'ces motifs ne sont pas ancrés à la racine (ils peuvent exclure des fichiers de public/) : ' +
+      nonAncres.join(', '));
+  });
+
+  test('l’exemple de carte reste servi par le déploiement', () => {
+    const ignore = fs.readFileSync(new URL('../.vercelignore', import.meta.url), 'utf8');
+    const lignes = ignore.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const attrape = (chemin) => lignes.some(m =>
+      m === chemin || chemin.startsWith(m.replace(/^\//, '')) || chemin.startsWith(m));
+    assert.equal(attrape('public/data/sample-elkhroub.json'), false,
+      'public/data/ ne doit pas être exclu du déploiement');
+  });
+});

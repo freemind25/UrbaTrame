@@ -25,6 +25,12 @@ de licence fonctionnent de bout en bout.
   (`test/overpass.test.mjs`, 7 cas : 504, serveur muet, `remark` d'erreur,
   format de requête, repli du navigateur).
 
+- **Exemple de carte 404 en ligne** : `.vercelignore` portait un motif `data`
+  sans barre oblique initiale, qui excluait aussi `public/data/` du
+  déploiement — donc le fichier d'exemple (`/data/sample-elkhroub.json`
+  renvoyait 404). Tous les motifs sont désormais ancrés à la racine, vérifiés
+  avec `git check-ignore`, et deux tests interdisent le retour du défaut.
+
 ### Corrigé
 
 - **`vercel.json` refusé au build** (`Error: Function Runtimes must have a valid

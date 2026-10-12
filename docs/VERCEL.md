@@ -73,6 +73,18 @@ curl https://<votre-domaine>/api/status
 - `maxDuration: 60` et `memory: 512` pour les fonctions (une requête Overpass
   dépasse facilement les 10 secondes accordées par défaut).
 
+### Piège : ancrer les motifs de `.vercelignore`
+
+`.vercelignore` suit la syntaxe de `.gitignore` : un dossier nommé sans barre
+oblique initiale est exclu **à n'importe quelle profondeur**. Le motif `data`
+excluait donc aussi `public/data/`, et l'exemple de carte répondait 404 en
+ligne (`/data/sample-elkhroub.json`). Tous les motifs de dossier sont désormais
+ancrés (`/data`, `/docs`, `/test`, `/tools`…), la règle est vérifiée avec
+`git check-ignore` et gardée par deux tests dans `test/vercel.test.mjs`.
+
+Sur les 77 fichiers suivis par git, 38 partent chez Vercel : `public/` au
+complet, `api/`, `server/`, `package.json`, et les fichiers de dépôt utiles.
+
 ### Piège : ne pas renseigner `runtime` dans `functions`
 
 Un déploiement a échoué avec :
