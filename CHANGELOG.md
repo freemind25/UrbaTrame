@@ -14,6 +14,17 @@ de licence fonctionnent de bout en bout.
   budget Overpass passe à 45 s sous Vercel — la fonction étant coupée à 60 s —
   pour répondre `MAP_SOURCE_UNAVAILABLE` au lieu d'expirer.
 
+### Modifié
+
+- **Repli entre miroirs Overpass** : la source cartographique publique tombe
+  régulièrement (`504`). Quatre miroirs sont désormais essayés dans l'ordre
+  (au lieu de deux), le dernier à avoir répondu passe en tête, le budget est
+  partagé entre les essais pour rendre la main avant la coupure de 60 s de
+  Vercel, et chaque échec est journalisé avec le miroir, l'erreur et la durée.
+  Liste remplaçable par `FM_OVERPASS_ENDPOINTS` ; banc dédié hors ligne
+  (`test/overpass.test.mjs`, 7 cas : 504, serveur muet, `remark` d'erreur,
+  format de requête, repli du navigateur).
+
 ### Corrigé
 
 - **`vercel.json` refusé au build** (`Error: Function Runtimes must have a valid

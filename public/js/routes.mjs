@@ -9,6 +9,8 @@ import { cacheGet, cachePut } from './persist.mjs';
 
 const PUBLIC_OPS = [
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
 

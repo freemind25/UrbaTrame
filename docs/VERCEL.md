@@ -119,6 +119,33 @@ d'environnement `VERCEL` est présente, pour répondre proprement
 `MAP_SOURCE_UNAVAILABLE` plutôt que d'être coupée en plein vol. Réglable par
 `FM_OVERPASS_TIMEOUT`.
 
+## La source cartographique peut tomber (message « Source cartographique injoignable »)
+
+C'est la panne la plus probable : les instances publiques d'Overpass renvoient
+régulièrement `504` quand elles sont surchargées. Depuis des fonctions Vercel,
+le risque est plus élevé qu'en local, car les IP de sortie sont **mutualisées**
+entre tous les utilisateurs de la plateforme, et Overpass limite par IP.
+
+Mesures en place (`server/config.mjs` + `server/sources/overpass.mjs`) :
+
+- **quatre miroirs** au lieu de deux, essayés dans l'ordre :
+  `overpass-api.de`, `overpass.osm.ch`, `overpass.kumi.systems`,
+  `maps.mail.ru` ; la liste se remplace sans toucher au code :
+  `FM_OVERPASS_ENDPOINTS=url1,url2` ;
+- **budget partagé** : chaque miroir restant garde une part (4 s) du temps
+  disponible, un échec rapide (504 en 1 s) laisse donc le temps plein (20 s)
+  aux suivants, et on rend `MAP_SOURCE_UNAVAILABLE` avant la coupure de 60 s
+  de la plateforme plutôt que d'être interrompu ;
+- **mémoire du dernier miroir qui a répondu** : il passe en tête à la requête
+  suivante (une panne d'instance dure des heures, inutile de la repayer) ;
+- **repli du navigateur** : si le serveur échoue tout de même, le client
+  interroge les mêmes miroirs en direct (`public/js/routes.mjs`), depuis l'IP
+  de l'utilisateur — souvent épargnée quand celle de Vercel est limitée.
+
+Ce qui n'est **pas** fait, volontairement : aucune mise en cache de résultats
+OSM côté serveur (les données OpenStreetMap doivent rester fraîches) et aucun
+autre service de repli (Vector tiles, etc.) — hors périmètre.
+
 ## Ce qui ne change pas
 
 Le planificateur reste dans `public/js/plan-2d.mjs`, partagé par le navigateur

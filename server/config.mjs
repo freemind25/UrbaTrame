@@ -19,8 +19,15 @@ export const DEFAULT_HOST = process.env.FM_HOST || '0.0.0.0';
 
 /* Sources de données — plusieurs miroirs pour les services qui en offrent. */
 export const SOURCES = {
-  overpass: ['https://overpass-api.de/api/interpreter',
-             'https://maps.mail.ru/osm/tools/overpass/api/interpreter'],
+  /* Plusieurs miroirs : les instances publiques tombent souvent (surcharge,
+     504). On les essaie dans l'ordre, en s'arrêtant au premier qui répond.
+     Surchargeable par FM_OVERPASS_ENDPOINTS (liste séparée par des virgules). */
+  overpass: (process.env.FM_OVERPASS_ENDPOINTS || [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  ].join(',')).split(',').map(x => x.trim()).filter(Boolean),
   nominatim: 'https://nominatim.openstreetmap.org/search',
   nasa: 'https://power.larc.nasa.gov/api/temporal/daily/point',
   terrain: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/',
