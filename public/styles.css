@@ -32,7 +32,9 @@ output{font:600 12px var(--mono);color:var(--mut)}
 .plans-open{padding:18px 4px}
 .plans-open h3{font:700 15px var(--mono);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
 .plans-open p{margin:0 0 12px;line-height:1.55;color:var(--ink)}
-.top nav{display:flex;gap:8px}
+.top nav{display:flex;gap:8px;align-items:center}
+.top nav .atelier-nav{height:36px;display:inline-flex;align-items:center;padding:0 13px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(255,255,255,.07);color:var(--txt);font:600 13px var(--sans);text-decoration:none;white-space:nowrap}
+.top nav .atelier-nav:hover{background:rgba(255,255,255,.14)}
 
 /* ── structure ── */
 .wrap{display:grid;grid-template-columns:352px minmax(0,1fr);gap:18px;padding:18px 20px 40px;align-items:start}
@@ -216,6 +218,9 @@ body.v3d-ouvert{overflow:hidden}
 .v3d-fiche button{margin-top:10px;width:100%;background:#E4E0D8;border:1px solid #CFCBC2;border-radius:4px;
   padding:6px;font:700 11px var(--mono);cursor:pointer}
 @media (max-width:720px){
+  .top{flex-wrap:wrap;padding:9px 12px}
+  .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px}
+  .top nav button,.top nav .atelier-nav{height:32px;padding:0 9px;font-size:11px}
   .v3d-barre{gap:9px;font-size:11px}
   .v3d-c input[type=range]{width:64px}
   .v3d-fiche{width:200px}

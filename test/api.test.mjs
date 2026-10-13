@@ -75,6 +75,28 @@ describe('service', () => {
     assert.equal((await fetch(base + '/../server/config.mjs')).status, 404);
     assert.equal((await fetch(base + '/js/inexistant.js')).status, 404);
   });
+
+  test('l’atelier Altiplan est intégré à Freemap, sans compte ni quota', async () => {
+    const page = await fetch(base + '/atelier.html');
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /Freemap — Atelier topographique Altiplan/);
+    assert.doesNotMatch(html, /github\.com\/freemind25\/altiplan/);
+    assert.equal((await fetch(base + '/js/atelier/app.mjs')).status, 200);
+
+    const health = await fetch(base + '/api/atelier/health');
+    assert.equal(health.status, 200);
+    const info = await health.json();
+    assert.equal(info.name, 'Freemap');
+    assert.equal(info.feature, 'atelier-topographique');
+    assert.ok(info.datasets.includes('trees') && info.datasets.includes('parcels'));
+
+    const invalid = await post('/api/atelier/extract', {
+      lat: 36.2642, lon: 6.6969, radius: 100, include: ['trees']
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error, 'RADIUS_OUT_OF_RANGE');
+  });
 });
 
 describe('robustesse des entrées', () => {

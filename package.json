@@ -2,7 +2,7 @@
   "name": "freemap",
   "version": "0.1.0",
   "private": true,
-  "description": "Freemap : 35 diagrammes d'analyse de site rendus en SVG depuis OpenStreetMap, NASA POWER et les tuiles d'altitude Terrarium, plus des exports CAO (plan DXF, coupe, modèle OBJ/STL). Moteur de plan partagé navigateur/serveur, licences signées Ed25519, aucune dépendance.",
+  "description": "Freemap : analyses de site et atelier topographique Altiplan intégré, avec exports DXF/SVG/PNG, coupes, maquettes OBJ/STL, OpenStreetMap, NASA POWER et relief Terrarium. Aucune dépendance.",
   "keywords": [
     "urbanisme",
     "analyse-de-site",
@@ -39,7 +39,8 @@
     "personnaliser": "node tools/personaliser.mjs",
     "genere-cle": "node tools/genere-cle.mjs",
     "dev:vercel": "vercel dev",
-    "exporter": "node tools/exporter.mjs"
+    "exporter": "node tools/exporter.mjs",
+    "atelier:exporter": "node tools/atelier/exporter.mjs"
   },
   "repository": {
     "type": "git",

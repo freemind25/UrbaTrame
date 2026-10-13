@@ -1,11 +1,11 @@
 # Freemap — analyse de site architecturale
 
-Générateur de planches d'analyse de site : **35 analyses** rendues en SVG à
-partir d'OpenStreetMap, de NASA POWER et des tuiles d'altitude AWS Terrarium,
-plus des **exports pour la CAO** — plan topographique DXF, coupe, modèle 3D
-OBJ/STL. Le plan est calculé par un module partagé entre le navigateur et le
-serveur, les licences sont des titres signés Ed25519 liés à l'appareil, et
-l'application fonctionne sans réseau grâce à un extrait embarqué.
+Générateur d'analyses de site et d'exports pour la CAO : **35 analyses** SVG,
+plans DXF/SVG/PNG, coupes de terrain et maquettes OBJ/STL à partir
+d'OpenStreetMap, de NASA POWER et du relief AWS Terrarium. L'**atelier
+Topographique Altiplan** est une section intégrée de Freemap — pas une
+application ou un dépôt séparé — et fonctionne sans compte ni quota. L'application
+principale fonctionne aussi sans réseau grâce à un extrait embarqué.
 
 > **Origine du projet.** Freemap est né d'un travail de rétro-ingénierie :
 > comprendre l'architecture d'un générateur de planches d'analyse de site, puis
@@ -17,7 +17,7 @@ l'application fonctionne sans réseau grâce à un extrait embarqué.
 [![licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520.11-brightgreen.svg)](package.json)
 [![dépendances](https://img.shields.io/badge/d%C3%A9pendances-aucune-informational.svg)](package.json)
-[![tests](https://img.shields.io/badge/tests-281%20hors%20ligne-success.svg)](#bancs-d-essai)
+[![tests](https://img.shields.io/badge/tests-359%20hors%20ligne-success.svg)](#bancs-d-essai)
 
 [![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
 
@@ -52,6 +52,9 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
   3 000 m, périmètre circulaire ou polygonal.
 - **Exports** : SVG unitaire, PNG, « tout exporter », planche A3 pour
   l'impression.
+- **Atelier topographique Altiplan**, accessible depuis le bouton « Atelier
+  topo » : sélection cartographique, couches OSM (arbres et parcelles seulement
+  si elles sont cartographiées), plans, coupes et modèles 3D.
 - **Interface bilingue** français/anglais (`?lang=en`), thème clair ou sombre
   selon l'analyse, six palettes de couleurs.
 - **Paliers** : 4 analyses en essai gratuit (filigranées), 23 en Pro, 8 en Max.
@@ -61,11 +64,14 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
 ```
 .
 ├── public/                  interface servie telle quelle (aucune compilation)
-│   ├── index.html           coquille : panneaux, grille de cartes, modales
-│   ├── styles.css           chrome sombre, impression A3 paysage
+│   ├── index.html           analyses Freemap
+│   ├── atelier.html         section Atelier topographique Altiplan
+│   ├── styles.css           interface des analyses Freemap
+│   ├── atelier.css          styles de la section topographique
 │   ├── favicon.svg
-│   ├── data/                exemple embarqué (El Khroub, 855 Ko)
+│   ├── data/                exemples embarqués (El Khroub)
 │   └── js/
+│       ├── atelier/         carte, données OSM et exports de l'atelier
 │       ├── catalog.js       44 entrées de catalogue, 7 groupes FR/EN
 │       ├── engine.js        moteur : wrap(), palettes, géométrie, légendes
 │       ├── renderers-core.js  11 analyses gratuites
@@ -75,8 +81,10 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
 │       ├── routes.mjs       client HTTP, codes d'erreur FR/EN, repli direct
 │       ├── persist.mjs      cache IndexedDB, préférences locales
 │       └── app.js           orchestration, i18n, exports, état
-├── api/                     fonctions serverless (Vercel) : analysis/2d · status · util
+├── api/                     fonctions serverless : analyses et Atelier topographique
 ├── server/
+│   ├── atelier-api.mjs      routes publiques du module Atelier
+│   ├── atelier-data.mjs     couches OSM autorisées et filtrage des contacts
 │   ├── index.mjs            point d'entrée, createApp(), CLI
 │   ├── api.mjs              contrat HTTP (gestionnaires réutilisés par les deux modes)
 │   ├── runtime.mjs          où vit l'état : mode « node » ou « vercel »
@@ -86,9 +94,9 @@ Pour voir l'application en action sans attendre Overpass, ouvrez
 │   ├── http.mjs             envoi, corps, IP, fichiers statiques
 │   ├── config.mjs           chemins, sources, délais
 │   └── sources/             overpass · climate · terrain
-├── test/                    5 fichiers de bancs d'essai, 135 tests
-├── tools/                   capture d'exemple, rendu SVG, contrôle de syntaxe
-├── docs/                    architecture, API, données, déploiement, journal
+├── test/                    tests d'API, d'exports et de non-régression
+├── tools/                   rendu, exports Freemap et CLI de l'atelier
+├── docs/                    architecture, API, données, Atelier, déploiement, journal
 └── .github/                 CI, gabarits d'issues et de proposition
 ```
 
@@ -101,6 +109,9 @@ Le détail des choix se trouve dans **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.m
 | `GET /api/status` | version, paliers, plafonds de rayon, clé publique Ed25519 |
 | `POST /analysis/2d` | `check` · `begin` · `query` · `end` · `activate` · `terrain` · `climate` |
 | `POST /` | `geocode=` · `refcheck=` · `refcode=` |
+| `GET /api/atelier/health` | état de la section Atelier topographique |
+| `POST /api/atelier/geocode` | recherche de lieu pour l’atelier |
+| `POST /api/atelier/extract` | couches OSM autorisées et relief, sans compte ni quota |
 
 Le client n'envoie jamais de requête Overpass : il envoie des identifiants
 d'analyse, un rayon et un point ; le serveur reconstruit la requête avec le
@@ -170,6 +181,25 @@ node tools/exporter.mjs --quoi plan --geolocate --equi 5
 
 Conventions, options, vérifications (relecture des fichiers par `ezdxf` et
 `trimesh`) et limites : **[docs/EXPORTS.md](docs/EXPORTS.md)**.
+
+## Atelier topographique Altiplan
+
+Altiplan est le module topographique de Freemap, accessible depuis le bouton
+**« Atelier topo »** ou à `/atelier.html`. Il permet de choisir un site sur la
+carte, de récupérer les couches OSM et le relief, puis de produire un plan,
+une coupe et un modèle 3D. Cette section est **sans compte et sans quota**.
+Les parcelles ne sont montrées que si elles existent dans OSM : aucune limite
+juridique ou cadastrale n'est inventée.
+
+```bash
+npm run atelier:exporter -- --out /tmp/freemap-atelier
+npm run atelier:exporter -- --lieu "Constantine, Algérie" --rayon 900 --geolocate
+```
+
+Formats, paramètres et limites : **[docs/ALTIPLAN.md](docs/ALTIPLAN.md)**.
+
+![Plan topographique d’exemple pour El Khroub](docs/img/atelier-el-khroub-plan.png)
+![Maquette 3D d’exemple pour El Khroub](docs/img/atelier-el-khroub-3d.png)
 
 ## Accès : période d'essai ouverte
 

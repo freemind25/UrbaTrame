@@ -250,3 +250,48 @@ retenu, et ce qui a été écarté, est expliqué dans `docs/EXPORTS.md`.
   propriétaires ou BIM), pas de LoD2 (pas d'équivalent libre mondial), et pas
   d'écriture des noms de POI non translittérables. Le maillage 3D est ouvert
   (nappe de terrain) : le fermer serait nécessaire pour un calcul de volume.
+
+---
+
+# Freemap · atelier topographique Altiplan — 13/10/2026
+
+Suite à la précision du propriétaire : **Altiplan fait partie de Freemap** et
+n'est pas une application indépendante. L'intégration retenue est une section
+« Atelier topo » dans le Freemap existant. Aucun dépôt GitHub Altiplan distinct
+n'a été publié. Le dossier local `/home/user/altiplan` demeure une copie de
+référence non publiée; le dépôt Freemap est la seule cible de publication.
+
+## Intégration
+
+- Base de travail : dépôt Freemap local `/home/user/app`. L'intégration a été
+  développée sur `feature/atelier-altiplan`, puis fusionnée en avance rapide sur
+  `main`. Le projet garde son nom, son `package.json`, son serveur, son
+  déploiement Vercel et son dépôt GitHub Freemap.
+- Interface de la section : `public/atelier.html`, liée depuis la navigation
+  principale; titre, navigation, attribution et fichiers d'export portent la
+  marque Freemap. Le mot Altiplan désigne le module topographique.
+- Cœur navigateur isolé sous `public/js/atelier/` pour éviter d'écraser les
+  modules existants de Freemap; CLI et rasteriseur sous `tools/atelier/`.
+- Routes locales et Vercel sous `/api/atelier/health`, `/api/atelier/geocode`
+  et `/api/atelier/extract`. Elles réutilisent les sources Freemap et ne
+  consultent pas les licences ou quotas des analyses.
+- Le filtre récursif enlève des réponses OSM les adresses de contact. Le jeu
+  embarqué `public/data/atelier-elkhroub.json` a lui aussi été contrôlé.
+- Le dossier `exports/` est ignoré par Git; les livrables CLI sont préfixés
+  `freemap-atelier-`.
+
+## Vérifications
+
+| Contrôle | Résultat |
+|---|---|
+| `npm test` | **359 / 359** tests hors ligne, 58 suites |
+| `npm run lint` | **68 fichiers**, aucun échec |
+| CLI `npm run atelier:exporter -- --out /tmp/freemap-atelier-smoke --date 2026-06-21 --heure 15` | 10 livrables : DXF/SVG/PNG du plan et de la coupe, OBJ/STL, aperçu 3D PNG et `releve.json` |
+| Jeu El Khroub | 1 335 bâtiments, 0 arbre cartographié, 19 courbes, 16 bâtiments traversés par la coupe, 17 753 sommets 3D |
+| Routes et fichiers statiques sur port 4174 | Freemap, `/atelier.html`, CSS, module JS et exemple répondent 200; santé Atelier 200; rayon invalide 400 |
+| Aperçus de documentation | plan et vue 3D générés sous `docs/img/atelier-el-khroub-*.png` |
+
+Les interactions n'ont pas été vérifiées dans un navigateur automatisé. Le
+serveur de prévisualisation Freemap avec l'atelier est disponible sur le port
+4174. Le remote `origin` pointe vers le dépôt Freemap existant; aucun push ni
+déploiement Vercel n'a encore été effectué.

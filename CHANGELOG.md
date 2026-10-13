@@ -3,6 +3,16 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ;
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+### Ajouté — atelier topographique Altiplan intégré à Freemap
+
+- L’atelier est une section de Freemap, accessible depuis « Atelier topo » ; aucun dépôt GitHub Altiplan distinct n’est publié.
+- Sélection de site et couches OSM, exports DXF/SVG/PNG, coupe, modèle OBJ/STL, UTM, aperçu 3D et ombres réglables.
+- Routes `/api/atelier/*` sans compte ni quota ; les informations de contact OSM sont filtrées.
+- Commande `npm run atelier:exporter` pour produire ensemble les dix livrables.
+- **359 tests hors ligne** et contrôle de syntaxe sans erreur.
+
 ## [0.1.1] — 2026-10-12
 
 Exports pour la CAO, et le rapport de rétro-ingénierie qui les a motivés.

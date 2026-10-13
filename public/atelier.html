@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Atelier topographique Altiplan intégré à Freemap : courbes de niveau, plans DXF et SVG, coupes et modèles 3D à partir de données publiques.">
+  <title>Freemap — Atelier topographique Altiplan</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/atelier.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Freemap, accueil">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 42 42"><path d="M4 31.5 16.4 9l5.4 9.7L26 10l12 21.5H4Z"/><path d="M12.3 31.5 21.8 14l9.8 17.5M8.4 24.1h25.3M6.1 28.5h30"/></svg>
+      </span>
+      <span class="brand-word">Freemap<span class="brand-dot">.</span><small>ANALYSE DE SITE</small></span>
+    </a>
+    <nav class="topnav" aria-label="Navigation Freemap">
+      <a class="back-link" href="/">Analyses Freemap</a>
+      <a class="atelier-current" href="/atelier.html" aria-current="page">Atelier topographique <span>· Altiplan</span></a>
+      <a href="#sources">Sources &amp; précision</a>
+    </nav>
+    <button id="helpButton" class="icon-button" type="button" aria-label="Aide" title="Aide">?</button>
+  </header>
+
+  <main>
+    <section class="intro" id="atelier">
+      <div>
+        <p class="eyebrow"><span class="eyebrow-line"></span> FREEMAP · ALTIPLAN · TOPOGRAPHIE / CAO / DONNÉES OUVERTES</p>
+        <h1>Un terrain.<br><em>Un relevé prêt à dessiner.</em></h1>
+        <p class="lede">La section Altiplan de Freemap : définissez une emprise, choisissez les couches utiles et préparez votre plan, votre coupe et votre maquette 3D.</p>
+      </div>
+      <div class="intro-note"><span class="open-mark">↗</span><span>Sans compte<br>Sans quota d’abonnement<br>Sans dépendance</span></div>
+    </section>
+
+    <section class="workspace" aria-label="Préparer un relevé">
+      <aside class="panel">
+        <div class="panel-head">
+          <div><span class="step">01 / SITE</span><h2>Votre emprise</h2></div>
+          <span class="status-dot" id="connectionDot" title="Serveur prêt"></span>
+        </div>
+        <form id="searchForm" class="search-form" autocomplete="off">
+          <label class="sr-only" for="placeSearch">Rechercher un lieu ou une adresse</label>
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+          <input id="placeSearch" name="q" type="search" placeholder="Ville, adresse ou lieu…" aria-label="Ville, adresse ou lieu">
+          <button type="submit" aria-label="Rechercher">Chercher</button>
+        </form>
+        <div id="searchResults" class="search-results" hidden></div>
+
+        <div class="coordinates">
+          <div class="coordinate-label"><span>Centre du site</span><button id="coordinateToggle" class="text-button" type="button">Coordonnées</button></div>
+          <div class="coordinate-values"><span id="siteName">El Khroub, Constantine</span><span class="coords" id="coordinateText">36.2642° N · 6.6969° E</span></div>
+          <div class="coordinate-edit" id="coordinateEdit" hidden>
+            <label>Latitude <input id="latitude" type="number" step="0.00001" value="36.2642"></label>
+            <label>Longitude <input id="longitude" type="number" step="0.00001" value="6.6969"></label>
+            <button id="applyCoordinates" type="button">Centrer</button>
+          </div>
+        </div>
+
+        <div class="radius-block">
+          <div class="radius-head"><label for="radius">Rayon de l'emprise</label><strong><output id="radiusValue">600</output><small> m</small></strong></div>
+          <input id="radius" type="range" min="200" max="3989" step="50" value="600">
+          <div class="range-ends"><span>200 m</span><span>jusqu'à 50 km²</span></div>
+          <div class="area-chip"><span class="area-swatch"></span><span id="areaValue">1,13 km²</span><span class="area-divider">·</span><span>emprise circulaire</span></div>
+        </div>
+
+        <div class="layers-head"><span class="step">02 / DONNÉES</span><button id="allLayers" class="text-button" type="button">Tout cocher</button></div>
+        <fieldset class="layer-list">
+          <legend class="sr-only">Couches à récupérer</legend>
+          <label class="layer-row"><input type="checkbox" value="buildings" checked><span class="layer-icon icon-build">▦</span><span class="layer-name">Bâtiments</span><span class="layer-source">empreintes</span></label>
+          <label class="layer-row"><input type="checkbox" value="roads" checked><span class="layer-icon icon-road">↗</span><span class="layer-name">Voirie</span><span class="layer-source">routes & chemins</span></label>
+          <label class="layer-row"><input type="checkbox" value="landuse" checked><span class="layer-icon icon-land">▧</span><span class="layer-name">Occupation du sol</span><span class="layer-source">zones OSM</span></label>
+          <label class="layer-row"><input type="checkbox" value="water" checked><span class="layer-icon icon-water">≈</span><span class="layer-name">Eau</span><span class="layer-source">cours & plans d'eau</span></label>
+          <label class="layer-row"><input type="checkbox" value="rail" checked><span class="layer-icon icon-rail">╫</span><span class="layer-name">Réseau ferré</span><span class="layer-source">voies OSM</span></label>
+          <label class="layer-row"><input type="checkbox" value="trees" checked><span class="layer-icon icon-tree">♣</span><span class="layer-name">Arbres</span><span class="layer-source">si cartographiés</span></label>
+          <label class="layer-row"><input type="checkbox" value="parcels" checked><span class="layer-icon icon-parcel">⌗</span><span class="layer-name">Parcelles OSM</span><span class="layer-source">si cartographiées</span></label>
+          <label class="layer-row"><input type="checkbox" value="pois"><span class="layer-icon icon-poi">•</span><span class="layer-name">Points d'intérêt</span><span class="layer-source">lieux nommés</span></label>
+        </fieldset>
+        <p class="cadastre-note"><span aria-hidden="true">ⓘ</span> Les parcelles ne sont pas des limites juridiques. Elles ne sortent que si elles existent dans OpenStreetMap.</p>
+
+        <button id="extractButton" class="button-primary button-full" type="button"><span class="button-icon">↧</span><span>Récupérer les données</span><span class="button-arrow">→</span></button>
+        <div id="progress" class="progress-line" hidden><span></span><p id="progressText">Lecture des sources…</p></div>
+        <div id="message" class="message" role="status" aria-live="polite"></div>
+
+        <div class="panel-foot"><span class="demo-tag"><i></i> EXEMPLE RÉEL</span><span id="featureSummary">1 577 objets chargés · El Khroub</span></div>
+      </aside>
+
+      <section class="map-panel" aria-label="Carte et emprise du site">
+        <div class="map-topline"><div><span class="step">CARTE INTERACTIVE</span><strong id="mapLocation">EL KHROUB · CONSTANTINE</strong></div><div class="map-actions"><button id="homeMap" type="button" title="Revenir au site">⌖ <span>Recentrer</span></button><button id="zoomOut" type="button" title="Dézoomer">−</button><button id="zoomIn" type="button" title="Zoomer">+</button></div></div>
+        <div id="map" class="map" role="application" aria-label="Carte OpenStreetMap. Cliquez pour choisir le centre, faites glisser pour déplacer, utilisez la molette pour zoomer.">
+          <div class="map-tiles" aria-hidden="true"></div>
+          <svg class="map-overlay" aria-hidden="true" preserveAspectRatio="none"></svg>
+          <div class="map-center" aria-hidden="true"><span></span></div>
+          <div class="map-tip"><span class="tip-cross">⊕</span> Cliquez pour placer le centre · glissez pour explorer</div>
+          <div class="map-scale" id="mapScale">500 m</div>
+          <div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
+        </div>
+        <div class="map-bottomline"><span id="mapState"><i></i> Mode aperçu · données réelles préchargées</span><span class="map-bottom-coords" id="mapBottomCoords">36.2642, 6.6969</span></div>
+      </section>
+    </section>
+
+    <section class="deliverables" aria-label="Exports disponibles">
+      <div class="deliverable-title"><span class="step">03 / LIVRABLES</span><h2>Un relevé. Tous les formats.</h2><p>Prévisualisez, réglez et téléchargez. Les fichiers se génèrent localement dans votre navigateur.</p></div>
+      <div class="deliverable-cards">
+        <article class="deliverable-card"><span class="file-icon dxf-icon">DXF</span><div><h3>Plan vectoriel</h3><p>Courbes · bâti · réseaux</p><span>DXF · SVG · PNG</span></div></article>
+        <article class="deliverable-card"><span class="file-icon cut-icon">A—B</span><div><h3>Coupe de terrain</h3><p>Profil · bâtiments · cotes</p><span>DXF · SVG · PNG</span></div></article>
+        <article class="deliverable-card"><span class="file-icon model-icon">3D</span><div><h3>Maquette 3D</h3><p>Relief · bâti · arbres</p><span>OBJ · STL</span></div></article>
+        <button id="openExports" class="button-outline" type="button"><span>Configurer les exports</span><span>→</span></button>
+      </div>
+    </section>
+
+    <section class="trust-strip" id="sources">
+      <div><span class="trust-number">01</span><div><h3>Sources ouvertes</h3><p>OpenStreetMap (ODbL) · relief Terrarium</p></div></div>
+      <div><span class="trust-number">02</span><div><h3>Coordonnées vraies</h3><p>Mètres locaux ou projection UTM WGS 84</p></div></div>
+      <div><span class="trust-number">03</span><div><h3>Fichiers relisibles</h3><p>DXF R12 · OBJ · STL · SVG</p></div></div>
+      <div><span class="trust-number">04</span><div><h3>Outil transparent</h3><p>Code public · aucune dépendance npm</p></div></div>
+    </section>
+  </main>
+
+  <footer class="footer"><span>FREEMAP · ALTIPLAN · ATELIER TOPOGRAPHIQUE</span><span>Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL</span><a href="https://github.com/freemind25/freemap" target="_blank" rel="noreferrer">Contribuer à Freemap ↗</a></footer>
+
+  <dialog id="helpDialog" class="help-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="Fermer">×</button></form>
+    <p class="eyebrow">BIENVENUE DANS L'ATELIER</p><h2>Comment ça marche</h2>
+    <ol><li><b>Choisissez un lieu</b> — recherchez une adresse ou cliquez sur la carte.</li><li><b>Définissez le rayon</b> — déplacez le curseur, puis récupérez les données OSM et le relief.</li><li><b>Configurez les livrables</b> — activez les couches, choisissez le repère, placez l'axe de coupe, puis téléchargez.</li></ol>
+    <p class="dialog-note">Les sources publiques ont une couverture variable. Des hauteurs de bâtiments ou des arbres peuvent manquer. Les fichiers sont des supports de travail, pas des documents cadastraux ou des relevés certifiés.</p>
+  </dialog>
+  <script src="/js/atelier/engine.js"></script>
+  <script src="/js/atelier/vue3d.js"></script>
+  <script type="module" src="/js/atelier/app.mjs"></script>
+</body>
+</html>

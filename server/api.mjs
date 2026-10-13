@@ -12,6 +12,7 @@ import { validDevice } from './licence.mjs';
 import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
 import { terrain } from './sources/terrain.mjs';
+import { createAtelierHandlers } from './atelier-api.mjs';
 
 /* Chaque route est exportée séparément : le serveur Node les compose,
    les fonctions Vercel en exposent une chacune. */
@@ -223,12 +224,16 @@ export function createApi({ licence, quota, runs, publicDir }) {
   const status = createStatusHandler({ licence });
   const utility = createUtilityHandler({ licence });
   const analysis = createAnalysisHandler({ licence, quota, runs });
+  const atelier = createAtelierHandlers();
 
   return async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
     const ip = clientIp(req);
     if (req.method === 'OPTIONS') return send(res, 200, '');
 
+    if (url.pathname === '/api/atelier/health') return atelier.health(req, res);
+    if (url.pathname === '/api/atelier/geocode') return atelier.geocode(req, res);
+    if (url.pathname === '/api/atelier/extract') return atelier.extract(req, res);
     if (url.pathname === '/api/status') return status(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
