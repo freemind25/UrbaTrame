@@ -293,5 +293,6 @@ référence non publiée; le dépôt Freemap est la seule cible de publication.
 
 Les interactions n'ont pas été vérifiées dans un navigateur automatisé. Le
 serveur de prévisualisation Freemap avec l'atelier est disponible sur le port
-4174. Le remote `origin` pointe vers le dépôt Freemap existant; aucun push ni
-déploiement Vercel n'a encore été effectué.
+4174. Le commit d'intégration `fe2dfed` a été poussé sur `main` du dépôt
+Freemap. Aucun déploiement Vercel n'a été lancé manuellement; son état n'a pas
+été vérifié et dépend de la liaison Vercel/GitHub du projet.
