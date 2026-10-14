@@ -17,15 +17,23 @@ describe('normalisation des couches OSM', () => {
     { type: 'way', id: 6, geometry: geom(36.1, 6.1), tags: { boundary: 'parcel' } },
     { type: 'way', id: 7, geometry: [{ lat: 36.1, lon: 6.1 }, { lat: 36.11, lon: 6.11 }], tags: { railway: 'rail' } },
     { type: 'way', id: 8, geometry: [{ lat: 36.1, lon: 6.1 }, { lat: 36.11, lon: 6.11 }], tags: { waterway: 'stream' } },
-    { type: 'node', id: 9, lat: 36.1, lon: 6.1, tags: { amenity: 'school', name: 'École' } }
+    { type: 'node', id: 9, lat: 36.1, lon: 6.1, tags: { amenity: 'school', name: 'École' } },
+    { type: 'way', id: 10, geometry: geom(36.101, 6.101), tags: { 'building:part': 'yes', height: '18', 'roof:shape': 'gabled', 'roof:height': '2' } },
+    { type: 'way', id: 11, geometry: [{ lat: 36.1, lon: 6.1 }, { lat: 36.11, lon: 6.11 }], tags: { highway: 'secondary', width: '8 m', bridge: 'yes', layer: '1' } }
   ];
   const d = normaliser(raw);
   test('les arbres ponctuels conservent la hauteur OSM', () => {
     assert.equal(d.trees.length, 1); assert.equal(d.trees[0].h, 8);
   });
-  test('bâti et voies sont séparés et normalisés', () => {
-    assert.equal(d.build.length, 1); assert.equal(d.build[0].h, 12); assert.equal(d.build[0].t, 'apartments');
-    assert.equal(d.roads.length, 1); assert.equal(d.roads[0].h, 'residential');
+  test('bâti et voies gardent leurs attributs, classes et largeurs', () => {
+    assert.equal(d.build.length, 2); assert.equal(d.build[0].h, 12); assert.equal(d.build[0].t, 'apartments');
+    assert.equal(d.build[0].class, 'residential');
+    assert.equal(d.build[1].buildingPart, true); assert.equal(d.build[1].roofShape, 'gabled');
+    assert.equal(d.build[1].hauteurToit, 2);
+    assert.equal(d.roads.length, 2); assert.equal(d.roads[0].h, 'residential');
+    assert.equal(d.roads[0].width, 5); assert.equal(d.roads[0].widthSource, 'class-estimate');
+    assert.equal(d.roads[1].width, 8); assert.equal(d.roads[1].widthSource, 'osm-width');
+    assert.equal(d.roads[1].bridge, true); assert.equal(d.roads[1].layer, 1);
   });
   test('arbres en rangée, zones, parcelles, rail et eau linéaire restent distincts', () => {
     assert.equal(d.treeRows.length, 1); assert.equal(d.landuse.length, 1);

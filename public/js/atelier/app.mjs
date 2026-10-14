@@ -1,4 +1,5 @@
 import { createMap } from './map.mjs';
+import { areaForShape, insideShape, normalizeBoundary, toLocal } from './geometry.mjs';
 import { normaliser } from './osm-data.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 
@@ -6,22 +7,32 @@ const $ = selector => document.querySelector(selector);
 const $all = selector => [...document.querySelectorAll(selector)];
 const sampleUrl = '/data/atelier-elkhroub.json';
 const demoLayers = ['buildings', 'roads', 'landuse', 'water', 'rail', 'trees', 'parcels', 'pois'];
-const initial = { lat: 36.2642, lon: 6.6969, radius: 600, name: 'El Khroub, Constantine', terrain: null };
+const initial = { lat: 36.2642, lon: 6.6969, radius: 600, shape: 'circle', boundary: [], name: 'El Khroub, Constantine', terrain: null };
 let site = { ...initial };
 let data = { roads: [], build: [], green: [], pois: [], trees: [], treeRows: [], parcels: [], landuse: [], rail: [], waterways: [], raw: [] };
 let busy = false;
+let boundaryDrawing = false;
 let dataSignature = null;
 let loadedInclude = new Set();
 
 const map = createMap($('#map'), {
-  lat: site.lat, lon: site.lon, zoom: 15, radius: site.radius,
+  lat: site.lat, lon: site.lon, zoom: 15, radius: site.radius, shape: site.shape, boundary: site.boundary,
   onCenter(lat, lon) {
     site.lat = lat; site.lon = lon;
     $('#latitude').value = lat.toFixed(6); $('#longitude').value = lon.toFixed(6);
+    if (!boundaryDrawing && site.boundary.length >= 3 && !boundaryFits(site.boundary)) {
+      site.boundary = [];
+      map.clearBoundary();
+      $('#message').textContent = 'Le centre de l’emprise a changé : la limite de projet, désormais hors site, a été effacée.';
+    }
     updateCoordinates();
     if (site.name === 'El Khroub, Constantine') site.name = 'Emprise personnalisée';
     updatePlaceName();
     updateFreshness();
+  },
+  onBoundaryChange(points) {
+    site.boundary = points;
+    updateBoundaryStatus();
   }
 });
 
@@ -38,6 +49,22 @@ function updatePlaceName() {
   $('#siteName').textContent = name;
   $('#mapLocation').textContent = name.toLocaleUpperCase('fr-FR');
 }
+function updateBoundaryStatus() {
+  const count = map.getBoundary().length;
+  $('#drawBoundary').setAttribute('aria-pressed', String(boundaryDrawing));
+  $('#drawBoundary').textContent = boundaryDrawing ? 'Tracé en cours…' : 'Tracer sur la carte';
+  $('#finishBoundary').disabled = !boundaryDrawing || count < 3;
+  $('#undoBoundary').disabled = !boundaryDrawing || count === 0;
+  $('#clearBoundary').disabled = count === 0;
+  $('#boundaryStatus').textContent = boundaryDrawing
+    ? `${count} point${count === 1 ? '' : 's'} · ajoutez au moins 3 points`
+    : count >= 3 ? `Limite utilisateur · ${count} sommets` : 'Optionnelle';
+  $('#map').classList.toggle('drawing-boundary', boundaryDrawing);
+  const tip = $('#mapTip');
+  if (tip) tip.textContent = boundaryDrawing
+    ? 'Cliquez pour ajouter des sommets, puis « Terminer »'
+    : 'Cliquez pour placer le centre · glissez pour explorer';
+}
 function updateFreshness(label = '') {
   const sameSite = dataSignature && Math.abs(dataSignature.lat - site.lat) < 1e-8 &&
     Math.abs(dataSignature.lon - site.lon) < 1e-8 && dataSignature.radius === site.radius;
@@ -52,12 +79,26 @@ function updateFreshness(label = '') {
   }
   return fresh;
 }
+function boundaryFits(points) {
+  return points.every(([lat, lon]) => {
+    const [x, y] = toLocal([lat, lon], { lat: site.lat, lon: site.lon });
+    return insideShape(x, y, site.radius, site.shape);
+  });
+}
 function updateRadius() {
   site.radius = Number($('#radius').value);
+  site.shape = $('#baseShape').value === 'square' ? 'square' : 'circle';
   $('#radiusValue').value = site.radius;
   $('#radiusValue').textContent = site.radius;
-  const area = Math.PI * site.radius ** 2 / 1_000_000;
+  const area = areaForShape(site.shape, site.radius) / 1_000_000;
   $('#areaValue').textContent = `${area.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} km²`;
+  $('#shapeLabel').textContent = site.shape === 'square' ? 'emprise carrée' : 'emprise circulaire';
+  if (!boundaryDrawing && site.boundary.length >= 3 && !boundaryFits(site.boundary)) {
+    site.boundary = [];
+    map.clearBoundary();
+    $('#message').textContent = 'La nouvelle emprise ne contient plus la limite tracée : celle-ci a été effacée.';
+  }
+  map.setShape(site.shape);
   map.setRadius(site.radius);
   updateFreshness();
 }
@@ -80,6 +121,11 @@ function setData(d, terrain, label = '', include = demoLayers) {
 function updateSite(lat, lon, name = 'Emprise personnalisée', fit = true) {
   site.lat = Number(lat); site.lon = Number(lon); site.name = name;
   $('#latitude').value = site.lat.toFixed(6); $('#longitude').value = site.lon.toFixed(6);
+  if (site.boundary.length >= 3 && !boundaryFits(site.boundary)) {
+    site.boundary = [];
+    map.clearBoundary();
+    $('#message').textContent = 'Le lieu a changé : la limite de projet, désormais hors site, a été effacée.';
+  }
   updateCoordinates(); updatePlaceName();
   map.setCenter(site.lat, site.lon, false);
   if (fit) map.setRadius(site.radius);
@@ -108,7 +154,7 @@ async function loadDemo() {
     const response = await fetch(sampleUrl, { cache: 'force-cache' });
     if (!response.ok) throw new Error('demo missing');
     const demo = await response.json();
-    site = { lat: demo.site.lat, lon: demo.site.lon, radius: demo.site.R, name: demo.site.name, terrain: demo.terrain };
+    site = { ...initial, lat: demo.site.lat, lon: demo.site.lon, radius: demo.site.R, name: demo.site.name, terrain: demo.terrain };
     $('#radius').value = site.radius;
     updateCoordinates(); updateRadius(); updatePlaceName();
     setData(normaliser(demo.elements), demo.terrain, 'Exemple local · El Khroub');
@@ -119,6 +165,38 @@ async function loadDemo() {
 }
 
 $('#radius').addEventListener('input', updateRadius);
+$('#baseShape').addEventListener('change', updateRadius);
+$('#drawBoundary').addEventListener('click', () => {
+  boundaryDrawing = true;
+  map.clearBoundary();
+  map.setDrawMode('boundary');
+  updateBoundaryStatus();
+});
+$('#finishBoundary').addEventListener('click', () => {
+  try {
+    const boundary = normalizeBoundary(map.getBoundary(), { lat: site.lat, lon: site.lon }, { maxPoints: 100, minArea: 25 });
+    if (!boundaryFits(boundary)) throw new Error('BOUNDARY_OUTSIDE_STUDY');
+    site.boundary = boundary;
+    map.setBoundary(boundary);
+    map.setDrawMode(null);
+    boundaryDrawing = false;
+    updateBoundaryStatus();
+    $('#message').textContent = 'Limite de projet enregistrée. Elle sera exportée sur le calque SITE, distinct des parcelles OSM.';
+  } catch (error) {
+    const reasons = {
+      BOUNDARY_NEEDS_THREE_POINTS: 'Ajoutez au moins trois points.',
+      BOUNDARY_TOO_SMALL: 'La limite est trop petite pour former une emprise utile.',
+      BOUNDARY_SELF_INTERSECTS: 'La limite se croise elle-même; ajustez les sommets.',
+      BOUNDARY_TOO_MANY_POINTS: 'La limite dépasse 100 points.',
+      BOUNDARY_OUTSIDE_STUDY: 'Gardez la limite à l’intérieur de l’emprise carrée ou circulaire.'
+    };
+    $('#message').textContent = reasons[error.message] || 'Les coordonnées de la limite sont invalides.';
+  }
+});
+$('#undoBoundary').addEventListener('click', () => { map.undoBoundary(); updateBoundaryStatus(); });
+$('#clearBoundary').addEventListener('click', () => {
+  boundaryDrawing = false; map.setDrawMode(null); map.clearBoundary(); updateBoundaryStatus();
+});
 $('#homeMap').addEventListener('click', () => { map.setCenter(site.lat, site.lon, false); map.setRadius(site.radius); });
 $('#zoomIn').addEventListener('click', () => map.zoomBy(1));
 $('#zoomOut').addEventListener('click', () => map.zoomBy(-1));
@@ -220,7 +298,8 @@ $('#openExports').addEventListener('click', () => {
   if (!updateFreshness()) { $('#message').textContent = 'Récupérez les données à nouveau : le lieu, le rayon ou les couches ont changé.'; return; }
   if (!data.raw?.length) { $('#message').textContent = 'Chargez un jeu de données ou utilisez l’exemple embarqué avant l’export.'; return; }
   const include = $all('.layer-row input:checked').map(box => box.value);
-  ouvrirExports({ lat: site.lat, lon: site.lon, rayon: site.radius, nom: site.name, D: dataPourExport(), terrain: site.terrain, include, langue: 'fr' });
+  ouvrirExports({ lat: site.lat, lon: site.lon, rayon: site.radius, shape: site.shape, boundary: site.boundary,
+    nom: site.name, D: dataPourExport(), terrain: site.terrain, include, langue: 'fr' });
 });
 $('#helpButton').addEventListener('click', () => $('#helpDialog').showModal());
 $('#helpDialog').addEventListener('click', e => { if (e.target === $('#helpDialog')) $('#helpDialog').close(); });
@@ -229,4 +308,5 @@ fetch('/api/atelier/health').then(r => r.ok ? $('#connectionDot').classList.remo
   .catch(() => { $('#connectionDot').classList.add('offline'); $('#message').textContent = 'Serveur hors ligne : les exports restent disponibles avec l’exemple chargé localement.'; });
 updateCoordinates(); updateRadius(); updatePlaceName();
 await loadDemo();
+updateBoundaryStatus();
 window.addEventListener('beforeunload', () => map.destroy(), { once: true });

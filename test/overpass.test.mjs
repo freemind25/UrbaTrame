@@ -65,7 +65,7 @@ describe('repli entre miroirs Overpass', () => {
     const m = await open({ elements: [{ id: 7 }] });
     await overpass(QUERY, { endpoints: [m.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
     assert.match(m.seen.headers['content-type'], /application\/x-www-form-urlencoded/);
-    assert.match(m.seen.headers['user-agent'], /Freemap/);
+    assert.match(m.seen.headers['user-agent'], /UrbaTrame/);
     assert.match(m.seen.headers.accept, /application\/json/);
     assert.equal(m.seen.body, 'data=' + encodeURIComponent(QUERY));
   });

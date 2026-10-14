@@ -197,6 +197,23 @@ describe('plan topographique DXF', () => {
     assert.equal(polylignes(lireDXF(court.dxf)).filter(l => l.calque === 'BATI').length, 0);
   });
 
+  test('les surfaces routières, ponts et limite de projet sont des calques distincts à la demande', () => {
+    const bridge = { id: 'road-bridge-test', h: 'residential', tags: { highway: 'residential', bridge: 'yes' },
+      g: [aCote(-30, 0), aCote(30, 0)], width: 6, widthSource: 'osm-width', bridge: true };
+    const siteBoundary = carre(sample.site.lat, sample.site.lon, 40);
+    const result = X.dxfTopo({ ...ctx, D: { ...ctx.D, roads: [bridge] } }, {
+      shape: 'square', boundary: siteBoundary, roadWidths: true, bridges: true,
+      avec: ['VOIRIE', 'ROADS_AREA', 'BRIDGES', 'SITE']
+    });
+    assert.ok(result.calques.some(c => c.nom === 'ROADS_AREA'));
+    assert.ok(result.calques.some(c => c.nom === 'BRIDGES'));
+    assert.ok(result.calques.some(c => c.nom === 'SITE'));
+    assert.ok(result.entites.some(e => e.calque === 'ROADS_AREA' && e.width === 6));
+    assert.ok(result.entites.some(e => e.calque === 'BRIDGES'));
+    assert.ok(result.entites.some(e => e.calque === 'SITE' && e.ferme === true));
+    assert.ok(!result.calques.some(c => c.nom === 'PARCELLES'), 'aucune limite cadastrale inventée');
+  });
+
   test('les courbes de niveau couvrent l’amplitude à pas rond', () => {
     const T = X.grilleTerrain(ctx);
     assert.ok(p.courbes > 10, 'courbes : ' + p.courbes);
@@ -609,7 +626,7 @@ describe('maquette 3D : OBJ et STL', () => {
     }
     assert.match(o, /^g TERRAIN$/m);
     assert.match(o, /^g BATI$/m);
-    assert.match(o, /^# Freemap — modele 3D du site$/m);
+    assert.match(o, /^# UrbaTrame — modele 3D du site$/m);
     assert.match(o, /X est, Y nord, Z altitude/);
     assert.match(o, /OpenStreetMap/);
     assert.doesNotMatch(o, /NaN|undefined/);
@@ -634,8 +651,8 @@ describe('maquette 3D : OBJ et STL', () => {
 
   test('le STL est bien formé : facettes triangulaires, normales unitaires', () => {
     const s = X.stlDeScene(sc, {});
-    assert.match(s, /^solid freemap_Atelier_OpenStreetMap_contributors_ODbL_Terrarium\n/);
-    assert.match(s, /\nendsolid freemap_Atelier_OpenStreetMap_contributors_ODbL_Terrarium\n$/);
+    assert.match(s, /^solid urbatrame_Atelier_Altiplan_OpenStreetMap_contributors_ODbL_Terrarium\n/);
+    assert.match(s, /\nendsolid urbatrame_Atelier_Altiplan_OpenStreetMap_contributors_ODbL_Terrarium\n$/);
     const normales = [...s.matchAll(/facet normal (\S+) (\S+) (\S+)\n/g)].map(m => m.slice(1).map(Number));
     const sommets = [...s.matchAll(/      vertex (\S+) (\S+) (\S+)\n/g)].map(m => m.slice(1).map(Number));
     assert.equal(normales.length * 3, sommets.length);

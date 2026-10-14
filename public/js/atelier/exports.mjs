@@ -1,3 +1,5 @@
+import { clipPolygonToCircle, clipPolygonToSquare, clipPolylineToSquare, footprint, insideShape, roadSurface, roadWidth } from './geometry.mjs';
+
 /* Exports de plans et de modèles — DXF, OBJ, STL, coupe topographique.
    Aucune dépendance : ces formats sont du texte, on les écrit à la main.
 
@@ -273,13 +275,23 @@ export function entitesTopo(ctx, o) {
     { nom: 'EMPRISE', couleur: 'rouge' },
     { nom: 'TEXTE', couleur: 'bleu' }
   ];
+  if (o.roadWidths) calques.splice(3, 0,
+    { nom: 'ROADS_AREA', couleur: 'gris' }, { nom: 'PATHS_AREA', couleur: 'clair' });
+  if (o.bridges) calques.splice(calques.findIndex(c => c.nom === 'RAIL'), 0,
+    { nom: 'BRIDGES', couleur: 'magenta' });
+  if (garde('SITE') && Array.isArray(o.boundary) && o.boundary.length >= 3)
+    calques.splice(calques.findIndex(c => c.nom === 'TEXTE'), 0, { nom: 'SITE', couleur: 'rouge' });
   const entites = [];
   const D = (ctx && ctx.D) || {};
   const R = (ctx && ctx.curR) || 600;
-  /* Par défaut, on s'en tient à l'emprise : tout tracé qui en sort est coupé à
-     la limite (le jeu de données peut couvrir bien plus large que le site). */
+  const forme = o.shape === 'square' ? 'square' : 'circle';
+  /* Par défaut, les géométries sont recadrées à la forme choisie. Le contour
+     dessiné par l'utilisateur reste un calque indépendant : il ne remplace
+     jamais ni ne prétend compléter des limites cadastrales OSM. */
   const recadre = o.recadrer !== false;
-  const dans = pts => (recadre ? recadrer(pts, R) : [pts]);
+  const dans = pts => !recadre ? [pts] : forme === 'square' ? clipPolylineToSquare(pts, R) : recadrer(pts, R);
+  const anneauDans = pts => !recadre ? pts : forme === 'square' ? clipPolygonToSquare(pts, R) : clipPolygonToCircle(pts, R);
+  const dedans = (x, y) => !recadre || insideShape(x, y, R, forme);
   /* Hauteur portée par les emprises dont l'altimétrie métrique manque : 9 m,
      la valeur par défaut du moteur 3D (H_DEFAUT) — le service, lui, écrit 6 m. */
   const hauteurBati = o.hauteurBati > 0 ? o.hauteurBati : 9;
@@ -303,30 +315,39 @@ export function entitesTopo(ctx, o) {
     const local = (b.g || []).map(([lat, lon]) => enLocal(lat, lon, lat0, lon0));
     if (local.length < 3) continue;
     const z = Number(b.h) > 0 ? Number(b.h) : hauteurBati;
-    /* Anneau refermé sur lui-même avant découpage : un bâtiment à cheval sur
-       la limite laisse alors sa part intérieure, fermée sur la corde. */
-    const morceaux = recadre ? recadrer([...local, local[0]], R) : [local];
-    let entier = false;
-    for (const m of morceaux) {
-      const anneau = anneauPropre(m);
-      const pts = anneau || m;
-      if (pts.length < 3) continue;
-      entier = entier || (anneau && m.length === local.length + 1);
-      entites.push({ t: 'poly', calque: 'BATI', pts: pts.map(([x, y]) => rep.vers(x, y)), ferme: !!anneau, z });
-    }
-    /* Cours intérieures : anneaux fermés à l'intérieur de l'emprise (ils ne
-       sont écrits que si l'emprise du bâtiment est restée entière). */
-    if (entier) for (const t of b.trous || []) {
-      const h = anneauPropre((t || []).map(([lat, lon]) => enLocal(lat, lon, lat0, lon0)));
-      if (h) entites.push({ t: 'poly', calque: 'BATI', pts: h.map(([x, y]) => rep.vers(x, y)), ferme: true, z });
+    const clipped = anneauDans(local);
+    const ring = anneauPropre(clipped || []);
+    if (!ring) continue;
+    const entier = local.every(([x, y]) => dedans(x, y));
+    entites.push({ t: 'poly', calque: 'BATI', pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true, z, class: b.class || 'other' });
+    /* Les trous ne sont conservés que lorsqu'ils sont entièrement dans
+       l'emprise; les anneaux OSM restent des données sources, non du cadastre. */
+    if (entier) for (const hole of b.trous || []) {
+      const h = anneauDans(hole.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0)));
+      const holeRing = anneauPropre(h || []);
+      if (holeRing) entites.push({ t: 'poly', calque: 'BATI', pts: holeRing.map(([x, y]) => rep.vers(x, y)), ferme: true, z });
     }
   }
 
-  /* Voirie — une polyligne par tronçon */
-  for (const r of garde('VOIRIE') ? D.roads || [] : []) {
+  /* Voirie : axe OSM, largeur indiquée ou estimée, et ouvrages balisés.
+     Les rubans sont des surfaces indépendantes; leurs intersections ne sont
+     pas dissolues en un polygone topologique unique. */
+  for (const r of D.roads || []) {
     if (!r.g || r.g.length < 2) continue;
-    for (const morceau of dans(r.g.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0))))
+    const local = r.g.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0));
+    if (garde('VOIRIE')) for (const morceau of dans(local))
       entites.push({ t: 'poly', calque: 'VOIRIE', pts: morceau.map(([x, y]) => rep.vers(x, y)) });
+    if (o.bridges && r.bridge && garde('BRIDGES')) for (const morceau of dans(local))
+      entites.push({ t: 'poly', calque: 'BRIDGES', pts: morceau.map(([x, y]) => rep.vers(x, y)) });
+    const surfaceLayer = /footway|cycleway|path|steps|pedestrian/.test(r.h || '') ? 'PATHS_AREA' : 'ROADS_AREA';
+    if (o.roadWidths && garde(surfaceLayer)) {
+      const width = Number(r.width) > 0 ? Number(r.width) : roadWidth(r.tags || { highway: r.h }).metres;
+      const surface = roadSurface(local, width);
+      const clipped = anneauDans(surface);
+      const ring = anneauPropre(clipped || []);
+      if (ring) entites.push({ t: 'poly', calque: surfaceLayer,
+        pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true, width, widthSource: r.widthSource || 'class-estimate' });
+    }
   }
 
   /* Eau et végétation (le jeu normalisé les range ensemble, `k === 'w'` = eau) */
@@ -335,14 +356,8 @@ export function entitesTopo(ctx, o) {
     const calque = x.k === 'w' ? 'EAU' : 'VERT';
     if (!garde(calque)) continue;
     const local = x.g.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0));
-    if (recadre) {
-      for (const morceau of recadrer(local, R)) {
-        const anneau = anneauPropre(morceau);
-        entites.push({ t: 'poly', calque, pts: anneau ? anneau.map(([x, y]) => rep.vers(x, y)) : morceau.map(([x, y]) => rep.vers(x, y)), ferme: !!anneau });
-      }
-    } else {
-      entites.push({ t: 'poly', calque, pts: local.map(([x, y]) => rep.vers(x, y)), ferme: true });
-    }
+    const ring = anneauPropre(anneauDans(local) || []);
+    if (ring) entites.push({ t: 'poly', calque, pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true });
   }
 
   /* Occupation du sol, parcelles OSM, réseau ferré et cours d'eau linéaires.
@@ -351,16 +366,15 @@ export function entitesTopo(ctx, o) {
   const lignesAire = (liste, calque) => {
     if (!garde(calque)) return;
     for (const f of liste || []) {
-      if (!f.g || f.g.length < 3) continue;
+      if (!f.g || f.g.length < 2) continue;
       const local = f.g.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0));
       const fermeSource = local.length > 3 && Math.hypot(local[0][0] - local.at(-1)[0], local[0][1] - local.at(-1)[1]) < 0.01;
-      if (!recadre || local.every(([x, y]) => x * x + y * y <= R * R)) {
-        const anneau = anneauPropre(local);
-        const pts = anneau || local;
-        if (pts.length > 2) entites.push({ t: 'poly', calque, pts: pts.map(([x, y]) => rep.vers(x, y)), ferme: !!anneau && fermeSource });
+      if (fermeSource && local.length >= 4) {
+        const ring = anneauPropre(anneauDans(local) || []);
+        if (ring) entites.push({ t: 'poly', calque, pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true });
       } else {
-        for (const morceau of recadrer(local, R))
-          if (morceau.length > 1) entites.push({ t: 'poly', calque, pts: morceau.map(([x, y]) => rep.vers(x, y)) });
+        for (const part of dans(local)) if (part.length > 1)
+          entites.push({ t: 'poly', calque, pts: part.map(([x, y]) => rep.vers(x, y)) });
       }
     }
   };
@@ -385,7 +399,7 @@ export function entitesTopo(ctx, o) {
     const lat = tree.lat, lon = tree.lon;
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     const [x, y] = enLocal(lat, lon, lat0, lon0);
-    if (recadre && x * x + y * y > R * R) continue;
+    if (!dedans(x, y)) continue;
     entites.push({ t: 'point', calque: 'ARBRES', pos: rep.vers(x, y) });
   }
 
@@ -394,7 +408,7 @@ export function entitesTopo(ctx, o) {
     const lat = q.lat ?? q.y, lon = q.lon ?? q.x;
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     const [x, y] = enLocal(lat, lon, lat0, lon0);
-    if (recadre && Math.hypot(x, y) > R) continue;
+    if (!dedans(x, y)) continue;
     const pos = rep.vers(x, y);
     entites.push({ t: 'point', calque: 'POI', pos });
     /* Les noms sur le plan sont utiles à la marge : ils sont donc facultatifs
@@ -403,25 +417,33 @@ export function entitesTopo(ctx, o) {
     if (nom && o.nomsPoi) entites.push({ t: 'texte', calque: 'POI', pos, h: Math.max(2, R / 250), txt: nom });
   }
 
-  /* Emprise étudiée */
-  const cercle = [];
-  for (let k = 0; garde('EMPRISE') && k <= 64; k++) {
-    const a = k / 64 * Math.PI * 2;
-    cercle.push(rep.vers(Math.cos(a) * R, Math.sin(a) * R));
+  /* Emprise de calcul (cercle ou carré), distincte de la limite de projet. */
+  if (garde('EMPRISE')) {
+    const frame = footprint(forme, R, 64);
+    if (frame.length) frame.push(frame[0]);
+    entites.push({ t: 'poly', calque: 'EMPRISE', pts: frame.map(([x, y]) => rep.vers(x, y)) });
   }
-  entites.push({ t: 'poly', calque: 'EMPRISE', pts: cercle });
+
+  /* Limite de projet saisie par l'utilisateur. Elle est explicitement
+     distincte des parcelles OSM et ne constitue pas une limite cadastrale. */
+  if (garde('SITE') && Array.isArray(o.boundary) && o.boundary.length >= 3) {
+    const points = o.boundary.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0));
+    const ring = anneauPropre(points);
+    if (ring) entites.push({ t: 'poly', calque: 'SITE', pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true });
+  }
 
   /* Cartouche : sous l'emprise, comme un plan de présentation — de quoi lire
      le dessin sans le logiciel */
   const [x0, y0] = rep.vers(-R, -(R + R * 0.04));
   const haut = R * 0.018;
   const cartouche = [
-    (o.titre || 'Freemap - Atelier') + ' - plan topographique',
+    (o.titre || 'UrbaTrame - Atelier Altiplan') + ' - plan topographique',
     (ctx && ctx.siteName ? ctx.siteName + ' - ' : '') +
       (T ? T.min.toFixed(1) + ' a ' + T.max.toFixed(1) + ' m' : 'altimetrie absente'),
     'Equidistance ' + (equi || '-') + ' m ; ' + nbCourbes + ' courbes ; bati ' +
       entites.filter(e => e.calque === 'BATI').length + ' emprises',
     'Repere : ' + rep.note,
+    o.boundary?.length >= 3 ? 'Limite de projet tracee par l utilisateur - non cadastrale' : '',
     'Donnees (c) OpenStreetMap (ODbL) - relief Terrarium'
   ];
   if (garde('TEXTE')) cartouche.forEach((txt, k) => entites.push({
@@ -442,7 +464,7 @@ export function dxfTopo(ctx, o) {
   o = o || {};
   const r = entitesTopo(ctx, o);
   return {
-    dxf: dxf(r.entites, r.calques, { titre: o.titre || (ctx && ctx.siteName) || 'Freemap - Atelier' }),
+    dxf: dxf(r.entites, r.calques, { titre: o.titre || (ctx && ctx.siteName) || 'UrbaTrame - Atelier Altiplan' }),
     entites: r.entites, nbEntites: r.entites.length,
     calques: r.calques, calquesTous: r.calquesTous, courbes: r.courbes,
     equidistance: r.equi, repere: r.repere, min: r.min, max: r.max
@@ -516,7 +538,7 @@ export function maillageDeScene(sc, o) {
 export function objDeScene(sc, o) {
   o = o || {};
   const M = maillageDeScene(sc, o);
-  const l = ['# Freemap — modele 3D du site',
+  const l = ['# UrbaTrame — modele 3D du site',
     '# unites : metres · X est, Y nord, Z altitude (Z vers le haut)',
     '# sol de reference (altitude 0) : ' + M.base.toFixed(2) + ' m',
     '# ' + sansAccent(o.mention || 'donnees © OpenStreetMap (ODbL) · relief Terrarium')];
@@ -533,7 +555,7 @@ export function objDeScene(sc, o) {
 export function stlDeScene(sc, o) {
   o = o || {};
   const M = maillageDeScene(sc, o);
-  const solidName = 'freemap_Atelier_OpenStreetMap_contributors_ODbL_Terrarium';
+  const solidName = 'urbatrame_Atelier_Altiplan_OpenStreetMap_contributors_ODbL_Terrarium';
   const l = ['solid ' + solidName];
   for (const f of M.faces) {
     const poly = f.pts.map(i => M.sommets[i - 1]);
@@ -565,7 +587,8 @@ const APERCU = {
   COURBES: '#8C7B62', BATI: '#2E2C28', VOIRIE: '#C9A227', EAU: '#5C8FA8',
   VERT: '#7BA05B', POI: '#C0392B', EMPRISE: '#C0392B', TEXTE: '#3D5A80',
   TERRAIN: '#8C7B62', AXE: '#C0392B', SOL: '#D8D2C6',
-  RAIL: '#8055A5', USAGE: '#618C70', PARCELLES: '#A8654E', ARBRES: '#37734E'
+  RAIL: '#8055A5', USAGE: '#618C70', PARCELLES: '#A8654E', ARBRES: '#37734E',
+  SITE: '#C05A32', ROADS_AREA: '#D4C4A6', PATHS_AREA: '#DCD2BF', BRIDGES: '#8B5A79'
 };
 
 /* Aperçu SVG d'une liste d'entités DXF — de quoi vérifier le plan avant de
@@ -589,10 +612,12 @@ export function apercuSVG(entites, o) {
   let corps = '';
   for (const e of entites) {
     const c = APERCU[String(e.calque || '').toUpperCase()] || '#555';
-    const lw = e.calque === 'EMPRISE' || e.calque === 'AXE' ? 1.1 : e.calque === 'TEXTE' ? 0 : 0.7;
+    const lw = ['EMPRISE', 'SITE', 'AXE'].includes(String(e.calque).toUpperCase()) ? 1.1 : e.calque === 'TEXTE' ? 0 : 0.7;
     if (e.t === 'poly' && e.pts) {
       const d = 'M' + e.pts.map(p => X(p[0]) + ' ' + Y(p[1])).join('L') + (e.ferme ? 'Z' : '');
-      corps += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${lw}"${e.ferme ? ' fill-opacity="0"' : ''}/>`;
+      const areaFill = e.ferme && ['ROADS_AREA', 'PATHS_AREA'].includes(String(e.calque).toUpperCase()) ? c : 'none';
+      const dash = String(e.calque).toUpperCase() === 'SITE' ? ' stroke-dasharray="5 3"' : '';
+      corps += `<path d="${d}" fill="${areaFill}" stroke="${c}" stroke-width="${lw}"${dash}/>`;
     } else if (e.t === 'ligne') {
       corps += `<line x1="${X(e.a[0])}" y1="${Y(e.a[1])}" x2="${X(e.b[0])}" y2="${Y(e.b[1])}" stroke="${c}" stroke-width="${lw}"/>`;
     } else if (e.t === 'point') {
@@ -774,8 +799,8 @@ export function dxfCoupe(C, o) {
   e.push({ t: 'poly', calque: 'AXE', pts: [[0, zAxe], [C.longueur, zAxe]] });
   e.push({
     t: 'texte', calque: 'TEXTE', h: Math.max(1, C.longueur / 120), pos: [0, zAxe - 3.5],
-    txt: (o.titre || 'Freemap - Atelier') + ' - coupe ' + Math.round(C.longueur) + ' m ; sol ' +
+    txt: (o.titre || 'UrbaTrame - Atelier Altiplan') + ' - coupe ' + Math.round(C.longueur) + ' m ; sol ' +
       C.zMin.toFixed(1) + ' a ' + C.zMax.toFixed(1) + ' m ; ' + C.bati.length + ' batiments traverses ; donnees OSM ODbL ; relief Terrarium'
   });
-  return dxf(e, calques, { titre: (o.titre || 'Freemap - Atelier') + ' coupe' });
+  return dxf(e, calques, { titre: (o.titre || 'UrbaTrame - Atelier Altiplan') + ' coupe' });
 }

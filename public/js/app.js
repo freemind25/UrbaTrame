@@ -8,6 +8,7 @@ import { store, deviceId, cacheClear } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
+import { svgElementToPngBlob } from './png-export.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -22,7 +23,7 @@ const S = {
   tier: 'free',
   access: 'licence',   /* 'open' = période d'essai ouverte, annoncée par /api/status */
   pub: null,
-  D: { roads: [], build: [], green: [], pois: [] },
+  D: { roads: [], build: [], green: [], pois: [], rail: [], coast: [] },
   terrain: null,
   climate: null,
   site: { lat: null, lon: null, R: 600, name: '' },
@@ -312,25 +313,18 @@ function download(blob, name) {
 function downloadSVG(id, card) {
   const svg = svgOf(card).outerHTML;
   download(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svg], { type: 'image/svg+xml' }),
-    `freemap-${id}.svg`);
+    `urbatrame-${id}.svg`);
   log('export SVG · ' + id);
 }
-function downloadPNG(id, card) {
-  const svg = svgOf(card);
-  const scale = 3;
-  const xml = new XMLSerializer().serializeToString(svg);
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = 240 * scale; c.height = 268 * scale;
-    const x = c.getContext('2d');
-    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-    x.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(b => download(b, `freemap-${id}.png`), 'image/png');
-    log('export PNG ×' + scale + ' · ' + id);
-  };
-  img.onerror = () => toast(T('Export PNG impossible', 'PNG export failed'), false);
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+async function downloadPNG(id, card) {
+  try {
+    const blob = await svgElementToPngBlob(svgOf(card), { scale: 3, background: '#fff' });
+    download(blob, `urbatrame-${id}.png`);
+    log('export PNG ×3 · ' + id);
+  } catch (e) {
+    console.error('PNG', id, e);
+    toast(T('Export PNG impossible', 'PNG export failed'), false);
+  }
 }
 
 /* ═══════════════ aperçu du site ═══════════════ */
@@ -443,7 +437,7 @@ async function generate() {
     }
 
     /* 2 · données OSM, par groupe */
-    const acc = { roads: [], build: [], green: [], pois: [] };
+    const acc = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
     for (const g of p.groups) {
       state['g_' + g.id] = 'active'; drawLoader(list, state, t0);
       let els = null;
@@ -664,7 +658,7 @@ function wireUI() {
   });
   $('#gen').addEventListener('click', generate);
   $('#clear').addEventListener('click', () => {
-    S.D = { roads: [], build: [], green: [], pois: [] }; S.terrain = null; S.climate = null;
+    S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] }; S.terrain = null; S.climate = null;
     renderCards(); log('carte vidée');
   });
   $('#cacheBtn').addEventListener('click', async () => {

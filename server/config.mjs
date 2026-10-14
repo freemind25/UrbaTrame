@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 /** Nom du produit : sert au journal de démarrage et à la signature envoyée
     aux sources externes (OpenStreetMap demande un contact joignable). */
-export const PRODUCT = 'Freemap';
+export const PRODUCT = 'UrbaTrame';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 

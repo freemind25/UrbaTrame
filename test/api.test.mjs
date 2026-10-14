@@ -67,7 +67,12 @@ describe('service', () => {
   test('les fichiers statiques sont servis, la traversée ne l\'est pas', async () => {
     const home = await fetch(base + '/');
     assert.equal(home.status, 200);
-    assert.match(await home.text(), /<title>/);
+    const homeHtml = await home.text();
+    assert.ok(homeHtml.includes('<title>UrbaTrame — analyse des sites urbains</title>'));
+    assert.match(homeHtml, /Analyse des sites urbains/);
+    assert.equal((await fetch(base + '/urbatrame-emblem.png')).status, 200);
+    assert.equal((await fetch(base + '/urbatrame-favicon.png')).status, 200);
+    assert.equal((await fetch(base + '/favicon.svg')).status, 200);
     assert.equal((await fetch(base + '/js/osm.mjs')).status, 200);
     assert.equal((await fetch(base + '/js/osm.mjs')).headers.get('content-type'),
       'text/javascript; charset=utf-8');
@@ -76,18 +81,21 @@ describe('service', () => {
     assert.equal((await fetch(base + '/js/inexistant.js')).status, 404);
   });
 
-  test('l’atelier Altiplan est intégré à Freemap, sans compte ni quota', async () => {
+  test('l’atelier Altiplan est intégré à UrbaTrame, sans compte ni quota', async () => {
     const page = await fetch(base + '/atelier.html');
     assert.equal(page.status, 200);
     const html = await page.text();
-    assert.match(html, /Freemap — Atelier topographique Altiplan/);
+    assert.match(html, /UrbaTrame — Atelier topographique Altiplan/);
+    assert.match(html, /Analyse des sites urbains/);
+    assert.match(html, /intégrée à UrbaTrame/);
+    assert.match(html, /urbatrame-emblem\.png/);
     assert.doesNotMatch(html, /github\.com\/freemind25\/altiplan/);
     assert.equal((await fetch(base + '/js/atelier/app.mjs')).status, 200);
 
     const health = await fetch(base + '/api/atelier/health');
     assert.equal(health.status, 200);
     const info = await health.json();
-    assert.equal(info.name, 'Freemap');
+    assert.equal(info.name, 'UrbaTrame');
     assert.equal(info.feature, 'atelier-topographique');
     assert.ok(info.datasets.includes('trees') && info.datasets.includes('parcels'));
 

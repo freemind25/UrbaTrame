@@ -2,6 +2,7 @@
    Les coordonnées restent en degrés [latitude, longitude] jusqu'à l'export.
    Les données brutes et leurs tags sont conservés pour permettre GeoJSON. */
 import { batimentsDepuisOverpass, heightOf, dedupe } from './osm.mjs';
+import { classifyBuilding, roadWidth } from './geometry.mjs';
 
 const geo = e => Array.isArray(e?.geometry)
   ? e.geometry.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon)).map(p => [p.lat, p.lon]) : [];
@@ -60,12 +61,22 @@ export function normaliser(elements = []) {
 function ajouteAireOuLigne(e, t, g, base, extra) {
   const fermé = g.length > 3 && Math.abs(g[0][0] - g.at(-1)[0]) < 1e-10 && Math.abs(g[0][1] - g.at(-1)[1]) < 1e-10;
   const item = { id: e.id, nom: t.name || t['name:fr'] || '', tags: t, g };
-  if (t.building) {
+  if (t.building || t['building:part']) {
     const h = heightOf(t);
-    base.build.push({ ...item, h, t: t.building, u: t.amenity || t.shop || '' });
+    base.build.push({ ...item, h, t: t.building || t['building:part'], u: t.amenity || t.shop || '',
+      class: classifyBuilding(t), buildingPart: !!t['building:part'] && !t.building,
+      roofShape: t['roof:shape'] || '', roofDirection: Number(t['roof:direction']) || null,
+      roofOrientation: t['roof:orientation'] || '', roofLevels: Number(t['roof:levels']) || 0,
+      roofMaterial: t['roof:material'] || '' });
     return;
   }
-  if (t.highway) { base.roads.push({ ...item, h: t.highway, n: item.nom }); return; }
+  if (t.highway) {
+    const w = roadWidth(t);
+    base.roads.push({ ...item, h: t.highway, n: item.nom, width: w.metres,
+      widthSource: w.source, bridge: !!t.bridge && t.bridge !== 'no',
+      layer: Number(t.layer) || 0, junction: t.junction || '', surface: t.surface || '' });
+    return;
+  }
   if (t.natural === 'tree_row') { extra.rangéesArbres.push(item); return; }
   if (t.boundary === 'parcel' || t.cadastral === 'parcel') {
     if (g.length >= 3) extra.parcelles.push(item);

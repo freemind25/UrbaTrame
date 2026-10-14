@@ -1,292 +1,90 @@
-# Freemap — analyse de site architecturale
+# UrbaTrame — lecture et analyse urbaine
 
-Générateur d'analyses de site et d'exports pour la CAO : **35 analyses** SVG,
-plans DXF/SVG/PNG, coupes de terrain et maquettes OBJ/STL à partir
-d'OpenStreetMap, de NASA POWER et du relief AWS Terrarium. L'**atelier
-Topographique Altiplan** est une section intégrée de Freemap — pas une
-application ou un dépôt séparé — et fonctionne sans compte ni quota. L'application
-principale fonctionne aussi sans réseau grâce à un extrait embarqué.
+![Bannière UrbaTrame — cartographie, topographie et modèles 3D](docs/img/urbatrame-banner.png)
 
-> **Origine du projet.** Freemap est né d'un travail de rétro-ingénierie :
-> comprendre l'architecture d'un générateur de planches d'analyse de site, puis
-> en écrire une mise en œuvre indépendante. Aucune ligne de code, aucun texte et
-> aucune donnée de ce service n'ont été repris ; le catalogue des analyses, les
-> rendus, les textes et le catalogue de licences sont les nôtres. Le projet
-> n'est **affilié à aucun éditeur tiers**.
+**UrbaTrame** aide à lire et analyser un site urbain à partir de données cartographiques et territoriales. L’application rassemble des planches d’analyse, une visualisation 3D interactive et un atelier topographique intégré pour explorer un lieu et produire des livrables exploitables.
 
-[![licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A520.11-brightgreen.svg)](package.json)
-[![dépendances](https://img.shields.io/badge/d%C3%A9pendances-aucune-informational.svg)](package.json)
-[![tests](https://img.shields.io/badge/tests-359%20hors%20ligne-success.svg)](#bancs-d-essai)
-
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
 
-![Trois planches de rendus](docs/img/planche-1.png)
-![Trois planches de rendus](docs/img/planche-2.png)
-![Trois planches de rendus](docs/img/planche-3.png)
+## Fonctionnalités
 
-*Les 35 analyses sur El Khroub (Constantine, Algérie), rayon 600 m, sans
-filigrane — la vue de l'essai gratuit est filigranée.*
+### Analyser le tissu urbain
 
-## Démarrage
+- **44 analyses cartographiques** : voirie, occupation du sol, tissu urbain, densité, volumes bâtis, orientations, points d’intérêt, mobilité, bruit, ensoleillement, relief et climat.
+- **8 planches composées Max au format A3 paysage** : carte de contexte, pôles urbains, grille de densité, axonométrie annotée, encarts d’insertion, cônes de vue indicatifs, zonage fonctionnel OSM non réglementaire et analyse radiale.
+- **Choisir un site** par recherche de lieu ou coordonnées, puis définir un rayon de 200 à 3 000 m et une emprise circulaire ou polygonale.
+- **Consulter les résultats** sous forme de planches lisibles et les exporter individuellement ou en planche A3.
 
-Aucune dépendance à installer : Node.js 20.11 et rien d'autre.
+### Explorer la ville en 3D
 
-```bash
-git clone https://github.com/freemind25/freemap.git
-cd freemap
-npm start                  # http://localhost:4173
-```
+La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de régler l’heure solaire et d’examiner les bâtiments sur le relief. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
 
-Pour voir l'application en action sans attendre Overpass, ouvrez
-<http://localhost:4173/?sample=1> : l'exemple embarqué (El Khroub, 600 m,
-1 577 éléments réels) se charge immédiatement.
+### Utiliser l’atelier topographique Altiplan
 
-## Ce que fait l'application
+**Altiplan est une section intégrée à UrbaTrame**, accessible depuis le bouton « Atelier topo » — ce n’est pas une application séparée. Elle permet de sélectionner un site sur la carte, de choisir les couches utiles, de prévisualiser les résultats et de préparer :
 
-- **35 analyses** de 240 × 268 : voirie, tissu urbain, densité, volumétrie
-  axonométrique, typologie, trames, orientations, POI, vitalité, mobilité,
-  bruit, ensoleillement, relief, climat (températures, pluie, ensoleillement,
-  durée du jour).
-- **Recherche de lieu** (Nominatim) ou coordonnées directes, rayon de 200 à
-  3 000 m, périmètre circulaire ou polygonal.
-- **Exports** : SVG unitaire, PNG, « tout exporter », planche A3 pour
-  l'impression.
-- **Atelier topographique Altiplan**, accessible depuis le bouton « Atelier
-  topo » : sélection cartographique, couches OSM (arbres et parcelles seulement
-  si elles sont cartographiées), plans, coupes et modèles 3D.
-- **Interface bilingue** français/anglais (`?lang=en`), thème clair ou sombre
-  selon l'analyse, six palettes de couleurs.
-- **Paliers** : 4 analyses en essai gratuit (filigranées), 23 en Pro, 8 en Max.
+- un **plan topographique** avec courbes de niveau et couches cartographiques sélectionnées ;
+- une **coupe de terrain** entre deux points ;
+- une **maquette 3D** du terrain et des éléments cartographiés.
 
-## Structure du dépôt
+L’atelier est accessible sans compte ni quota. Un exemple d’El Khroub est intégré pour découvrir l’interface sans attendre les services cartographiques externes.
 
-```
-.
-├── public/                  interface servie telle quelle (aucune compilation)
-│   ├── index.html           analyses Freemap
-│   ├── atelier.html         section Atelier topographique Altiplan
-│   ├── styles.css           interface des analyses Freemap
-│   ├── atelier.css          styles de la section topographique
-│   ├── favicon.svg
-│   ├── data/                exemples embarqués (El Khroub)
-│   └── js/
-│       ├── atelier/         carte, données OSM et exports de l'atelier
-│       ├── catalog.js       44 entrées de catalogue, 7 groupes FR/EN
-│       ├── engine.js        moteur : wrap(), palettes, géométrie, légendes
-│       ├── renderers-core.js  11 analyses gratuites
-│       ├── renderers-pro.js   24 analyses sous licence
-│       ├── plan-2d.mjs  planificateur partagé navigateur/serveur
-│       ├── osm.mjs          normalisation des données OpenStreetMap
-│       ├── routes.mjs       client HTTP, codes d'erreur FR/EN, repli direct
-│       ├── persist.mjs      cache IndexedDB, préférences locales
-│       └── app.js           orchestration, i18n, exports, état
-├── api/                     fonctions serverless : analyses et Atelier topographique
-├── server/
-│   ├── atelier-api.mjs      routes publiques du module Atelier
-│   ├── atelier-data.mjs     couches OSM autorisées et filtrage des contacts
-│   ├── index.mjs            point d'entrée, createApp(), CLI
-│   ├── api.mjs              contrat HTTP (gestionnaires réutilisés par les deux modes)
-│   ├── runtime.mjs          où vit l'état : mode « node » ou « vercel »
-│   ├── licence.mjs          clés Ed25519, codes, titres signés
-│   ├── quota.mjs            une génération en vol par IP
-│   ├── runs.mjs             sessions de génération
-│   ├── http.mjs             envoi, corps, IP, fichiers statiques
-│   ├── config.mjs           chemins, sources, délais
-│   └── sources/             overpass · climate · terrain
-├── test/                    tests d'API, d'exports et de non-régression
-├── tools/                   rendu, exports Freemap et CLI de l'atelier
-├── docs/                    architecture, API, données, Atelier, déploiement, journal
-└── .github/                 CI, gabarits d'issues et de proposition
-```
+### Exporter et partager
 
-Le détail des choix se trouve dans **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
-
-## API
-
-| Route | Objet |
+| Contenu | Formats disponibles |
 |---|---|
-| `GET /api/status` | version, paliers, plafonds de rayon, clé publique Ed25519 |
-| `POST /analysis/2d` | `check` · `begin` · `query` · `end` · `activate` · `terrain` · `climate` |
-| `POST /` | `geocode=` · `refcheck=` · `refcode=` |
-| `GET /api/atelier/health` | état de la section Atelier topographique |
-| `POST /api/atelier/geocode` | recherche de lieu pour l’atelier |
-| `POST /api/atelier/extract` | couches OSM autorisées et relief, sans compte ni quota |
+| Analyses cartographiques | SVG, PNG, planche A3 |
+| Plan topographique | DXF, SVG, PNG |
+| Coupe de terrain | DXF, SVG, PNG |
+| Maquette 3D | OBJ, STL, aperçu PNG |
 
-Le client n'envoie jamais de requête Overpass : il envoie des identifiants
-d'analyse, un rayon et un point ; le serveur reconstruit la requête avec le
-planificateur partagé. Contrat complet et codes d'erreur :
-**[docs/API.md](docs/API.md)**.
+Les exports topographiques peuvent être exprimés en mètres locaux ou géoréférencés en UTM WGS 84. Les analyses et les livrables peuvent être consultés dans les logiciels compatibles avec ces formats, notamment les outils de DAO/CAO.
 
-## Licences et paliers
+### Adapter l’affichage
 
-| Palier | Débloque | Obtention |
-|---|---|---|
-| essai (`free`) | `roads`, `landuse`, `gw`, `fabric` | par défaut, cartes filigranées |
-| `pro` | + 15 analyses d'étude | code de licence |
-| `max` | les 35 analyses | code de licence |
+L’interface est disponible en français et en anglais. Elle propose un thème clair ou sombre, plusieurs palettes de couleur et des aperçus avant téléchargement.
 
-Codes de démonstration fournis par le dépôt (`DEMO_CODES`) :
+## Exemples
 
-| Code | Palier |
-|---|---|
-| `cs_demo_pro` | pro, 30 jours |
-| `cs_demo_max` | max, 30 jours |
-| `cs_etude_2026` | max, 90 jours |
-| `cs_demo_lifetime` | max, sans expiration |
+Les exemples ci-dessous montrent des planches d’analyse et des livrables de l’atelier topographique pour El Khroub, Constantine.
 
-Un code s'active dans *Tarifs* ; il est lié à un identifiant d'appareil et le
-titre signé est vérifié **dans le navigateur** (`crypto.subtle`) avant d'ouvrir
-l'accès. Modifier `localStorage` ne donne donc rien. Avant une mise en ligne,
-remplacez ces codes et lisez [SECURITY.md](SECURITY.md).
-
-## Vue 3D
-
-Les bâtiments peuvent être affichés **en volume**, avec ombres portées selon
-l'heure et le lieu (comme sur `osmbuildings.org`, dont les fonctions ont été
-relevées puis réimplémentées sans dépendance) :
-
-- analyse **Volumes 3D** dans le catalogue, exportable comme les autres ;
-- **vue interactive** plein écran (bouton `3D` ou `?vue3d=1`) : rotation,
-  inclinaison, zoom, curseur d'heure, fiche au clic, fond de carte optionnel,
-  export PNG et SVG ;
-- **posés sur le terrain réel** (altimétrie Terrarium, la même que l'analyse
-  « relief ») et **cours intérieures évidées** : les volumes suivent la pente,
-  les toits à cour sont troués.
-
-Deux sources de hauteurs : nos requêtes Overpass (autonome) ou les tuiles
-d'osmbuildings.org, qui fournissent une hauteur pour chaque bâtiment.
-Détail et limites : **[docs/VUE3D.md](docs/VUE3D.md)**.
-
-## Exports CAO
-
-Le bouton **« Exports CAO »** ouvre un panneau à trois onglets, avec aperçu
-avant téléchargement :
-
-| Export | Format | Ce qu'il contient |
-|---|---|---|
-| Plan topographique | `.dxf` R12 | courbes de niveau (altitude en Z), bâti fermé à sa hauteur, voirie, eau, végétation, POI, emprise, cartouche |
-| Coupe | `.dxf`, `.svg` | profil du terrain entre deux points, bâti traversé, cotes |
-| Modèle 3D | `.obj`, `.stl` | maillage du relief et bâti, sommets en mètres, altitudes vraies |
-
-Tout est en mètres, X vers l'est, Y vers le nord, Z vers le haut — et le repère
-peut être géoréférencé en **UTM (WGS 84)** pour se superposer à un fond
-cadastral. Les emprises bâties portent leur hauteur en Z : dans AutoCAD,
-`EXTRUDE` en fait des volumes. Hors navigateur :
-
-```bash
-node tools/exporter.mjs --out /tmp/freemap        # plan, coupe, modèle, aperçus
-node tools/exporter.mjs --quoi plan --geolocate --equi 5
-```
-
-Conventions, options, vérifications (relecture des fichiers par `ezdxf` et
-`trimesh`) et limites : **[docs/EXPORTS.md](docs/EXPORTS.md)**.
-
-## Atelier topographique Altiplan
-
-Altiplan est le module topographique de Freemap, accessible depuis le bouton
-**« Atelier topo »** ou à `/atelier.html`. Il permet de choisir un site sur la
-carte, de récupérer les couches OSM et le relief, puis de produire un plan,
-une coupe et un modèle 3D. Cette section est **sans compte et sans quota**.
-Les parcelles ne sont montrées que si elles existent dans OSM : aucune limite
-juridique ou cadastrale n'est inventée.
-
-```bash
-npm run atelier:exporter -- --out /tmp/freemap-atelier
-npm run atelier:exporter -- --lieu "Constantine, Algérie" --rayon 900 --geolocate
-```
-
-Formats, paramètres et limites : **[docs/ALTIPLAN.md](docs/ALTIPLAN.md)**.
+![Exemple de planches d’analyse urbaine](docs/img/planche-1.png)
+![Autres exemples de planches d’analyse](docs/img/planche-2.png)
+![Exemples complémentaires de rendus](docs/img/planche-3.png)
 
 ![Plan topographique d’exemple pour El Khroub](docs/img/atelier-el-khroub-plan.png)
 ![Maquette 3D d’exemple pour El Khroub](docs/img/atelier-el-khroub-3d.png)
 
-## Accès : période d'essai ouverte
+## Données et limites
 
-**Aujourd'hui, tout est ouvert** : les 35 analyses, sans licence, sans
-filigrane et sans quota. C'est le mode par défaut.
+UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des données de relief **AWS Terrarium** et des données climatiques **NASA POWER**. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
 
-```
-FM_ACCESS=open      # défaut — toutes les analyses pour tout le monde
-FM_ACCESS=licence   # 4 analyses gratuites filigranées, Pro/Max sur code, quota par IP
-```
+Les parcelles ne sont affichées que si leurs limites sont présentes dans OpenStreetMap. UrbaTrame **ne crée ni ne complète de limites juridiques ou cadastrales** : les cartes et maquettes ne remplacent pas un relevé de géomètre. Toute publication utilisant des données OpenStreetMap doit conserver l’attribution **© OpenStreetMap contributors**.
 
-Le serveur annonce son mode dans `/api/status` (champ `access`) et le client
-s'y adapte seul : catalogue déverrouillé, filigrane retiré, badge « LIBRE ».
-Le jour où les abonnements reviennent, il suffit de basculer la variable.
-Détail et marche à suivre : **[docs/ACCES.md](docs/ACCES.md)**.
+## Essayer l’application
 
-## Bancs d'essai
+Pour lancer l’application localement, Node.js 20.11 ou une version ultérieure est nécessaire :
 
 ```bash
-npm test          # tests hors ligne (aucun accès réseau requis)
-npm run test:net  # + Overpass, Nominatim, NASA POWER, Terrarium
-npm run lint      # contrôle de syntaxe de tout le dépôt
-npm run svg -- --ids massing,gw --png   # rendus hors navigateur
-npm run capture   # recapture l'exemple embarqué depuis les sources réelles
-npm run genere-cle   # clé de signature Ed25519 (serveur : fichier · Vercel : variable)
-node tools/exporter.mjs --out /tmp/freemap    # exports DXF · coupe · OBJ/STL
+git clone https://github.com/freemind25/freemap.git
+cd freemap
+npm start
 ```
 
-Les tests couvrent le rendu des 35 analyses et de leurs palettes, la cohérence
-du catalogue et du planificateur, les licences (signature vérifiée
-indépendamment du serveur), le contrat HTTP, le quota, l'accès libre et le basculement
-en régime sous licence, le repli entre miroirs Overpass, la vue 3D (soleil,
-caméra, ombres, désignation au clic, lecture des deux sources), le décodeur PNG
-des tuiles d'altitude et la projection Mercator, et les exports CAO (projection
-UTM comparée à des valeurs de référence, structure du DXF, recadrage à
-l'emprise, coupe et bâti traversé, triangulation du STL).
+Ouvrez ensuite <http://localhost:4173>. Pour afficher directement l’exemple intégré d’El Khroub, utilisez <http://localhost:4173/?sample=1>.
 
-## Déploiement
+Dans la configuration actuelle du dépôt, les **44 analyses sont accessibles sans compte, code de licence ni quota**.
 
-Deux modes, selon l'endroit où le serveur tourne :
+## Documentation
 
-| Mode | Où | Ce que vous obtenez |
-|---|---|---|
-| **Serveur Node** (défaut) | VPS, Docker, Render, Railway | tout : quota par IP, licences révocables, clé sur disque |
-| **Serverless** | Vercel | tout sauf la révocation et le quota global : l'état vit en mémoire d'instance |
-
-À ceci près : en accès libre (le défaut), ni licence ni quota intervient, donc
-les deux modes se comportent pareil pour l'utilisateur.
-
-Sur Vercel, l'API est exposée par trois fonctions (`api/`) et le reste est
-servi en statique ; il faut poser une variable d'environnement pour que les
-licences fonctionnent. Détail, limites et vérifications :
-**[docs/VERCEL.md](docs/VERCEL.md)**.
-
-Pour le serveur classique (variables d'environnement, systemd, Docker, points
-de vigilance) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**. À retenir avant
-toute mise en ligne : sauvegarder la clé privée de signature, remplacer les
-codes de démonstration, régler le `User-Agent` sur votre contact, et rendre le
-quota partagé si vous lancez plusieurs instances.
-
-## Données et attribution
-
-| Donnée | Source | Licence |
-|---|---|---|
-| Voirie, bâti, usage, POI, transports | OpenStreetMap via Overpass | ODbL 1.0 — `© OpenStreetMap contributors` |
-| Altimétrie | AWS Terrarium (SRTM, USGS, EU-DEM) | domaine public |
-| Climat | NASA POWER | domaine public |
-
-Les planches publiées doivent porter l'attribution OSM. Détail et implications
-de l'ODbL : **[docs/DONNEES.md](docs/DONNEES.md)**.
-
-## État du projet
-
-Version 0.1.0, voir [CHANGELOG.md](CHANGELOG.md). 9 analyses sur 44 sont
-déclarées au catalogue sans rendu (planches composées, vent, réseau radial) et
-apparaissent avec le badge « v0.2 ». Le parrainage répond mais n'applique aucune
-remise. Les suites prévues sont listées dans
-[docs/JOURNAL-DEV.md](docs/JOURNAL-DEV.md#9-reste-à-faire).
-
-## Contribuer
-
-Les propositions sont bienvenues : voir [CONTRIBUTING.md](CONTRIBUTING.md)
-(conventions, ajout d'une analyse en trois fichiers) et
-[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Les défauts se signalent avec le
-gabarit d'issue, en précisant l'analyse, le lieu et le rayon.
+- [Atelier topographique Altiplan](docs/ALTIPLAN.md)
+- [Exports topographiques et CAO](docs/EXPORTS.md)
+- [Visualisation 3D](docs/VUE3D.md)
+- [Données, sources et attribution](docs/DONNEES.md)
+- [API](docs/API.md)
+- [Déploiement](docs/DEPLOIEMENT.md) · [Vercel](docs/VERCEL.md)
 
 ## Licence
 
-Code sous [MIT](LICENSE). Les données restent sous les licences de leurs
-producteurs.
+Le code de l’application est sous licence [MIT](LICENSE). Les données restent soumises aux licences et conditions de leurs producteurs.

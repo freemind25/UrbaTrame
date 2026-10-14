@@ -35,7 +35,9 @@ export function createMap(root, options = {}) {
   const tiles = root.querySelector('.map-tiles');
   const svg = root.querySelector('.map-overlay');
   const scaleLabel = root.querySelector('#mapScale');
-  const state = { lat: options.lat || 36.2642, lon: options.lon || 6.6969, zoom: options.zoom || 15, radius: options.radius || 600, data: null };
+  const state = { lat: options.lat || 36.2642, lon: options.lon || 6.6969, zoom: options.zoom || 15,
+    radius: options.radius || 600, shape: options.shape === 'square' ? 'square' : 'circle',
+    boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [], drawMode: null, data: null };
   const cache = new Map();
   let dimensions = { w: 0, h: 0 };
   let drawPending = false, drag = null, suppressClick = false;
@@ -64,7 +66,10 @@ export function createMap(root, options = {}) {
     const c = Math.cos(state.lat * D2R);
     const mpp = c * 40075016.686 / (TILE * 2 ** state.zoom);
     const radius = clamp(state.radius / mpp, 8, Math.max(w, h) * 4);
-    const parts = [`<defs><clipPath id="siteClip"><circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/></clipPath></defs>`];
+    const frame = state.shape === 'square'
+      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}"/>`
+      : `<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/>`;
+    const parts = [`<defs><clipPath id="siteClip">${frame}</clipPath></defs>`];
     if (state.data) {
       parts.push('<g clip-path="url(#siteClip)">');
       parts.push(featurePath(state.data.landuse, origin, state.zoom, '#97ad8f', 1, 'rgba(184,207,171,.22)', true));
@@ -83,7 +88,19 @@ export function createMap(root, options = {}) {
       }
       parts.push('</g></g>');
     }
-    parts.push(`<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}" fill="rgba(40,107,78,.06)" stroke="#1f6c53" stroke-width="2" stroke-dasharray="7 5" vector-effect="non-scaling-stroke"/>`);
+    const frameShape = state.shape === 'square'
+      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}" rx="2"/>`
+      : `<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/>`;
+    parts.push(`<g fill="rgba(40,107,78,.06)" stroke="#1f6c53" stroke-width="2" stroke-dasharray="7 5" vector-effect="non-scaling-stroke">${frameShape}</g>`);
+    if (state.boundary.length) {
+      const projected = state.boundary.map(([lat, lon]) => localPixel(lat, lon, origin, state.zoom));
+      if (projected.length > 1 && projected.every(p => Number.isFinite(p[0]) && Number.isFinite(p[1]))) {
+        const d = projected.map((p, i) => (i ? 'L' : 'M') + fmt(p[0]) + ',' + fmt(p[1])).join('') + (projected.length >= 3 ? 'Z' : '');
+        parts.push(`<path d="${d}" fill="${projected.length >= 3 ? 'rgba(197,128,63,.12)' : 'none'}" stroke="#bf6b38" stroke-width="2.4" stroke-linejoin="round" stroke-dasharray="${state.drawMode === 'boundary' ? '5 3' : 'none'}" vector-effect="non-scaling-stroke"/>`);
+        parts.push('<g fill="#fff" stroke="#a64f2d" stroke-width="1.5" vector-effect="non-scaling-stroke">' +
+          projected.map(p => `<circle cx="${fmt(p[0])}" cy="${fmt(p[1])}" r="3.5"/>`).join('') + '</g>');
+      }
+    }
     parts.push(`<line x1="${w / 2 - 12}" y1="${h / 2}" x2="${w / 2 + 12}" y2="${h / 2}" stroke="#14543f" stroke-width="1"/><line x1="${w / 2}" y1="${h / 2 - 12}" x2="${w / 2}" y2="${h / 2 + 12}" stroke="#14543f" stroke-width="1"/>`);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.innerHTML = parts.join('');
@@ -158,6 +175,13 @@ export function createMap(root, options = {}) {
     const r = root.getBoundingClientRect();
     const c = world(state.lat, state.lon, state.zoom);
     const p = geographic(c.x + e.clientX - r.left - r.width / 2, c.y + e.clientY - r.top - r.height / 2, state.zoom);
+    if (state.drawMode === 'boundary') {
+      if (state.boundary.length >= 100) return;
+      state.boundary.push([p.lat, p.lon]);
+      options.onBoundaryChange?.(state.boundary.map(q => [...q]));
+      schedule();
+      return;
+    }
     centerAt(p.lat, p.lon, true);
   });
   root.addEventListener('wheel', e => {
@@ -172,9 +196,15 @@ export function createMap(root, options = {}) {
   return {
     setCenter: centerAt,
     setRadius: fitRadius,
+    setShape(shape) { state.shape = shape === 'square' ? 'square' : 'circle'; schedule(); },
+    setBoundary(points) { state.boundary = Array.isArray(points) ? points.map(p => [...p]) : []; schedule(); },
+    getBoundary() { return state.boundary.map(p => [...p]); },
+    setDrawMode(mode) { state.drawMode = mode === 'boundary' ? 'boundary' : null; schedule(); },
+    undoBoundary() { state.boundary.pop(); options.onBoundaryChange?.(this.getBoundary()); schedule(); },
+    clearBoundary() { state.boundary = []; options.onBoundaryChange?.([]); schedule(); },
     setData(data) { state.data = data; schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
-    getState() { return { ...state }; },
+    getState() { return { ...state, boundary: this.getBoundary() }; },
     destroy() { observer.disconnect(); root.replaceChildren(); }
   };
 }

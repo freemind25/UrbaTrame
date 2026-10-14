@@ -68,6 +68,14 @@ describe('requêtes produites', () => {
     }
   });
 
+  test('les planches qui dessinent rail et côte demandent réellement ces couches OSM', () => {
+    for (const id of ['mappingboard', 'urbanstations', 'axocallout', 'insetboard', 'viewcones', 'zoningplan', 'radialnet']) {
+      const query = plan([id], 600, 36.2642, 6.6969).groups.map(g => g.query).join(' ');
+      assert.match(query, /way\["railway"/, id + ' récupère les voies ferrées');
+      assert.match(query, /way\["natural"="coastline"\]/, id + ' récupère le trait de côte');
+    }
+  });
+
   test('sous 1500 m, deux lots sont fusionnés en un seul', () => {
     const p = plan(['roads', 'gw'], 800, 36.365, 6.6146);
     assert.equal(p.groups.length, 1);
