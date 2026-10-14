@@ -8,6 +8,7 @@
      • les hauteurs viennent de `height`, sinon `building:levels × 3,1 m` ;
      • un utilisateur sans hauteur explicite reste à 0 et sera dessiné à 9 m
        par les renderers, qui le signalent dans leur note. */
+import { classifyBuilding } from './geometry.mjs';
 
 export function normalizeElements(into, elements) {
   const out = into || { roads: [], build: [], green: [], pois: [] };
@@ -117,7 +118,11 @@ export function batimentsDepuisOverpass(elements) {
       trous: (trous || []).map(r => r.map(p => [p[0], p[1]])),
       minH: parseFloat(tags['building:min_height']) || 0,
       hauteurToit: parseFloat(tags['roof:height']) || 0,
-      t: tags.building === 'yes' ? (tags.amenity || tags.shop || tags.office || 'yes') : (tags.building || 'yes'),
+      t: (tags.building || tags['building:part']) === 'yes' ? (tags.amenity || tags.shop || tags.office || 'yes') : (tags.building || tags['building:part'] || 'yes'),
+      class: classifyBuilding(tags), buildingPart: !!tags['building:part'] && !tags.building,
+      roofShape: tags['roof:shape'] || '', roofDirection: Number(tags['roof:direction']) || null,
+      roofOrientation: tags['roof:orientation'] || '', roofLevels: Number(tags['roof:levels']) || 0,
+      roofMaterial: tags['roof:material'] || '',
       couleur: tags['building:colour'] || tags['building:color'] || '',
       couleurToit: tags['roof:colour'] || '',
       nom: tags.name || '', source: 'overpass'
@@ -125,7 +130,7 @@ export function batimentsDepuisOverpass(elements) {
   };
   for (const e of elements || []) {
     const t = e.tags || {};
-    if (!t.building) continue;
+    if (!t.building && !t['building:part']) continue;
     if (e.type === 'relation' && e.members) {
       /* Une relation peut décrire plusieurs emprises et des cours intérieures.
          Chaque cours revient à l'emprise qui la contient (sinon elle serait

@@ -63,7 +63,10 @@
           <div class="radius-head"><label for="radius">Rayon de l'emprise</label><strong><output id="radiusValue">600</output><small> m</small></strong></div>
           <input id="radius" type="range" min="200" max="3989" step="50" value="600">
           <div class="range-ends"><span>200 m</span><span>jusqu'à 50 km²</span></div>
-          <div class="area-chip"><span class="area-swatch"></span><span id="areaValue">1,13 km²</span><span class="area-divider">·</span><span>emprise circulaire</span></div>
+          <div class="area-chip"><span class="area-swatch"></span><span id="areaValue">1,13 km²</span><span class="area-divider">·</span><span id="shapeLabel">emprise circulaire</span></div>
+          <label class="shape-control" for="baseShape">Forme de l’emprise de calcul
+            <select id="baseShape"><option value="circle">Cercle</option><option value="square">Carré</option></select>
+          </label>
         </div>
 
         <div class="layers-head"><span class="step">02 / DONNÉES</span><button id="allLayers" class="text-button" type="button">Tout cocher</button></div>
@@ -89,11 +92,19 @@
 
       <section class="map-panel" aria-label="Carte et emprise du site">
         <div class="map-topline"><div><span class="step">CARTE INTERACTIVE</span><strong id="mapLocation">EL KHROUB · CONSTANTINE</strong></div><div class="map-actions"><button id="homeMap" type="button" title="Revenir au site">⌖ <span>Recentrer</span></button><button id="zoomOut" type="button" title="Dézoomer">−</button><button id="zoomIn" type="button" title="Zoomer">+</button></div></div>
+        <div class="boundary-tools" role="group" aria-label="Limite du projet">
+          <span class="boundary-tool-label">Limite du projet · non cadastrale</span>
+          <button id="drawBoundary" type="button" aria-pressed="false">Tracer sur la carte</button>
+          <button id="finishBoundary" type="button" disabled>Terminer</button>
+          <button id="undoBoundary" type="button" disabled title="Annuler le dernier point">↶</button>
+          <button id="clearBoundary" type="button" disabled>Effacer</button>
+          <span id="boundaryStatus" aria-live="polite">Optionnelle</span>
+        </div>
         <div id="map" class="map" role="application" aria-label="Carte OpenStreetMap. Cliquez pour choisir le centre, faites glisser pour déplacer, utilisez la molette pour zoomer.">
           <div class="map-tiles" aria-hidden="true"></div>
           <svg class="map-overlay" aria-hidden="true" preserveAspectRatio="none"></svg>
           <div class="map-center" aria-hidden="true"><span></span></div>
-          <div class="map-tip"><span class="tip-cross">⊕</span> Cliquez pour placer le centre · glissez pour explorer</div>
+          <div class="map-tip" id="mapTip"><span class="tip-cross">⊕</span> Cliquez pour placer le centre · glissez pour explorer</div>
           <div class="map-scale" id="mapScale">500 m</div>
           <div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
         </div>

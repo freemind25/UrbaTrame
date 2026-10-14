@@ -34,6 +34,7 @@ describe('Freemap · section Altiplan', () => {
   test('Overpass ne reçoit que les couches autorisées, arbres et parcelles comprises', () => {
     const q = queryFor({ lat: 36.2642, lon: 6.6969, radius: 600, include: ['buildings', 'trees', 'parcels'] });
     assert.match(q, /way\["building"\]/);
+    assert.match(q, /way\["building:part"\]/);
     assert.match(q, /node\["natural"="tree"\]/);
     assert.match(q, /way\["boundary"="parcel"\]/);
     assert.doesNotMatch(q, /evil|interpreter|\.\.\//);

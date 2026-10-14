@@ -12,6 +12,7 @@
    logiciel de CAO. Aucune bibliothèque : tout est calculé ici.
    ───────────────────────────────────────────────────────────────────────── */
 import * as X from './exports.mjs';
+import { vectorMapSVG } from './vector-map.mjs';
 import { arbresDepuisRangées } from './osm-data.mjs';
 
 export function ouvrirExports(o) {
@@ -24,8 +25,8 @@ export function ouvrirExports(o) {
   /* ── contexte de rendu attendu par les exports (même forme que les analyses) ── */
   const ctx = {
     sLat: o.lat, sLng: o.lon, curR: o.rayon, siteName: o.nom || '',
-    shape: 'circle', lang, D: o.D || { roads: [], build: [], green: [], pois: [] },
-    terrain: o.terrain || null
+    shape: o.shape === 'square' ? 'square' : 'circle', boundary: Array.isArray(o.boundary) ? o.boundary : [],
+    lang, D: o.D || { roads: [], build: [], green: [], pois: [] }, terrain: o.terrain || null
   };
 
   const racine = document.createElement('div');
@@ -36,6 +37,7 @@ export function ouvrirExports(o) {
       <span class="xpt-site">${siteLabel}</span>
       <nav class="xpt-onglets">
         <button data-ong="plan" class="on">${t('Plan DXF', 'DXF plan')}</button>
+        <button data-ong="carte">${t('Carte vectorielle', 'Vector map')}</button>
         <button data-ong="coupe">${t('Coupe', 'Section')}</button>
         <button data-ong="modele">${t('Modèle 3D', '3D model')}</button>
       </nav>
@@ -68,7 +70,9 @@ export function ouvrirExports(o) {
           <fieldset class="xpt-couches"><legend>${t('Calques', 'Layers')}</legend>
             <label><input type="checkbox" data-couche="COURBES" checked> ${t('Courbes de niveau', 'Contours')}</label>
             <label><input type="checkbox" data-couche="BATI" checked> ${t('Bâtiments', 'Buildings')}</label>
-            <label><input type="checkbox" data-couche="VOIRIE" checked> ${t('Voirie', 'Roads')}</label>
+            <label><input type="checkbox" data-couche="VOIRIE" checked> ${t('Voirie (axes)', 'Road centre lines')}</label>
+            <label><input type="checkbox" id="xpt-road-width" checked> ${t('Surfaces · largeur OSM ou estimation', 'Road surfaces · OSM width or estimate')}</label>
+            <label><input type="checkbox" data-couche="BRIDGES" checked> ${t('Ponts et ouvrages balisés', 'Mapped bridges and structures')}</label>
             <label><input type="checkbox" data-couche="RAIL" checked> ${t('Réseau ferré', 'Railways')}</label>
             <label><input type="checkbox" data-couche="EAU" checked> ${t('Eau', 'Water')}</label>
             <label><input type="checkbox" data-couche="VERT" checked> ${t('Végétation', 'Green space')}</label>
@@ -76,7 +80,8 @@ export function ouvrirExports(o) {
             <label><input type="checkbox" data-couche="PARCELLES" checked> ${t('Parcelles OSM', 'OSM parcels')}</label>
             <label><input type="checkbox" data-couche="ARBRES" checked> ${t('Arbres OSM', 'OSM trees')}</label>
             <label><input type="checkbox" data-couche="POI" checked> ${t('Points d’intérêt', 'Points of interest')}</label>
-            <label><input type="checkbox" data-couche="EMPRISE" checked> ${t('Emprise', 'Site boundary')}</label>
+            <label><input type="checkbox" data-couche="EMPRISE" checked> ${t('Emprise de calcul', 'Study footprint')}</label>
+            <label><input type="checkbox" data-couche="SITE"> ${t('Limite de projet tracée (non cadastrale)', 'User-drawn project boundary (not cadastral)')}</label>
             <label><input type="checkbox" data-couche="TEXTE" checked> ${t('Cartouche', 'Title block')}</label>
           </fieldset>
           <div class="xpt-actions">
@@ -91,6 +96,55 @@ export function ouvrirExports(o) {
             'DXF R12 (AC1009), in metres. Building footprints carry height in Z; use EXTRUDE in a CAD program to make volumes.')}</p>
         </div>
         <div class="xpt-col xpt-apercu" id="xpt-ap-plan"></div>
+      </section>
+
+      <section data-pan="carte" hidden>
+        <div class="xpt-col">
+          <h4>${t('Carte vectorielle', 'Vector map')}</h4>
+          <p class="xpt-note">${t('Composez une planche éditable en SVG ou PNG. Les styles, le relief, les couches et les repères s’appliquent aux mêmes données Freemap.',
+            'Compose an editable SVG or PNG map. Styles, relief, layers and annotations use the same Freemap data.')}</p>
+          <label class="xpt-l"><span>${t('Style', 'Preset')}</span>
+            <select id="xpt-map-preset"><option value="classic">${t('Classique', 'Classic')}</option><option value="figure-ground">Figure / fond</option><option value="relief">${t('Relief', 'Relief')}</option><option value="night">${t('Nocturne', 'Night')}</option><option value="blueprint">Blueprint</option></select>
+          </label>
+          <label class="xpt-l"><span>${t('Échelle d’impression', 'Print scale')}</span>
+            <select id="xpt-map-scale"><option value="fit">${t('Ajuster à la feuille', 'Fit to page')}</option><option value="2000">1:2 000</option><option value="5000">1:5 000</option><option value="10000">1:10 000</option><option value="25000">1:25 000</option></select>
+          </label>
+          <fieldset class="xpt-couches"><legend>${t('Couches', 'Layers')}</legend>
+            <label><input type="checkbox" data-map-layer="buildings" checked> ${t('Bâtiments', 'Buildings')}</label>
+            <label><input type="checkbox" data-map-layer="roads" checked> ${t('Voirie · largeur réelle/estimée', 'Roads · mapped/estimated width')}</label>
+            <label><input type="checkbox" data-map-layer="bridges" checked> ${t('Ponts et ouvrages', 'Bridges and structures')}</label>
+            <label><input type="checkbox" data-map-layer="rail" checked> ${t('Réseau ferré', 'Rail')}</label>
+            <label><input type="checkbox" data-map-layer="water" checked> ${t('Eau', 'Water')}</label>
+            <label><input type="checkbox" data-map-layer="green" checked> ${t('Espaces verts', 'Green areas')}</label>
+            <label><input type="checkbox" data-map-layer="trees" checked> ${t('Arbres OSM', 'OSM trees')}</label>
+            <label><input type="checkbox" data-map-layer="contours" checked> ${t('Courbes de niveau', 'Contours')}</label>
+            <label><input type="checkbox" data-map-layer="labels"> ${t('Noms des lieux et bâtiments', 'Place and building labels')}</label>
+            <label><input type="checkbox" data-map-layer="siteBoundary"> ${t('Limite de projet tracée · non cadastrale', 'User-drawn project boundary · not cadastral')}</label>
+            <label><input type="checkbox" data-map-layer="grid"> ${t('Grille métrique', 'Metric grid')}</label>
+          </fieldset>
+          <label class="xpt-couches"><input type="checkbox" id="xpt-map-class" checked> ${t('Colorer les bâtiments par type', 'Colour buildings by type')}</label>
+          <label class="xpt-l"><span>${t('Direction du soleil', 'Sun direction')}</span><input id="xpt-map-azimuth" type="range" min="0" max="359" value="315"></label>
+          <label class="xpt-l"><span>${t('Hauteur solaire', 'Sun height')}</span><input id="xpt-map-sun-height" type="range" min="5" max="85" value="35"></label>
+          <label class="xpt-l"><span>${t('Intensité des ombres', 'Shadow strength')}</span><input id="xpt-map-shadow" type="range" min="0" max="70" value="18"></label>
+          <label class="xpt-l"><span>${t('Ombrage du relief', 'Hillshade')}</span><input id="xpt-map-hillshade" type="range" min="0" max="100" value="30"></label>
+          <label class="xpt-l"><span>${t('Profondeur du relief', 'Terrain depth')}</span><input id="xpt-map-depth" type="range" min="0" max="70" value="18"></label>
+          <label class="xpt-l"><span>${t('Couleur des routes', 'Road colour')} <input id="xpt-map-road-color" type="color" value="#D7C8AA"></span></label>
+          <label class="xpt-l"><span>${t('Couleur uniforme des bâtiments', 'Single building colour')} <input id="xpt-map-building-color" type="color" value="#BEB8AB"></span></label>
+          <fieldset class="xpt-couches xpt-map-colors"><legend>${t('Couleurs par type de bâtiment', 'Building type colours')}</legend>
+            <label>${t('Résidentiel', 'Residential')} <input type="color" data-map-class-color="residential" value="#D9C7A7"></label>
+            <label>${t('Public', 'Public')} <input type="color" data-map-class-color="public" value="#91B7D3"></label>
+            <label>${t('Commercial', 'Commercial')} <input type="color" data-map-class-color="commercial" value="#D5A36C"></label>
+            <label>${t('Industriel', 'Industrial')} <input type="color" data-map-class-color="industrial" value="#AFA5C2"></label>
+            <label>${t('Annexe', 'Utility')} <input type="color" data-map-class-color="utility" value="#AAB09A"></label>
+            <label>${t('Autre', 'Other')} <input type="color" data-map-class-color="other" value="#B7B5AF"></label>
+          </fieldset>
+          <label class="xpt-l"><span>${t('Épaisseur de trait', 'Outline weight')}</span><input id="xpt-map-outline" type="range" min="0.5" max="3" value="1" step="0.1"></label>
+          <div class="xpt-actions"><button id="xpt-map-reset">${t('Réinitialiser', 'Reset colours')}</button><button id="xpt-map-svg" class="primary">SVG</button><button id="xpt-map-png">PNG</button></div>
+          <p class="xpt-note" id="xpt-map-note"></p>
+          <p class="xpt-warning">${t('Une limite tracée par l’utilisateur est un repère de projet, pas une limite cadastrale. Les largeurs sans valeur OSM sont des estimations par catégorie de voie.',
+            'A user-drawn outline is a project marker, not a cadastral boundary. Missing OSM widths are estimated by road class.')}</p>
+        </div>
+        <div class="xpt-col xpt-apercu" id="xpt-ap-carte"></div>
       </section>
 
       <section data-pan="coupe" hidden>
@@ -162,11 +216,17 @@ export function ouvrirExports(o) {
     q('#xpt-m-bati').checked = include.has('buildings');
     q('#xpt-m-arbres').checked = include.has('trees');
   }
+  const siteBoundaryLayer = q('[data-couche="SITE"]');
+  siteBoundaryLayer.disabled = ctx.boundary.length < 3;
+  siteBoundaryLayer.checked = ctx.boundary.length >= 3;
+  const mapBoundaryLayer = q('[data-map-layer="siteBoundary"]');
+  mapBoundaryLayer.disabled = ctx.boundary.length < 3;
+  mapBoundaryLayer.checked = ctx.boundary.length >= 3;
   if (!ctx.terrain) { q('#xpt-m-sol').checked = false; q('#xpt-m-sol').disabled = true; }
 
   /* ── état local ── */
   const et = {
-    onglet: 'plan', A: null, B: null, plan: null, coupe: null, scene: null, chargement: false
+    onglet: 'plan', A: null, B: null, plan: null, coupe: null, scene: null, map: null, mapSvg: '', chargement: false
   };
 
   /* ── utilitaires ── */
@@ -202,13 +262,16 @@ export function ouvrirExports(o) {
     const site = (o.nom || 'freemap').split(',')[0].trim().replace(/[^\wÀ-ÿ -]/g, '').replace(/\s+/g, '-').toLowerCase();
     return 'freemap-atelier-' + site + '-' + quoi + '.' + ext;
   };
-  const optionsPlan = () => ({
-    geolocate: q('#xpt-repere').value === 'utm',
-    equidistance: Number(q('#xpt-equi').value) || 0,
-    hauteurBati: Number(q('#xpt-hb').value) || 9,
-    avec: [...racine.querySelectorAll('[data-couche]')].filter(c => c.checked).map(c => c.dataset.couche),
-    titre: o.nom || 'Freemap · Atelier'
-  });
+  const optionsPlan = () => {
+    const avec = [...racine.querySelectorAll('[data-couche]')].filter(c => c.checked).map(c => c.dataset.couche);
+    const roadWidths = q('#xpt-road-width').checked;
+    if (roadWidths) avec.push('ROADS_AREA', 'PATHS_AREA');
+    return {
+      geolocate: q('#xpt-repere').value === 'utm', shape: ctx.shape, boundary: ctx.boundary,
+      roadWidths, bridges: avec.includes('BRIDGES'), equidistance: Number(q('#xpt-equi').value) || 0,
+      hauteurBati: Number(q('#xpt-hb').value) || 9, avec, titre: o.nom || 'Freemap · Atelier'
+    };
+  };
 
   /* ── onglets ── */
   for (const b of racine.querySelectorAll('.xpt-onglets button')) {
@@ -232,6 +295,36 @@ export function ouvrirExports(o) {
       r.min != null ? t('altitudes ', 'elevations ') + r.min.toFixed(1) + '–' + r.max.toFixed(1) + ' m' : '',
       t('emprise ', 'boundary ') + km + ' km · ' + r.repere.note
     ].filter(Boolean).join(' · ');
+  }
+
+  function vectorMap() {
+    const layers = Object.fromEntries([...racine.querySelectorAll('[data-map-layer]')]
+      .map(box => [box.dataset.mapLayer, box.checked]));
+    const result = vectorMapSVG(ctx, {
+      width: 1587, height: 1122, title: o.nom || 'Freemap · Atelier', lang,
+      shape: ctx.shape, boundary: ctx.boundary, preset: q('#xpt-map-preset').value,
+      printScale: q('#xpt-map-scale').value, layers,
+      colorByType: q('#xpt-map-class').checked,
+      sunAzimuth: Number(q('#xpt-map-azimuth').value), sunHeight: Number(q('#xpt-map-sun-height').value),
+      shadowStrength: Number(q('#xpt-map-shadow').value) / 100,
+      hillshadeStrength: Number(q('#xpt-map-hillshade').value) / 100,
+      depthMapStrength: Number(q('#xpt-map-depth').value) / 100,
+      outlineWeight: Number(q('#xpt-map-outline').value), grid: layers.grid,
+      northArrow: true, scaleBar: true, outline: true,
+      classColors: Object.fromEntries([...racine.querySelectorAll('[data-map-class-color]')]
+        .map(input => [input.dataset.mapClassColor, input.value])),
+      colors: { road: q('#xpt-map-road-color').value, building: q('#xpt-map-building-color').value }
+    });
+    et.map = result; et.mapSvg = result.svg;
+    q('#xpt-ap-carte').innerHTML = result.svg;
+    const { buildings, trees, roadsKm } = result.stats;
+    q('#xpt-map-note').textContent = [
+      `${buildings.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')} ${t('bâtiments', 'buildings')}`,
+      `${roadsKm.toFixed(1)} km ${t('de voies', 'of roads')}`,
+      `${trees.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')} ${t('arbres OSM', 'OSM trees')}`,
+      result.fitsPage ? `${t('échelle', 'scale')} 1:${result.scale.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')}` : t('emprise trop grande à cette échelle · choisissez “Ajuster” ou une échelle plus petite', 'site does not fit at this scale · choose “Fit” or a smaller scale')
+    ].join(' · ');
+    return result;
   }
 
   /* ── coupe ── */
@@ -370,6 +463,7 @@ export function ouvrirExports(o) {
   /* ── aiguillage ── */
   function dessiner() {
     if (et.onglet === 'plan') plan();
+    else if (et.onglet === 'carte') vectorMap();
     else if (et.onglet === 'coupe') { dessinerMini(); coupe(); }
     else scene3d();
   }
@@ -379,6 +473,7 @@ export function ouvrirExports(o) {
     q(s).addEventListener('change', () => { if (et.onglet === 'plan') plan(); });
   for (const c of racine.querySelectorAll('[data-couche]'))
     c.addEventListener('change', () => { if (et.onglet === 'plan') plan(); });
+  q('#xpt-road-width').addEventListener('change', () => { if (et.onglet === 'plan') plan(); });
   q('#xpt-dxf').addEventListener('click', () => {
     if (!et.plan) plan();
     telecharger(et.plan.dxf, nomFichier('plan', 'dxf'), 'application/dxf');
@@ -392,6 +487,32 @@ export function ouvrirExports(o) {
     if (!et.plan) plan();
     const a = X.apercuSVG(et.plan.entites, { largeur: 1600, hauteur: 1200 });
     await versPNG(a.svg, nomFichier('plan', 'png'), 1);
+  });
+
+  for (const control of racine.querySelectorAll('[data-map-layer], [data-map-class-color], #xpt-map-preset, #xpt-map-scale, #xpt-map-class, #xpt-map-azimuth, #xpt-map-sun-height, #xpt-map-shadow, #xpt-map-hillshade, #xpt-map-depth, #xpt-map-road-color, #xpt-map-building-color, #xpt-map-outline')) {
+    control.addEventListener(control.type === 'range' || control.type === 'color' ? 'input' : 'change', () => {
+      if (et.onglet === 'carte') vectorMap();
+    });
+    if (control.type === 'range' || control.type === 'color') control.addEventListener('change', () => {
+      if (et.onglet === 'carte') vectorMap();
+    });
+  }
+  q('#xpt-map-reset').addEventListener('click', () => {
+    q('#xpt-map-preset').value = 'classic';
+    q('#xpt-map-road-color').value = '#D7C8AA';
+    q('#xpt-map-building-color').value = '#BEB8AB';
+    for (const input of racine.querySelectorAll('[data-map-class-color]')) input.value = ({ residential: '#D9C7A7', public: '#91B7D3', commercial: '#D5A36C', industrial: '#AFA5C2', utility: '#AAB09A', other: '#B7B5AF' })[input.dataset.mapClassColor];
+    q('#xpt-map-azimuth').value = 315; q('#xpt-map-sun-height').value = 35;
+    q('#xpt-map-shadow').value = 18; q('#xpt-map-hillshade').value = 30; q('#xpt-map-depth').value = 18;
+    if (et.onglet === 'carte') vectorMap();
+  });
+  q('#xpt-map-svg').addEventListener('click', () => {
+    const mapResult = vectorMap();
+    telecharger(mapResult.svg, nomFichier('carte-vectorielle', 'svg'), 'image/svg+xml');
+  });
+  q('#xpt-map-png').addEventListener('click', async () => {
+    const mapResult = vectorMap();
+    await versPNG(mapResult.svg, nomFichier('carte-vectorielle', 'png'), 1);
   });
 
   mini.addEventListener('click', clicMini);

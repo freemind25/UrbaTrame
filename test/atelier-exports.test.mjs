@@ -197,6 +197,23 @@ describe('plan topographique DXF', () => {
     assert.equal(polylignes(lireDXF(court.dxf)).filter(l => l.calque === 'BATI').length, 0);
   });
 
+  test('les surfaces routières, ponts et limite de projet sont des calques distincts à la demande', () => {
+    const bridge = { id: 'road-bridge-test', h: 'residential', tags: { highway: 'residential', bridge: 'yes' },
+      g: [aCote(-30, 0), aCote(30, 0)], width: 6, widthSource: 'osm-width', bridge: true };
+    const siteBoundary = carre(sample.site.lat, sample.site.lon, 40);
+    const result = X.dxfTopo({ ...ctx, D: { ...ctx.D, roads: [bridge] } }, {
+      shape: 'square', boundary: siteBoundary, roadWidths: true, bridges: true,
+      avec: ['VOIRIE', 'ROADS_AREA', 'BRIDGES', 'SITE']
+    });
+    assert.ok(result.calques.some(c => c.nom === 'ROADS_AREA'));
+    assert.ok(result.calques.some(c => c.nom === 'BRIDGES'));
+    assert.ok(result.calques.some(c => c.nom === 'SITE'));
+    assert.ok(result.entites.some(e => e.calque === 'ROADS_AREA' && e.width === 6));
+    assert.ok(result.entites.some(e => e.calque === 'BRIDGES'));
+    assert.ok(result.entites.some(e => e.calque === 'SITE' && e.ferme === true));
+    assert.ok(!result.calques.some(c => c.nom === 'PARCELLES'), 'aucune limite cadastrale inventée');
+  });
+
   test('les courbes de niveau couvrent l’amplitude à pas rond', () => {
     const T = X.grilleTerrain(ctx);
     assert.ok(p.courbes > 10, 'courbes : ' + p.courbes);

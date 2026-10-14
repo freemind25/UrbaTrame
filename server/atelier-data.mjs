@@ -6,7 +6,7 @@ export const MIN_RADIUS = 200;
 export const MAX_RADIUS = 3989; // rayon correspondant à environ 50 km²
 
 export const DATASETS = {
-  buildings: ['way["building"]', 'relation["building"]'],
+  buildings: ['way["building"]', 'relation["building"]', 'way["building:part"]', 'relation["building:part"]'],
   roads: ['way["highway"~"motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|cycleway|path|steps"]'],
   landuse: ['way["landuse"]', 'way["leisure"]', 'way["amenity"~"school|university|hospital|clinic|park"]', 'relation["landuse"]', 'relation["leisure"]'],
   water: ['way["waterway"]', 'way["natural"="water"]', 'relation["natural"="water"]'],
