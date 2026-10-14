@@ -1,5 +1,5 @@
 /* Freemap · catalogue des analyses
-   Les 44 entrées reprises du plan fonctionnel décrit dans le rapport.
+   Les 45 entrées reprises du plan fonctionnel décrit dans le rapport.
    `impl:false` ⇒ sur la feuille de route v0.2 (affichée mais non rendue).
    tier : 'free' (essai, filigrané) · 'pro' · 'max'. */
 (function (G) {
@@ -54,14 +54,14 @@
     { id: 'climsolar', nom: 'Rayonnement', en: 'Solar radiation', sub: 'irradiation journalière', tag: 'CLIM', tier: 'pro', g: 'clim', impl: true },
 
     /* ── planches (MAX) ── */
-    { id: 'mappingboard', nom: 'Planche de contexte', en: 'Context mapping board', sub: 'composition A3 paysage', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'urbanstations', nom: 'Données urbaines · Nœuds', en: 'Urban data · nodes', sub: 'stations et pôles annotés', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'urbangrid', nom: 'Données urbaines · Trame', en: 'Urban data · grid', sub: 'lecture quadrillée', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'axocallout', nom: 'Vignettes axonometriques', en: 'Axonometric callouts', sub: 'détails de tissu isolés', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'insetboard', nom: 'Planche d\'insertion', en: 'Site inset board', sub: 'encarts de situation', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'viewcones', nom: 'Analyse visuelle', en: 'Visual analysis', sub: 'cônes de vue remarquables', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'zoningplan', nom: 'Plan de zonage', en: 'Zoning plan', sub: 'synthèse réglementaire', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false },
-    { id: 'radialnet', nom: 'Centralité & accès', en: 'Central & accessible', sub: 'réseau radial mesuré', tag: 'PLANCHE', tier: 'max', g: 'board', impl: false }
+    { id: 'mappingboard', nom: 'Planche de contexte', en: 'Context mapping board', sub: 'composition A3 paysage', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'urbanstations', nom: 'Données urbaines · Nœuds', en: 'Urban data · nodes', sub: 'pôles OSM, services et arrêts regroupés', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'urbangrid', nom: 'Données urbaines · Trame', en: 'Urban data · grid', sub: 'densité quadrillée du bâti et des POI', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'axocallout', nom: 'Volumétrie axonométrique annotée', en: 'Annotated axonometric massing', sub: 'bâtiments extrudés et repères OSM', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'insetboard', nom: 'Planche d\'insertion', en: 'Site inset board', sub: 'vue générale et détail des mêmes données', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'viewcones', nom: 'Cônes de vue indicatifs', en: 'Indicative view cones', sub: 'lignes de visée simplifiées, sans relief', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'zoningplan', nom: 'Zonage fonctionnel OSM', en: 'Functional OSM zoning', sub: 'usages cartographiés · non réglementaire', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'radialnet', nom: 'Centralité & accès radial', en: 'Radial centrality & access', sub: 'pôles par distance directe et direction', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true }
   ];
   G.FMCatalog = A;
   G.FM_GROUPS = {

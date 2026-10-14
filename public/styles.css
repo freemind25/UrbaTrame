@@ -1,4 +1,4 @@
-/* Freemap · interface — chrome sombre, cartes blanches */
+/* UrbaTrame · interface — chrome sombre, cartes blanches */
 :root{
   --bg:#0E0E10; --panel:#151517; --panel2:#1B1B1E; --line:rgba(255,255,255,.09);
   --txt:#F4F2EE; --mut:#A3A09A; --mut2:#7E7B76; --red:#E8413A; --red2:#F0524B;
@@ -22,9 +22,12 @@ output{font:600 12px var(--mono);color:var(--mut)}
 /* ── entête ── */
 .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;
   background:rgba(14,14,16,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:baseline;gap:10px;flex:1;min-width:0}
-.logo{font-weight:800;font-size:17px;letter-spacing:-.02em}
-.sub{font-size:12px;color:var(--mut2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
+.brand-mark{width:40px;height:40px;border-radius:11px;background:#153e3d;display:grid;place-items:center;flex:0 0 auto;overflow:hidden}
+.brand-mark img{width:35px;height:36px;object-fit:contain;display:block}
+.brand-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.logo{font-weight:800;font-size:18px;letter-spacing:-.03em;line-height:1.05}
+.sub{font-size:10px;line-height:1.15;color:#e2a07e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{font:700 11px var(--mono);border:1px solid var(--line);padding:4px 9px;border-radius:999px;color:var(--mut)}
 .badge.pro{color:#0E0E10;background:#E0A83A;border-color:#E0A83A}
 .badge.max{color:#fff;background:var(--red);border-color:var(--red)}
@@ -219,6 +222,10 @@ body.v3d-ouvert{overflow:hidden}
   padding:6px;font:700 11px var(--mono);cursor:pointer}
 @media (max-width:720px){
   .top{flex-wrap:wrap;padding:9px 12px}
+  .brand-mark{width:36px;height:36px}
+  .brand-mark img{width:32px;height:33px}
+  .logo{font-size:16px}
+  .sub{font-size:9px}
   .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px}
   .top nav button,.top nav .atelier-nav{height:32px;padding:0 9px;font-size:11px}
   .v3d-barre{gap:9px;font-size:11px}

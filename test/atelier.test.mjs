@@ -20,7 +20,7 @@ async function call(handler, method, body) {
   return { ...res, json: res.body ? JSON.parse(res.body) : null };
 }
 
-describe('Freemap · section Altiplan', () => {
+describe('UrbaTrame · section Altiplan', () => {
   test('les coordonnées et le rayon sont validés avant toute requête', () => {
     const site = validateSite(36.2642, 6.6969, 600);
     assert.match(site.bbox, /^36\.[0-9]+,6\.[0-9]+,36\.[0-9]+,6\.[0-9]+$/);
@@ -64,7 +64,7 @@ describe('Freemap · section Altiplan', () => {
     assert.ok(demo.elements.every(item => !hasContact(item)));
   });
 
-  test('health et géocodage sont intégrés à Freemap et mis en cache', async () => {
+  test('health et géocodage sont intégrés à UrbaTrame et mis en cache', async () => {
     let calls = 0;
     const h = createAtelierHandlers({
       geocode: async () => { calls++; return [{ display_name: 'El Khroub', lat: '36.2642', lon: '6.6969', type: 'city' }]; },
@@ -72,7 +72,7 @@ describe('Freemap · section Altiplan', () => {
     });
     const health = await call(h.health, 'GET');
     assert.equal(health.statusCode, 200);
-    assert.equal(health.json.name, 'Freemap');
+    assert.equal(health.json.name, 'UrbaTrame');
     assert.equal(health.json.feature, 'atelier-topographique');
     const first = await call(h.geocode, 'POST', { q: 'El Khroub' });
     const second = await call(h.geocode, 'POST', { q: 'El Khroub' });

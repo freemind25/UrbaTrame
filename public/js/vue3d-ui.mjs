@@ -242,12 +242,12 @@ export function ouvrir3D(o) {
       palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
       routes: et.routes, eaux: et.eaux, terrain: et.relief ? et.terrain : null,
       soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon), o.lat, o.lon),
-      attribution: et.fond ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · Freemap'
+      attribution: et.fond ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · UrbaTrame'
     });
-    telecharger(new Blob([svg], { type: 'image/svg+xml' }), 'freemap-vue3d.svg');
+    telecharger(new Blob([svg], { type: 'image/svg+xml' }), 'urbatrame-vue3d.svg');
   });
   q('#v3d-png').addEventListener('click', () => {
-    cv.toBlob(b => telecharger(b, 'freemap-vue3d.png'), 'image/png');
+    cv.toBlob(b => telecharger(b, 'urbatrame-vue3d.png'), 'image/png');
   });
   q('#v3d-fermer').addEventListener('click', fermer);
   racine.addEventListener('keydown', e => { if (e.key === 'Escape') fermer(); });

@@ -403,7 +403,7 @@
         for (let xx = -20; xx < W + 40; xx += 120)
           tiles += '<text x="' + xx + '" y="' + yy + '" font-family="ui-monospace,monospace" font-size="9" fill="' +
                    (dark ? '#FFFFFF' : '#1A1917') + '" fill-opacity="0.14" transform="rotate(-30 ' + xx + ' ' + yy + ')">' +
-                   (ctx.lang === 'en' ? 'Freemap · trial' : 'Freemap · essai') + '</text>';
+                   (ctx.lang === 'en' ? 'UrbaTrame · trial' : 'UrbaTrame · essai') + '</text>';
       wm = '<g data-fm-watermark="true" pointer-events="none">' + tiles + '</g>';
     }
 

@@ -626,7 +626,7 @@ describe('maquette 3D : OBJ et STL', () => {
     }
     assert.match(o, /^g TERRAIN$/m);
     assert.match(o, /^g BATI$/m);
-    assert.match(o, /^# Freemap — modele 3D du site$/m);
+    assert.match(o, /^# UrbaTrame — modele 3D du site$/m);
     assert.match(o, /X est, Y nord, Z altitude/);
     assert.match(o, /OpenStreetMap/);
     assert.doesNotMatch(o, /NaN|undefined/);
@@ -651,8 +651,8 @@ describe('maquette 3D : OBJ et STL', () => {
 
   test('le STL est bien formé : facettes triangulaires, normales unitaires', () => {
     const s = X.stlDeScene(sc, {});
-    assert.match(s, /^solid freemap_Atelier_OpenStreetMap_contributors_ODbL_Terrarium\n/);
-    assert.match(s, /\nendsolid freemap_Atelier_OpenStreetMap_contributors_ODbL_Terrarium\n$/);
+    assert.match(s, /^solid urbatrame_Atelier_Altiplan_OpenStreetMap_contributors_ODbL_Terrarium\n/);
+    assert.match(s, /\nendsolid urbatrame_Atelier_Altiplan_OpenStreetMap_contributors_ODbL_Terrarium\n$/);
     const normales = [...s.matchAll(/facet normal (\S+) (\S+) (\S+)\n/g)].map(m => m.slice(1).map(Number));
     const sommets = [...s.matchAll(/      vertex (\S+) (\S+) (\S+)\n/g)].map(m => m.slice(1).map(Number));
     assert.equal(normales.length * 3, sommets.length);

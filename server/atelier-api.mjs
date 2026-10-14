@@ -42,7 +42,7 @@ export function createAtelierHandlers(deps = {}) {
   function health(req, res) {
     if (req.method !== 'GET') return send(res, 405, { ok: false, error: 'GET_ONLY' });
     return send(res, 200, {
-      ok: true, name: 'Freemap', feature: 'atelier-topographique', version: '0.1.0',
+      ok: true, name: 'UrbaTrame', feature: 'atelier-topographique', version: '0.1.0',
       datasets: DATASET_IDS, radius: { min: MIN_RADIUS, max: MAX_RADIUS },
       sources: ['OpenStreetMap / Overpass', 'Terrarium elevation tiles']
     });

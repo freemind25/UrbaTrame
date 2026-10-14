@@ -123,7 +123,7 @@ chaque emprise, la liste de ses `trous` :
 
 Les rendus **2D** du projet, eux, continuent de remplir les cours
 (`normalizeElements` écarte les membres `inner`) : c'est un choix assumé, la
-modification du jeu normalisé changerait le tracé des 35 analyses existantes.
+modification du jeu normalisé changerait le tracé des 44 analyses existantes.
 
 Au passage, le centre qui décide du côté « extérieur » d'un mur n'est plus la
 moyenne des sommets (faussée par le point de fermeture répété, et parfois hors

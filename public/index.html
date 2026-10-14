@@ -2,23 +2,29 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Freemap — analyse de site architecturale</title>
-<meta name="description" content="Freemap : 35 diagrammes d'analyse de site générés depuis OpenStreetMap, NASA POWER et Terrarium. Fonctionne sans réseau grâce à un exemple embarqué.">
+<meta name="theme-color" content="#153e3d">
+<title>UrbaTrame — analyse des sites urbains</title>
+<meta name="description" content="UrbaTrame : 44 analyses de sites urbains, dont 8 planches Max A3 fondées sur OpenStreetMap, avec exports vectoriels, 3D et relief.">
 <link rel="stylesheet" href="styles.css">
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/vue3d.js"></script>
 <script src="js/renderers-core.js"></script>
 <script src="js/renderers-pro.js"></script>
+<script src="js/renderers-boards.js"></script>
 </head>
 <body>
 
 <header class="top">
   <div class="brand">
-    <span class="logo">Freemap</span>
-    <span class="sub" data-fr="analyse de site architecturale" data-en="architectural site analysis">analyse de site architecturale</span>
+    <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+    <span class="brand-copy">
+      <span class="logo">UrbaTrame</span>
+      <span class="sub" data-fr="Analyse des sites urbains" data-en="Urban site analysis">Analyse des sites urbains</span>
+    </span>
   </div>
   <div class="badge" id="badge">ESSAI</div>
   <nav>
@@ -132,8 +138,8 @@
           data-en="<b>Place</b>: search goes through the server (OpenStreetMap geocoding). You can also type “lat,lon”."></li>
       <li data-fr="<b>Site</b> : le rayon fixe l'emprise demandée ; certaines analyses ont un plafond (1500 à 3000 m) et sont alors retirées."
           data-en="<b>Site</b>: the radius sets the requested extent; some analyses are capped (1500–3000 m) and get skipped."></li>
-      <li data-fr="<b>Analyses</b> : 4 gratuites + 26 Pro + 8 planches Max (sur la feuille de route v0.2)."
-          data-en="<b>Analyses</b>: 4 free + 26 Pro + 8 Max boards (on the v0.2 roadmap)."></li>
+      <li data-fr="<b>Analyses</b> : 4 gratuites + 32 Pro + 8 planches composées Max au format A3 paysage."
+          data-en="<b>Analyses</b>: 4 free + 32 Pro + 8 composed Max boards in A3 landscape format."></li>
       <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, altimétrie Terrarium (SRTM/USGS, AWS Open Data)."
           data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, Terrarium elevation (SRTM/USGS, AWS Open Data)."></li>
       <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
@@ -141,8 +147,8 @@
       <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
           data-en="<b>Exports</b>: each card exports as editable SVG or PNG ×3; “Board” prints the grid."></li>
     </ol>
-    <p class="fine" data-fr="Clone réalisé à partir d'un reverse engineering public. Code d'étude, aucune affiliation."
-       data-en="Clone built from a public reverse engineering. Study code, no affiliation.">Clone réalisé à partir d'un reverse engineering public. Code d'étude, aucune affiliation.</p>
+    <p class="fine" data-fr="Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques."
+       data-en="Results depend on the mapping data available for the selected place. OSM parcel outlines are not cadastral or legal boundaries.">Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques.</p>
   </div>
 </section>
 

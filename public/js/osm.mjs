@@ -1,7 +1,8 @@
-/* Freemap · normalisation OpenStreetMap
+/* UrbaTrame · normalisation OpenStreetMap
    Transforme les « elements » bruts renvoyés par Overpass (ways, relations,
-   nodes) en quatre listes simples consommées par les renderers :
-     roads[{h,n,g}]  build[{t,h,u,g}]  green[{k,n,lu,g}]  pois[{k,n,x,y,a,s,l,to}]
+   nodes) en couches simples consommées par les renderers :
+     roads[{h,n,g}]  build[{t,h,u,n,g}]  green[{k,n,lu,g}]
+     pois[{k,n,x,y,a,s,l,to}]  rail[{h,n,g}]  coast[{n,g}]
    Reprend les correctifs constatés dans l'application d'origine :
      • les relations bâtiment sont recousues à partir de leurs membres `outer`
        (Overpass ne fournit pas d'anneau au niveau de la relation) ;
@@ -10,7 +11,9 @@
        par les renderers, qui le signalent dans leur note. */
 
 export function normalizeElements(into, elements) {
-  const out = into || { roads: [], build: [], green: [], pois: [] };
+  const out = into || {};
+  for (const key of ['roads', 'build', 'green', 'pois', 'rail', 'coast'])
+    if (!Array.isArray(out[key])) out[key] = [];
   const relationGeoms = [];
 
   for (const e of elements) {
@@ -37,10 +40,18 @@ export function normalizeElements(into, elements) {
     if (!e.geometry || e.geometry.length < 2) continue;
     const g = e.geometry.map(p => [p.lat, p.lon]);
 
+    if (t.natural === 'coastline') {
+      out.coast.push({ n: t.name || '', g });
+      continue;
+    }
+    if (t.railway && /^(rail|subway|light_rail|tram|monorail|narrow_gauge)$/.test(t.railway)) {
+      out.rail.push({ h: t.railway, n: t.name || '', g });
+      continue;
+    }
     if (t.highway) { out.roads.push({ h: t.highway, n: t.name || '', g }); continue; }
 
     if (t.building) {
-      out.build.push({ t: t.building, h: heightOf(t), u: t.amenity || t.shop || t.office || '', g });
+      out.build.push({ t: t.building, h: heightOf(t), u: t.amenity || t.shop || t.office || '', n: t.name || '', g });
       continue;
     }
     const isGreen = t.natural || t.waterway || t.leisure ||
@@ -48,7 +59,7 @@ export function normalizeElements(into, elements) {
     if (isGreen) {
       const water = t.natural === 'water' || t.waterway || t.natural === 'wetland' || t.water ||
         ['basin', 'reservoir'].includes(t.landuse);
-      out.green.push({ k: water ? 'w' : 'g', n: t.name || '', g });
+      out.green.push({ k: water ? 'w' : 'g', lu: t.landuse || t.leisure || t.natural || t.waterway || '', n: t.name || '', g });
       continue;
     }
     if (t.landuse || t.leisure) out.green.push({ k: 'l', lu: t.landuse || t.leisure, n: t.name || '', g });
@@ -57,8 +68,8 @@ export function normalizeElements(into, elements) {
   for (const w of relationGeoms) {
     const g = w.geometry.map(p => [p.lat, p.lon]);
     if (w.tags.building)
-      out.build.push({ t: w.tags.building, h: heightOf(w.tags), u: '', g });
-    else out.green.push({ k: 'w', n: w.tags.name || '', g });
+      out.build.push({ t: w.tags.building, h: heightOf(w.tags), u: w.tags.amenity || w.tags.shop || w.tags.office || '', n: w.tags.name || '', g });
+    else out.green.push({ k: 'w', lu: w.tags.water || w.tags.natural || 'water', n: w.tags.name || '', g });
   }
   return out;
 }

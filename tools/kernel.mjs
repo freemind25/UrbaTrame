@@ -9,7 +9,7 @@ import { normalizeElements, dedupe } from '../public/js/osm.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const KERNEL_FILES = ['catalog.js', 'engine.js', 'vue3d.js', 'renderers-core.js', 'renderers-pro.js'];
+const KERNEL_FILES = ['catalog.js', 'engine.js', 'vue3d.js', 'renderers-core.js', 'renderers-pro.js', 'renderers-boards.js'];
 let loaded = false;
 
 export function loadKernel() {

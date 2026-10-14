@@ -368,7 +368,7 @@ export function entitesTopo(ctx, o) {
   const [x0, y0] = rep.vers(-R, -(R + R * 0.04));
   const haut = R * 0.018;
   const cartouche = [
-    (o.titre || 'Freemap') + ' - plan topographique',
+    (o.titre || 'UrbaTrame') + ' - plan topographique',
     (ctx && ctx.siteName ? ctx.siteName + ' - ' : '') +
       (T ? T.min.toFixed(1) + ' a ' + T.max.toFixed(1) + ' m' : 'altimetrie absente'),
     'Equidistance ' + (equi || '-') + ' m ; ' + nbCourbes + ' courbes ; bati ' +
@@ -394,7 +394,7 @@ export function dxfTopo(ctx, o) {
   o = o || {};
   const r = entitesTopo(ctx, o);
   return {
-    dxf: dxf(r.entites, r.calques, { titre: o.titre || (ctx && ctx.siteName) || 'Freemap' }),
+    dxf: dxf(r.entites, r.calques, { titre: o.titre || (ctx && ctx.siteName) || 'UrbaTrame' }),
     entites: r.entites, nbEntites: r.entites.length,
     calques: r.calques, calquesTous: r.calquesTous, courbes: r.courbes,
     equidistance: r.equi, repere: r.repere, min: r.min, max: r.max
@@ -451,7 +451,7 @@ export function maillageDeScene(sc, o) {
 export function objDeScene(sc, o) {
   o = o || {};
   const M = maillageDeScene(sc, o);
-  const l = ['# Freemap — modele 3D du site',
+  const l = ['# UrbaTrame — modele 3D du site',
     '# unites : metres · X est, Y nord, Z altitude (Z vers le haut)',
     '# sol de reference (altitude 0) : ' + M.base.toFixed(2) + ' m',
     '# ' + sansAccent(o.mention || 'donnees © OpenStreetMap (ODbL) · relief Terrarium')];
@@ -468,7 +468,7 @@ export function objDeScene(sc, o) {
 export function stlDeScene(sc, o) {
   o = o || {};
   const M = maillageDeScene(sc, o);
-  const l = ['solid freemap'];
+  const l = ['solid urbatrame'];
   for (const f of M.faces) {
     const poly = f.pts.map(i => M.sommets[i - 1]);
     for (const tri of triangles(poly)) {
@@ -480,7 +480,7 @@ export function stlDeScene(sc, o) {
       l.push('  endfacet');
     }
   }
-  l.push('endsolid freemap');
+  l.push('endsolid urbatrame');
   return l.join('\n') + '\n';
 }
 
@@ -706,8 +706,8 @@ export function dxfCoupe(C, o) {
   e.push({ t: 'poly', calque: 'AXE', pts: [[0, zAxe], [C.longueur, zAxe]] });
   e.push({
     t: 'texte', calque: 'TEXTE', h: Math.max(1, C.longueur / 120), pos: [0, zAxe - 3.5],
-    txt: (o.titre || 'Freemap') + ' - coupe ' + Math.round(C.longueur) + ' m ; sol ' +
+    txt: (o.titre || 'UrbaTrame') + ' - coupe ' + Math.round(C.longueur) + ' m ; sol ' +
       C.zMin.toFixed(1) + ' a ' + C.zMax.toFixed(1) + ' m ; ' + C.bati.length + ' batiments traverses'
   });
-  return dxf(e, calques, { titre: (o.titre || 'Freemap') + ' coupe' });
+  return dxf(e, calques, { titre: (o.titre || 'UrbaTrame') + ' coupe' });
 }

@@ -3,7 +3,7 @@
    l'exemple embarqué. Sert à produire les planches de documentation et à
    inspecter un rendu sans passer par l'interface.
 
-     node tools/render-svg.mjs                      # les 35 analyses dans test/out/
+     node tools/render-svg.mjs                      # toutes les analyses dans test/out/
      node tools/render-svg.mjs --ids roads,massing  # une sélection
      node tools/render-svg.mjs --pro --lang en --out /tmp/svg
      node tools/render-svg.mjs --png                # + planches PNG si ImageMagick est là

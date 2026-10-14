@@ -74,18 +74,20 @@ export const DEPS = {
   aspect: ['buildings', 'terrain'],
   wireframe: ['buildings', 'terrain'],
 
-  /* ── Sur la feuille de route (v0.2) ──
-     Déclarées pour que le quota, les limites et l'interface soient déjà
-     exacts ; le rendu n'est pas encore branché. */
+  /* ── Vent (encore sur la feuille de route) ── */
   wind: ['roads', 'buildings', 'green', 'climate'],
-  mappingboard: ['roads', 'buildings', 'green'],
-  urbanstations: ['roads', 'buildings', 'poi', 'transit'],
-  urbangrid: ['roads', 'buildings', 'poi', 'transit'],
+
+  /* ── Planches composées Max ──
+     Rendus A3 distincts dans renderers-boards.js ; ces dépendances déclarent
+     leurs seules couches OSM nécessaires au navigateur et au serveur. */
+  mappingboard: ['roads', 'buildings', 'landuse', 'green', 'poi', 'transit', 'rail', 'coast'],
+  urbanstations: ['roads', 'buildings', 'green', 'poi', 'transit', 'rail', 'coast'],
+  urbangrid: ['roads', 'buildings', 'green', 'poi', 'transit'],
   axocallout: ['roads', 'buildings', 'green', 'poi', 'transit', 'rail', 'coast'],
   insetboard: ['roads', 'buildings', 'landuse', 'green', 'transit', 'rail', 'poi', 'coast'],
   viewcones: ['roads', 'buildings', 'landuse', 'green', 'rail', 'coast'],
   zoningplan: ['roads', 'buildings', 'landuse', 'green', 'poi', 'transit', 'rail', 'coast'],
-  radialnet: ['roads', 'buildings', 'green', 'terrain', 'destinations', 'transit', 'coast']
+  radialnet: ['roads', 'buildings', 'green', 'destinations', 'transit', 'rail', 'coast']
 };
 
 /* Plafonds de rayon par analyse : au-delà, l'analyse est retirée et

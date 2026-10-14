@@ -101,8 +101,8 @@ export function ouvrirExports(o) {
       <section data-pan="carte" hidden>
         <div class="xpt-col">
           <h4>${t('Carte vectorielle', 'Vector map')}</h4>
-          <p class="xpt-note">${t('Composez une planche éditable en SVG ou PNG. Les styles, le relief, les couches et les repères s’appliquent aux mêmes données Freemap.',
-            'Compose an editable SVG or PNG map. Styles, relief, layers and annotations use the same Freemap data.')}</p>
+          <p class="xpt-note">${t('Composez une planche éditable en SVG ou PNG. Les styles, le relief, les couches et les repères s’appliquent aux mêmes données du site.',
+            'Compose an editable SVG or PNG map. Styles, relief, layers and annotations use the same site data.')}</p>
           <label class="xpt-l"><span>${t('Style', 'Preset')}</span>
             <select id="xpt-map-preset"><option value="classic">${t('Classique', 'Classic')}</option><option value="figure-ground">Figure / fond</option><option value="relief">${t('Relief', 'Relief')}</option><option value="night">${t('Nocturne', 'Night')}</option><option value="blueprint">Blueprint</option></select>
           </label>
@@ -259,8 +259,8 @@ export function ouvrirExports(o) {
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   });
   const nomFichier = (quoi, ext) => {
-    const site = (o.nom || 'freemap').split(',')[0].trim().replace(/[^\wÀ-ÿ -]/g, '').replace(/\s+/g, '-').toLowerCase();
-    return 'freemap-atelier-' + site + '-' + quoi + '.' + ext;
+    const site = (o.nom || 'urbatrame').split(',')[0].trim().replace(/[^\wÀ-ÿ -]/g, '').replace(/\s+/g, '-').toLowerCase();
+    return 'urbatrame-atelier-' + site + '-' + quoi + '.' + ext;
   };
   const optionsPlan = () => {
     const avec = [...racine.querySelectorAll('[data-couche]')].filter(c => c.checked).map(c => c.dataset.couche);
@@ -269,7 +269,7 @@ export function ouvrirExports(o) {
     return {
       geolocate: q('#xpt-repere').value === 'utm', shape: ctx.shape, boundary: ctx.boundary,
       roadWidths, bridges: avec.includes('BRIDGES'), equidistance: Number(q('#xpt-equi').value) || 0,
-      hauteurBati: Number(q('#xpt-hb').value) || 9, avec, titre: o.nom || 'Freemap · Atelier'
+      hauteurBati: Number(q('#xpt-hb').value) || 9, avec, titre: o.nom || 'UrbaTrame · Altiplan'
     };
   };
 
@@ -301,7 +301,7 @@ export function ouvrirExports(o) {
     const layers = Object.fromEntries([...racine.querySelectorAll('[data-map-layer]')]
       .map(box => [box.dataset.mapLayer, box.checked]));
     const result = vectorMapSVG(ctx, {
-      width: 1587, height: 1122, title: o.nom || 'Freemap · Atelier', lang,
+      width: 1587, height: 1122, title: o.nom || 'UrbaTrame · Altiplan', lang,
       shape: ctx.shape, boundary: ctx.boundary, preset: q('#xpt-map-preset').value,
       printScale: q('#xpt-map-scale').value, layers,
       colorByType: q('#xpt-map-class').checked,
@@ -398,7 +398,7 @@ export function ouvrirExports(o) {
     et.coupe = C;
     const fmt = (p, n) => n + ' ' + p[0].toFixed(5) + ', ' + p[1].toFixed(5);
     q('#xpt-ab').textContent = fmt(et.A, 'A') + t('  →  ', '  →  ') + fmt(et.B, 'B');
-    q('#xpt-ap-coupe').innerHTML = X.coupeSVG(C, { titre: o.nom || 'Freemap · Atelier', lang, largeur: 760, hauteur: 360 }).svg;
+    q('#xpt-ap-coupe').innerHTML = X.coupeSVG(C, { titre: o.nom || 'UrbaTrame · Altiplan', lang, largeur: 760, hauteur: 360 }).svg;
     const bas = C.bati.map(b => b.h).sort((a, b) => b - a).slice(0, 3);
     q('#xpt-n-coupe').textContent = [
       Math.round(C.longueur) + ' m',
@@ -529,16 +529,16 @@ export function ouvrirExports(o) {
   q('#xpt-hc').addEventListener('change', coupe);
   q('#xpt-c-svg').addEventListener('click', () => {
     if (!et.coupe) return;
-    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'Freemap · Atelier', lang, largeur: 1600, hauteur: 760 });
+    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'UrbaTrame · Altiplan', lang, largeur: 1600, hauteur: 760 });
     telecharger(s.svg, nomFichier('coupe', 'svg'), 'image/svg+xml');
   });
   q('#xpt-c-dxf').addEventListener('click', () => {
     if (!et.coupe) return;
-    telecharger(X.dxfCoupe(et.coupe, { titre: o.nom || 'Freemap · Atelier' }), nomFichier('coupe', 'dxf'), 'application/dxf');
+    telecharger(X.dxfCoupe(et.coupe, { titre: o.nom || 'UrbaTrame · Altiplan' }), nomFichier('coupe', 'dxf'), 'application/dxf');
   });
   q('#xpt-c-png').addEventListener('click', async () => {
     if (!et.coupe) return;
-    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'Freemap · Atelier', lang, largeur: 1600, hauteur: 760 });
+    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'UrbaTrame · Altiplan', lang, largeur: 1600, hauteur: 760 });
     await versPNG(s.svg, nomFichier('coupe', 'png'), 1);
   });
   for (const s of ['#xpt-m-sol', '#xpt-m-bati', '#xpt-m-arbres'])

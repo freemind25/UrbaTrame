@@ -172,15 +172,15 @@ export function ouvrirExports(o) {
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   });
   const nomFichier = (quoi, ext) => {
-    const site = (o.nom || 'freemap').split(',')[0].trim().replace(/[^\wÀ-ÿ -]/g, '').replace(/\s+/g, '-').toLowerCase();
-    return 'freemap-' + site + '-' + quoi + '.' + ext;
+    const site = (o.nom || 'urbatrame').split(',')[0].trim().replace(/[^\wÀ-ÿ -]/g, '').replace(/\s+/g, '-').toLowerCase();
+    return 'urbatrame-' + site + '-' + quoi + '.' + ext;
   };
   const optionsPlan = () => ({
     geolocate: q('#xpt-repere').value === 'utm',
     equidistance: Number(q('#xpt-equi').value) || 0,
     hauteurBati: Number(q('#xpt-hb').value) || 9,
     avec: [...racine.querySelectorAll('[data-couche]')].filter(c => c.checked).map(c => c.dataset.couche),
-    titre: o.nom || 'Freemap'
+    titre: o.nom || 'UrbaTrame'
   });
 
   /* ── onglets ── */
@@ -270,7 +270,7 @@ export function ouvrirExports(o) {
     et.coupe = C;
     const fmt = (p, n) => n + ' ' + p[0].toFixed(5) + ', ' + p[1].toFixed(5);
     q('#xpt-ab').textContent = fmt(et.A, 'A') + t('  →  ', '  →  ') + fmt(et.B, 'B');
-    q('#xpt-ap-coupe').innerHTML = X.coupeSVG(C, { titre: o.nom || 'Freemap', lang, largeur: 760, hauteur: 360 }).svg;
+    q('#xpt-ap-coupe').innerHTML = X.coupeSVG(C, { titre: o.nom || 'UrbaTrame', lang, largeur: 760, hauteur: 360 }).svg;
     const bas = C.bati.map(b => b.h).sort((a, b) => b - a).slice(0, 3);
     q('#xpt-n-coupe').textContent = [
       Math.round(C.longueur) + ' m',
@@ -347,16 +347,16 @@ export function ouvrirExports(o) {
   q('#xpt-hc').addEventListener('change', coupe);
   q('#xpt-c-svg').addEventListener('click', () => {
     if (!et.coupe) return;
-    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'Freemap', lang, largeur: 1600, hauteur: 760 });
+    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'UrbaTrame', lang, largeur: 1600, hauteur: 760 });
     telecharger(s.svg, nomFichier('coupe', 'svg'), 'image/svg+xml');
   });
   q('#xpt-c-dxf').addEventListener('click', () => {
     if (!et.coupe) return;
-    telecharger(X.dxfCoupe(et.coupe, { titre: o.nom || 'Freemap' }), nomFichier('coupe', 'dxf'), 'application/dxf');
+    telecharger(X.dxfCoupe(et.coupe, { titre: o.nom || 'UrbaTrame' }), nomFichier('coupe', 'dxf'), 'application/dxf');
   });
   q('#xpt-c-png').addEventListener('click', async () => {
     if (!et.coupe) return;
-    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'Freemap', lang, largeur: 1600, hauteur: 760 });
+    const s = X.coupeSVG(et.coupe, { titre: o.nom || 'UrbaTrame', lang, largeur: 1600, hauteur: 760 });
     await versPNG(s.svg, nomFichier('coupe', 'png'), 1);
   });
   for (const s of ['#xpt-m-sol', '#xpt-m-bati'])

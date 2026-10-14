@@ -64,7 +64,7 @@ export function vectorMapSVG(ctx, options = {}) {
   const layers = { buildings: true, roads: true, bridges: true, rail: true, water: true, green: true,
     trees: true, contours: true, labels: false, siteBoundary: true, grid: !!options.grid, ...(options.layers || {}) };
   const label = (fr, en) => options.lang === 'en' ? en : fr;
-  const title = esc(options.title || ctx.siteName || 'Freemap · Atelier');
+  const title = esc(options.title || ctx.siteName || 'UrbaTrame · Altiplan');
   const line = Math.max(.45, Math.min(4, Number(options.outlineWeight) || 1));
   const byType = options.colorByType !== false && preset !== 'figure-ground' && preset !== 'night' && preset !== 'blueprint';
   const parts = [];
@@ -74,7 +74,7 @@ export function vectorMapSVG(ctx, options = {}) {
   const clipMarkup = shape === 'square'
     ? `<rect x="${fmt(cx - R * scale)}" y="${fmt(cy - R * scale)}" width="${fmt(2 * R * scale)}" height="${fmt(2 * R * scale)}"/>`
     : `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${fmt(R * scale)}"/>`;
-  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label('Carte vectorielle Freemap', 'Freemap vector map')}">`);
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label('Carte vectorielle UrbaTrame · Altiplan', 'UrbaTrame · Altiplan vector map')}">`);
   parts.push(`<rect width="${W}" height="${H}" fill="${p.bg}"/>`);
   parts.push(`<defs><clipPath id="fm-map-clip">${clipMarkup}</clipPath><linearGradient id="fm-height" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#EEE2C5"/><stop offset="1" stop-color="#54795B"/></linearGradient></defs>`);
   parts.push(`<text x="${pad}" y="${pad + 2}" font-family="sans-serif" font-size="20" font-weight="700" fill="${p.ink}">${title}</text>`);
