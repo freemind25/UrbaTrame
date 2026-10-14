@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#153e3d">
 <title>UrbaTrame — analyse des sites urbains</title>
 <meta name="description" content="UrbaTrame : 44 analyses de sites urbains, dont 8 planches Max A3 fondées sur OpenStreetMap, avec exports vectoriels, 3D et relief.">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=header-clean">
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/vue3d.js"></script>
@@ -19,11 +19,12 @@
 <body>
 
 <header class="top">
-  <div class="brand">
+    <div class="brand">
     <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
     <span class="brand-copy">
       <span class="logo">UrbaTrame</span>
       <span class="sub" data-fr="Analyse des sites urbains" data-en="Urban site analysis">Analyse des sites urbains</span>
+      <span class="brand-credit">Designed by M.SADI</span>
     </span>
   </div>
   <div class="badge" id="badge">ESSAI</div>
@@ -43,7 +44,7 @@
       <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
       <div class="row">
         <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon">
-        <button id="search" class="primary" data-fr="Chercher" data-en="Search">Chercher</button>
+        <button id="search" class="primary ut-glow" data-fr="Chercher" data-en="Search">Chercher</button>
       </div>
       <div class="row" style="margin-top:8px">
         <button id="sample" data-fr="Exemple (El Khroub, 600 m)" data-en="Sample (El Khroub, 600 m)">Exemple (El Khroub, 600 m)</button>

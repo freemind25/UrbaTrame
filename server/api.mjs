@@ -234,6 +234,7 @@ export function createApi({ licence, quota, runs, publicDir }) {
     if (url.pathname === '/api/atelier/health') return atelier.health(req, res);
     if (url.pathname === '/api/atelier/geocode') return atelier.geocode(req, res);
     if (url.pathname === '/api/atelier/extract') return atelier.extract(req, res);
+    if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (url.pathname === '/api/status') return status(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);

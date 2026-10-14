@@ -2,7 +2,7 @@
 
 ![Bannière UrbaTrame — cartographie, topographie et modèles 3D](docs/img/urbatrame-banner.png)
 
-**UrbaTrame** aide à lire et analyser un site urbain à partir de données cartographiques et territoriales. L’application rassemble des planches d’analyse, une visualisation 3D interactive et un atelier topographique intégré pour explorer un lieu et produire des livrables exploitables.
+**UrbaTrame** aide à lire et analyser un site urbain à partir de données cartographiques et territoriales. L’application rassemble des planches d’analyse, une visualisation 3D interactive et un atelier intégré pour explorer un lieu, consulter l’atlas administratif GADM et produire des livrables exploitables.
 
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
@@ -29,6 +29,8 @@ La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoom
 - une **maquette 3D** du terrain et des éléments cartographiés.
 
 L’atelier est accessible sans compte ni quota. Un exemple d’El Khroub est intégré pour découvrir l’interface sans attendre les services cartographiques externes.
+
+L’**atlas administratif GADM**, ajouté dans l’Atelier Altiplan, permet de parcourir les pays et leurs subdivisions, de sélectionner les limites et leurs métadonnées, de consulter les aperçus thématiques GADM (altitude, température, précipitations et éclairage nocturne), puis de télécharger les données par pays ou pour le monde. Les téléchargements proposent les versions 4.1, 4.0.4 et 3.6 selon les formats officiels disponibles.
 
 ### Exporter et partager
 
@@ -58,7 +60,7 @@ Les exemples ci-dessous montrent des planches d’analyse et des livrables de l�
 
 ## Données et limites
 
-UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des données de relief **AWS Terrarium** et des données climatiques **NASA POWER**. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
+UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des limites administratives **GADM**, des données de relief **AWS Terrarium** et des données climatiques **NASA POWER**. Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
 
 Les parcelles ne sont affichées que si leurs limites sont présentes dans OpenStreetMap. UrbaTrame **ne crée ni ne complète de limites juridiques ou cadastrales** : les cartes et maquettes ne remplacent pas un relevé de géomètre. Toute publication utilisant des données OpenStreetMap doit conserver l’attribution **© OpenStreetMap contributors**.
 
@@ -78,7 +80,8 @@ Dans la configuration actuelle du dépôt, les **44 analyses sont accessibles sa
 
 ## Documentation
 
-- [Atelier topographique Altiplan](docs/ALTIPLAN.md)
+- [Rapport de présentation](docs/UrbaTrame_Rapport_de_presentation.docx) · [Notice d’utilisation](docs/UrbaTrame_Notice_d_utilisation.docx)
+- [Atelier topographique Altiplan](docs/ALTIPLAN.md) · [Atlas administratif GADM](docs/GADM.md)
 - [Exports topographiques et CAO](docs/EXPORTS.md)
 - [Visualisation 3D](docs/VUE3D.md)
 - [Données, sources et attribution](docs/DONNEES.md)

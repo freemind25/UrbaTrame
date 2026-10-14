@@ -11,6 +11,8 @@
 
 L’exemple embarqué d’El Khroub permet d’essayer l’atelier sans attendre les services externes. L’atelier ne demande **ni compte ni abonnement et n’applique pas de quota**.
 
+L’atelier comprend aussi un **atlas administratif GADM** : navigation pays → subdivisions, fiches de métadonnées, aperçus thématiques et téléchargements par pays ou pour le monde. Voir [la documentation GADM](GADM.md) pour les formats, versions et limites.
+
 ## Fichiers produits
 
 - **Plan** : DXF R12, SVG et PNG, avec courbes de niveau, bâtiments et couches sélectionnées. Choix entre mètres locaux et coordonnées UTM WGS 84.
@@ -35,6 +37,7 @@ Les routes réservées à ce module sont publiques et n’utilisent pas le syst�
 | `GET /api/atelier/health` | Couches, sources et limites prises en charge |
 | `POST /api/atelier/geocode` | Recherche de lieu |
 | `POST /api/atelier/extract` | Extraction des couches autorisées et du relief |
+| `GET /api/atelier/gadm` | Aperçu GeoJSON de limites administratives, avec validation et filtrage parent |
 
 Implémentation : `public/atelier.html`, `public/js/atelier/`, `server/atelier-api.mjs`, `server/atelier-data.mjs` et `tools/atelier/`. Les sorties CLI par défaut sont écrites dans `exports/` à la racine du projet.
 

@@ -28,6 +28,7 @@ output{font:600 12px var(--mono);color:var(--mut)}
 .brand-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
 .logo{font-weight:800;font-size:18px;letter-spacing:-.03em;line-height:1.05}
 .sub{font-size:10px;line-height:1.15;color:#e2a07e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-credit{font-size:7px;line-height:1;color:#9e9e98;letter-spacing:.06em;font-weight:500}
 .badge{font:700 11px var(--mono);border:1px solid var(--line);padding:4px 9px;border-radius:999px;color:var(--mut)}
 .badge.pro{color:#0E0E10;background:#E0A83A;border-color:#E0A83A}
 .badge.max{color:#fff;background:var(--red);border-color:var(--red)}
@@ -226,6 +227,7 @@ body.v3d-ouvert{overflow:hidden}
   .brand-mark img{width:32px;height:33px}
   .logo{font-size:16px}
   .sub{font-size:9px}
+  .brand-credit{font-size:6px}
   .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px}
   .top nav button,.top nav .atelier-nav{height:32px;padding:0 9px;font-size:11px}
   .v3d-barre{gap:9px;font-size:11px}
@@ -276,3 +278,15 @@ body.v3d-ouvert{overflow:hidden}
   .xpt-corps{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .xpt-couches{grid-template-columns:1fr}
 }
+
+/* Essai Uiverse : contour lumineux discret sur les actions principales. */
+button.ut-glow{position:relative;isolation:isolate;transition:transform .18s ease,box-shadow .22s ease,background-color .18s ease}
+button.ut-glow::before{content:"";position:absolute;inset:-1px;border:1px solid rgba(255,255,255,.82);border-radius:inherit;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 13px rgba(232,65,58,.58),0 0 24px rgba(232,65,58,.22);opacity:0;pointer-events:none;transition:opacity .22s ease}
+button.ut-glow::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;background-image:radial-gradient(rgba(255,255,255,.34) .45px,transparent .8px),linear-gradient(108deg,transparent 36%,rgba(255,255,255,.2) 50%,transparent 64%);background-size:3px 3px,220% 100%;background-position:0 0,-130% 0;transition:opacity .18s ease}
+button.ut-glow:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(232,65,58,.2)}
+button.ut-glow:hover::before,button.ut-glow:focus-visible::before{opacity:.92}
+button.ut-glow:hover::after{opacity:.32;animation:ut-glow-sweep .75s ease-out both}
+button.ut-glow:active{transform:translateY(0) scale(.99)}
+button.ut-glow:focus-visible{outline:2px solid #fff;outline-offset:3px}
+@keyframes ut-glow-sweep{to{background-position:0 0,130% 0}}
+@media(prefers-reduced-motion:reduce){button.ut-glow,button.ut-glow::before,button.ut-glow::after{animation:none!important;transition:none!important}button.ut-glow:hover{transform:none}}

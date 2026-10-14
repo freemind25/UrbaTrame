@@ -10,8 +10,11 @@ l'attribution correspondante.
 |---|---|---|---|
 | Voirie, bâti, usage du sol, points d'intérêt, transports | [OpenStreetMap](https://www.openstreetmap.org/copyright), via Overpass API | ODbL 1.0 | `© OpenStreetMap contributors` |
 | Recherche de lieu | [Nominatim](https://nominatim.org/) | ODbL 1.0 (données OSM) | `© OpenStreetMap contributors` |
+| Limites administratives et aperçus thématiques | [GADM](https://gadm.org/), versions 4.1, 4.0.4 et 3.6 | Usage commercial et redistribution selon l’autorisation confirmée pour UrbaTrame ; exceptions pays à vérifier | `© GADM` avec la version affichée |
 | Altimétrie | [Terrarium](https://registry.opendata.aws/terrain-tiles/) (AWS Open Data ; SRTM, USGS, EU-DEM) | domaine public | mention facultative |
 | Climat (températures, pluie, irradiation, vent) | [NASA POWER](https://power.larc.nasa.gov/) | domaine public | `Source : NASA POWER` |
+
+Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. GADM signale une licence distincte pour l’Autriche (CC BY-SA 2.0) ; vérifier les conditions nationales applicables dans la [licence officielle](https://gadm.org/license.html). Les aperçus raster thématiques sont servis par le site GADM, et leur version peut différer des archives choisies.
 
 Le cartouche de chaque carte affiche déjà la mention du producteur
 (`OSM`, `SRTM+USGS`, `NASA POWER`). Une planche imprimée doit en plus porter la

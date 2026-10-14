@@ -2,6 +2,7 @@ import { createMap } from './map.mjs';
 import { areaForShape, insideShape, normalizeBoundary, toLocal } from './geometry.mjs';
 import { normaliser } from './osm-data.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
+import { initGadmAtlas } from './gadm.mjs';
 
 const $ = selector => document.querySelector(selector);
 const $all = selector => [...document.querySelectorAll(selector)];
@@ -309,4 +310,5 @@ fetch('/api/atelier/health').then(r => r.ok ? $('#connectionDot').classList.remo
 updateCoordinates(); updateRadius(); updatePlaceName();
 await loadDemo();
 updateBoundaryStatus();
+void initGadmAtlas();
 window.addEventListener('beforeunload', () => map.destroy(), { once: true });
