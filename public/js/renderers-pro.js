@@ -695,6 +695,19 @@
   };
 
   /* ══════════ 26 · COURSE SOLAIRE & OMBRES ══════════ */
+  function solarDateISO(ctx) {
+    const value = String(ctx.sunDate || new Date().toISOString().slice(0, 10));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date().toISOString().slice(0, 10);
+    const d = new Date(value + 'T00:00:00Z');
+    return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value
+      ? value : new Date().toISOString().slice(0, 10);
+  }
+  const dayOfYearISO = value => {
+    const [year, month, day] = value.split('-').map(Number);
+    return Math.floor((Date.UTC(year, month - 1, day) - Date.UTC(year, 0, 1)) / 864e5) + 1;
+  };
+  const solarDateLabel = (value, lang) => lang === 'en' ? value : value.split('-').reverse().join('/');
+
   function sunPos(lat, dayOfYear, hour) {
     const rad = Math.PI / 180;
     const decl = 23.44 * Math.sin(rad * 360 / 365 * (284 + dayOfYear));
@@ -713,7 +726,8 @@
   R.sun = (ctx, sc) => {
     const s = SCH.sun[sc % SCH.sun.length];
     const hour = ctx.time != null ? ctx.time : 12;
-    const doy = 172;                                  // 21 juin par défaut
+    const sunDate = solarDateISO(ctx);
+    const doy = dayOfYearISO(sunDate);
     const pos = sunPos(ctx.sLat, doy, hour);
     const b = getBounds(ctx), px = pxPerM(ctx);
     const [sx, sy] = proj(ctx.sLat, ctx.sLng, b);
@@ -755,7 +769,8 @@
       { type: 'rect', c: s.bld, s: s.bld, l: L(ctx, 'BÂTI', 'BUILT') },
       { type: 'rect', c: s.bldShadow, s: s.bldShadow, l: L(ctx, 'OMBRE PORTÉE', 'CAST SHADOW') },
       { type: 'rect', c: s.arc, s: s.arc, l: L(ctx, 'HÉLIODON', 'SUN PATH') }
-    ], L(ctx, '21 JUIN · ', 'JUNE 21 · ') + hh + ':' + mm + ' · ' + L(ctx, 'HAUTEUR ', 'ALTITUDE ') + pos.alt.toFixed(0) + '° · ' + L(ctx, 'AZIMUT ', 'AZIMUTH ') + pos.az.toFixed(0) + '°' +
+    ], L(ctx, 'HÉLIODON · ', 'SUN PATH · ') + solarDateLabel(sunDate, ctx.lang) + ' · ' + hh + ':' + mm + ' · ' +
+      L(ctx, 'HAUTEUR ', 'ALTITUDE ') + pos.alt.toFixed(0) + '° · ' + L(ctx, 'AZIMUT ', 'AZIMUTH ') + pos.az.toFixed(0) + '°' +
       (pos.alt <= 2 ? L(ctx, ' · SOLEIL COUCHÉ', ' · SUN BELOW HORIZON') : ''), { dark: sc % 4 >= 2 });
   };
 
@@ -1096,6 +1111,77 @@
       { type: 'rect', c: s.warm, s: s.warm, l: L(ctx, 'MAX ' + peak.toFixed(1), 'PEAK ' + peak.toFixed(1)) }
     ], L(ctx, 'CUMUL ≈ ', 'ANNUAL ≈ ') + fmtN(anual) + ' kWh/m²/an · ' + L(ctx, 'RAPPORT ÉTÉ/HIVER ', 'SUMMER/WINTER ') + (peak / (low || 1)).toFixed(1) + '×');
   };
+
+  /* ══════════ ROSE DES VENTS · NASA POWER / MERRA-2 ══════════
+     La longueur des pétales représente la fréquence directionnelle; la couleur
+     représente la vitesse moyenne dans le secteur. Les directions indiquent
+     d'où vient le vent. La source est régionale, sans calcul CFD local. */
+  R.wind = (ctx, sc) => {
+    const data = ctx.windrose;
+    const sectors = Array.isArray(data?.sectors) ? data.sectors : [];
+    if (!data?.ok || sectors.length !== 16)
+      return blank(ctx, L(ctx, 'ROSE DES VENTS INDISPONIBLE — RELANCER', 'WIND ROSE UNAVAILABLE — RETRY'));
+
+    const s = SCH.climate[sc % SCH.climate.length];
+    const rows = sectors.slice().sort((a, b) => a.bearing - b.bearing);
+    if (rows.some((x, i) => !Number.isFinite(x.bearing) || Math.abs(x.bearing - i * 22.5) > 0.01 ||
+        !Number.isFinite(x.frequencyPct) || x.frequencyPct < 0 || !Number.isFinite(x.meanSpeedMs) || x.meanSpeedMs < 0))
+      return blank(ctx, L(ctx, 'DONNÉES DE VENT INVALIDES', 'INVALID WIND DATA'));
+
+    const cx = W / 2, cy = H / 2 + 8, maxR = 53, labelR = 68;
+    const maxFreq = Math.max(...rows.map(x => x.frequencyPct), 1);
+    const maxPct = Math.max(5, Math.ceil(maxFreq / 5) * 5);
+    const point = (r, deg) => {
+      const a = deg * Math.PI / 180;
+      return [cx + Math.sin(a) * r, cy - Math.cos(a) * r];
+    };
+    let body = '<rect width="' + W + '" height="' + H + '" fill="' + s.bg + '"/>' +
+      '<text x="' + cx + '" y="34" text-anchor="middle" font-size="5.2" font-weight="700" fill="' + s.txt + '" font-family="ui-monospace,monospace">' +
+      L(ctx, 'ROSE DES VENTS · NASA POWER · 10 m', 'WIND ROSE · NASA POWER · 10 m') + '</text>';
+    body += '<text x="' + cx + '" y="46" text-anchor="middle" font-size="4.4" fill="' + s.txt + '" font-family="ui-monospace,monospace">' +
+      L(ctx, 'd’où vient le vent · rayon = fréquence · couleur = vitesse moy.', 'where wind comes from · radius = frequency · colour = mean speed') + '</text>';
+
+    for (let i = 1; i <= 4; i++) {
+      const r = maxR * i / 4, pct = maxPct * i / 4;
+      body += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r.toFixed(1) + '" fill="none" stroke="' + s.axis + '" stroke-width=".45"/>' +
+        '<text x="' + (cx + 3) + '" y="' + (cy - r + 2).toFixed(1) + '" font-size="4.4" fill="' + s.txt + '" font-family="ui-monospace,monospace">' + pct.toFixed(0) + '%</text>';
+    }
+    const dirs = ctx.lang === 'en'
+      ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+      : ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    for (let i = 0; i < 8; i++) {
+      const bearing = i * 45, p = point(maxR, bearing), label = point(labelR, bearing);
+      body += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="' + s.axis + '" stroke-width=".35"/>' +
+        '<text x="' + label[0].toFixed(1) + '" y="' + (label[1] + 1.8).toFixed(1) + '" text-anchor="middle" font-size="5.5" font-weight="700" fill="' + s.txt + '" font-family="ui-monospace,monospace">' + dirs[i] + '</text>';
+    }
+    const speedColour = v => v < 2 ? s.cool : v < 4 ? s.mid : s.warm;
+    for (const row of rows) {
+      const r = Math.max(0, row.frequencyPct / maxPct * maxR);
+      if (r < 0.8) continue;
+      const a0 = row.bearing - 10.25, a1 = row.bearing + 10.25;
+      const p0 = point(r, a0), p1 = point(r, a1);
+      body += '<path d="M' + cx + ',' + cy + ' L' + p0[0].toFixed(1) + ',' + p0[1].toFixed(1) +
+        ' A' + r.toFixed(1) + ',' + r.toFixed(1) + ' 0 0 1 ' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1) +
+        ' Z" fill="' + speedColour(row.meanSpeedMs) + '" fill-opacity=".82" stroke="' + s.bg + '" stroke-width=".45"/>';
+    }
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="2.1" fill="' + s.bg + '" stroke="' + s.txt + '" stroke-width=".6"/>';
+
+    const dominant = rows.reduce((best, x) => x.frequencyPct > best.frequencyPct ? x : best, rows[0]);
+    const dirs16 = ctx.lang === 'en'
+      ? ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+      : ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+    const dir = dirs16[Math.round(dominant.bearing / 22.5) % 16];
+    const startYear = String(data.period?.start || '').slice(0, 4);
+    const endYear = String(data.period?.end || '').slice(0, 4);
+    const period = startYear && endYear ? startYear + '–' + endYear : L(ctx, '10 ans', '10 years');
+    return wrap(ctx, body, [
+      { type: 'rect', c: s.cool, s: s.cool, l: '< 2 m/s' },
+      { type: 'rect', c: s.mid, s: s.mid, l: '2–4 m/s' },
+      { type: 'rect', c: s.warm, s: s.warm, l: '> 4 m/s' }
+    ], L(ctx, 'DOM. ', 'DOM. ') + dir + ' ' + dominant.frequencyPct.toFixed(1) + '% · ' +
+      dominant.meanSpeedMs.toFixed(1) + ' m/s · ' + period, { noScale: true, noNorth: true });
+  };
+
   /* ═══════════════ 36 · VOLUMES 3D ═══════════════
      Vue oblique des bâtiments extrudés, ombres portées selon l'heure du site.
      Le moteur vit dans vue3d.js (partagé avec la vue interactive) : la planche

@@ -20,7 +20,7 @@ ni quota) ou `licence` (4 gratuites / Pro / Max). Voir `docs/ACCES.md`.
   "free": ["roads", "landuse", "gw", "fabric"],
   "max": ["mappingboard", "…"],
   "limits": { "roads": 3000, "poiheat": 1500, "…" },
-  "sources": { "overpass": "2 miroirs", "nominatim": true, "nasa": true, "terrain": true },
+  "sources": { "overpass": "2 miroirs", "nominatim": true, "nasa": true, "windrose": true, "terrain": true },
   "codes": ["cs_demo_pro", "cs_demo_max", "cs_demo_lifetime", "cs_etude_2026"]
 }
 ```
@@ -135,6 +135,16 @@ Séries journalières NASA POWER sur trois ans : `{ ok, source, params }` avec
 série indexée par date `AAAAMMJJ`. **Attention : ce sont des valeurs
 journalières** (totaux pour la pluie et l'irradiation), pas des cumuls mensuels.
 
+### `action: "windrose"`
+
+Rose des vents NASA POWER / MERRA-2 pour les dix dernières années civiles
+complètes, à 10 m. Le client envoie `device`, `lat` et `lon`; aucune requête
+cartographique OSM n'est planifiée pour cette analyse. La réponse contient
+`{ ok, source, dataset, heightM, timeStandard, period, meanSpeedMs, sectors }`;
+`sectors` a 16 entrées `{ bearing, frequencyPct, meanSpeedMs }`. Les directions
+indiquent d'où vient le vent. C'est une statistique régionale de la grille
+MERRA-2, pas une simulation locale du vent entre les bâtiments.
+
 ## `POST /` (ou `/api/util`)
 
 Corps `application/x-www-form-urlencoded`.
@@ -167,6 +177,7 @@ Corps `application/x-www-form-urlencoded`.
 | `MAP_SOURCE_UNAVAILABLE` | 502 | Overpass injoignable ou en erreur |
 | `TERRAIN_UNAVAILABLE` | 502 | tuiles d'altitude indisponibles |
 | `NO_CLIMATE` | 502 | série climatique indisponible |
+| `NO_WINDROSE` | 502 | rose des vents régionale indisponible |
 
 Les codes sont traduits en français et en anglais dans
 `public/js/routes.mjs` (`ERR`), qui porte aussi les délais d'attente par

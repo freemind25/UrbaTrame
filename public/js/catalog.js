@@ -44,7 +44,7 @@
     { id: 'wireframe', nom: 'Trame de terrain', en: 'Terrain wireframe', sub: 'relief en fil de fer', tag: 'MNT', tier: 'pro', g: 'env', impl: true },
     { id: 'context', nom: 'Contexte urbain', en: 'City context', sub: 'couronnes de distance', tag: 'CARTE', tier: 'pro', g: 'env', impl: true },
     { id: 'location', nom: 'Situation', en: 'Location', sub: 'coordonnées, hémisphère, méridien', tag: 'CARTE', tier: 'pro', g: 'env', impl: true },
-    { id: 'wind', nom: 'Vent dominant', en: 'Wind flow', sub: 'rose des vents NASA POWER', tag: 'CLIM', tier: 'pro', g: 'env', impl: false },
+    { id: 'wind', nom: 'Rose des vents', en: 'Wind rose', sub: 'NASA POWER · flux régional à 10 m', enSub: 'NASA POWER · regional flow at 10 m', tag: 'CLIM', tier: 'pro', g: 'env', impl: true },
 
     /* ── climat ── */
     { id: 'climtemp', nom: 'Températures', en: 'Temperature year', sub: 'max/min mensuelles', tag: 'CLIM', tier: 'pro', g: 'clim', impl: true },

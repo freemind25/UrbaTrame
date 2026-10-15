@@ -29,6 +29,7 @@ export function loadKernel() {
 
 export const SAMPLE_PATH = path.join(ROOT, 'public/data/sample-elkhroub.json');
 export const sample = JSON.parse(fs.readFileSync(SAMPLE_PATH, 'utf8'));
+export const sampleWindrose = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/data/windrose-elkhroub.json'), 'utf8'));
 
 /* Jeu de données normalisé, prêt pour les renderers. */
 export function sampleBuckets() {
@@ -50,6 +51,7 @@ export function makeCtx(over = {}) {
     D: sampleBuckets(),
     terrain: sample.terrain,
     climate: sample.climate,
+    windrose: sampleWindrose,
     noSiteMark: false,
     ...over
   };

@@ -3,7 +3,7 @@
    Fenêtre plein écran qui affiche les volumes bâtis d'un site, avec :
 
      • rotation (glisser horizontalement) et inclinaison (glisser verticalement) ;
-     • curseur d'heure : le soleil se déplace, les ombres suivent ;
+     • sélecteurs de date et d'heure : le soleil se déplace, les ombres suivent ;
      • molette : rapprochement ;
      • clic sur un bâtiment : sa fiche (hauteur, usage, nom…), mise en évidence ;
      • fond de carte raster (option), avec attribution OpenStreetMap ;
@@ -14,6 +14,16 @@
      • tuiles osmbuildings.org : hauteurs déjà calculées (attribution requise).
    ───────────────────────────────────────────────────────────────────────── */
 import { batimentsDepuisOverpass, batimentsDepuisTuiles } from './osm.mjs';
+
+const todayLocalISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const validISODate = value => {
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(value || ''))) return false;
+  const d = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
+};
 
 const FR = {
   titre: 'Vue 3D', heure: 'Heure', cap: 'Rotation', pente: 'Inclinaison',
@@ -28,6 +38,7 @@ const FR = {
 export function ouvrir3D(o) {
   const lang = o.langue === 'en' ? 'en' : 'fr';
   const t = (fr, en) => (lang === 'en' ? en : fr);
+  const sunDate = validISODate(o.sunDate) ? o.sunDate : todayLocalISO();
 
   const racine = document.createElement('div');
   racine.className = 'v3d';
@@ -37,6 +48,8 @@ export function ouvrir3D(o) {
       <label class="v3d-c"><span>${t('Heure', 'Hour')}</span>
         <input type="range" id="v3d-h" min="0" max="23" step="1" value="${o.heure ?? 12}">
         <output id="v3d-hv">${o.heure ?? 12} h</output></label>
+      <label class="v3d-c"><span>${t('Date solaire', 'Solar date')}</span>
+        <input type="date" id="v3d-date" value="${sunDate}"></label>
       <label class="v3d-c"><span>${t('Rotation', 'Rotation')}</span>
         <input type="range" id="v3d-cap" min="-180" max="180" step="2" value="0"></label>
       <label class="v3d-c"><span>${t('Inclinaison', 'Tilt')}</span>
@@ -72,7 +85,7 @@ export function ouvrir3D(o) {
   /* ── état ── */
   const V = globalThis.FMVue3D;
   const et = {
-    cap: 0, inclinaison: o.inclinaison ?? 50, heure: o.heure ?? 12,
+    cap: 0, inclinaison: o.inclinaison ?? 50, heure: o.heure ?? 12, sunDate,
     palette: 0, rayon: o.rayon, fond: !!o.fondParDefaut, ombres: true,
     selection: null, batiments: o.batiments || [], routes: o.routes || [],
     terrain: o.terrain || null, relief: true,   // le relief est acquis par défaut ; la case le débraye
@@ -114,7 +127,7 @@ export function ouvrir3D(o) {
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap,
       inclinaison: et.inclinaison, largeur: cv.width, hauteur: cv.height, recul: 1.08
     });
-    const soleil = V.soleil(V.instantLocal(et.heure, o.lat, o.lon), o.lat, o.lon);
+    const soleil = V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon);
     const sc = V.scene(et.batiments, cam, {
       palette: et.palette, soleil, echelleH: 4,
       terrain: et.relief ? et.terrain : null,
@@ -130,6 +143,18 @@ export function ouvrir3D(o) {
       opaciteOmbre: 0.30,
       routes: et.routes.length ? et.routes : null
     });
+    /* La date/heure reste lisible dans les exports de la vue. */
+    const ratio = cv.width / Math.max(1, cv.clientWidth || cv.width);
+    const soleilLabel = et.sunDate + ' · ' + et.heure + ' h';
+    g.save();
+    g.font = (11 * ratio) + 'px ui-monospace,monospace';
+    const badgeW = g.measureText(soleilLabel).width + 14 * ratio;
+    const badgeX = cv.width - badgeW - 12 * ratio, badgeY = 12 * ratio;
+    g.fillStyle = 'rgba(18,19,15,.68)';
+    g.fillRect(badgeX, badgeY, badgeW, 22 * ratio);
+    g.fillStyle = '#EDEAE3';
+    g.fillText(soleilLabel, badgeX + 7 * ratio, badgeY + 15 * ratio);
+    g.restore();
     /* voirie et eau : le moteur les trace en SVG, on les redessine ici */
     if (et.routes.length || et.eaux.length) {
       g.save();
@@ -221,6 +246,10 @@ export function ouvrir3D(o) {
     q('#v3d-hv').textContent = et.heure + ' h';
     dessiner();
   });
+  q('#v3d-date').addEventListener('change', e => {
+    if (validISODate(e.target.value)) { et.sunDate = e.target.value; dessiner(); }
+    else e.target.value = et.sunDate;
+  });
   q('#v3d-cap').addEventListener('input', e => { et.cap = Number(e.target.value); dessiner(); });
   q('#v3d-inc').addEventListener('input', e => { et.inclinaison = Number(e.target.value); dessiner(); });
   q('#v3d-pal').addEventListener('input', e => { et.palette = Number(e.target.value); dessiner(); });
@@ -241,8 +270,9 @@ export function ouvrir3D(o) {
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap, inclinaison: et.inclinaison,
       palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
       routes: et.routes, eaux: et.eaux, terrain: et.relief ? et.terrain : null,
-      soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon), o.lat, o.lon),
-      attribution: et.fond ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · UrbaTrame'
+      soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon),
+      attribution: et.sunDate + ' · ' + et.heure + ' h · ' + (et.fond
+        ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · UrbaTrame')
     });
     telecharger(new Blob([svg], { type: 'image/svg+xml' }), 'urbatrame-vue3d.svg');
   });

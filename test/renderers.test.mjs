@@ -4,7 +4,7 @@
    `node --test test/renderers.test.mjs`                                       */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadKernel, render, sample, sampleBuckets } from '../tools/kernel.mjs';
+import { loadKernel, render, sample, sampleBuckets, sampleWindrose } from '../tools/kernel.mjs';
 import { normalizeElements } from '../public/js/osm.mjs';
 
 const { catalog } = loadKernel();
@@ -24,6 +24,31 @@ describe('jeu de données du banc d\'essai', () => {
   test('l\'extrait contient des hauteurs de bâtiment', () => {
     const withH = sampleBuckets().build.filter(b => b.h > 0);
     assert.ok(withH.length > 50, 'hauteurs renseignées : ' + withH.length);
+  });
+
+  test('la rose d\'exemple contient une décennie et 16 directions', () => {
+    assert.equal(sampleWindrose.dataset, 'MERRA-2');
+    assert.equal(sampleWindrose.heightM, 10);
+    assert.equal(sampleWindrose.sectors.length, 16);
+    assert.equal(sampleWindrose.period.years, 10);
+  });
+});
+
+describe('rose des vents et course solaire', () => {
+  test('la rose représente les secteurs réels, la période et le vent dominant', () => {
+    const svg = render('wind');
+    assert.match(svg, /ROSE DES VENTS · NASA POWER · 10 m/);
+    assert.match(svg, /DOM\. NO 11\.3% · 3\.4 m\/s · 2016–2025/);
+    assert.match(svg, /2016–2025/);
+    assert.match(render('wind', { windrose: null }), /ROSE DES VENTS INDISPONIBLE/);
+  });
+
+  test('la date choisie modifie l\'héliodon et la note du soleil 2D', () => {
+    const summer = render('sun', { sunDate: '2026-06-21', time: 12 });
+    const winter = render('sun', { sunDate: '2026-12-21', time: 12 });
+    assert.match(summer, /21\/06\/2026/);
+    assert.match(winter, /21\/12\/2026/);
+    assert.notEqual(summer, winter, 'la saison modifie la course et les ombres');
   });
 });
 

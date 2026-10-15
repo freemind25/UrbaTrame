@@ -1,5 +1,5 @@
 /* Routes de l'API — contrat décrit dans docs/API.md.
-     POST /analysis/2d   JSON   check · begin · query · end · activate · terrain · climate
+     POST /analysis/2d   JSON   check · begin · query · end · activate · terrain · climate · windrose
      POST /            form    geocode= · refcheck= · refcode=
      GET  /api/status           état du service + clé publique Ed25519
    Les autres GET servent les fichiers de public/.                              */
@@ -11,6 +11,7 @@ import {
 import { validDevice } from './licence.mjs';
 import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
+import { windrose } from './sources/windrose.mjs';
 import { terrain } from './sources/terrain.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 
@@ -29,7 +30,7 @@ export function createStatusHandler({ licence }) {
       limits: LIMITS,
       sources: {
         overpass: SOURCES.overpass.length + ' miroirs',
-        nominatim: true, nasa: true, terrain: true
+        nominatim: true, nasa: true, windrose: true, terrain: true
       },
       codes: licence.knownCodes()
     });
@@ -213,6 +214,21 @@ export function createAnalysisHandler({ licence, quota, runs }) {
         return send(res, 200, { ok: true, ...c });
       } catch (e) {
         return send(res, 502, { error: 'NO_CLIMATE', detail: e.message });
+      }
+    }
+
+    /* ── windrose : climatologie régionale MERRA-2 à 10 m ── */
+    if (action === 'windrose') {
+      try {
+        const w = await windrose(Number(body.lat), Number(body.lon));
+        log('windrose', w.sectors.length + ' secteurs', w.period.start, '→', w.period.end);
+        return send(res, 200, w);
+      } catch (e) {
+        const invalid = e.message === 'INVALID_LOCATION';
+        if (!invalid) log('windrose indisponible', e.message);
+        return send(res, invalid ? 400 : 502, {
+          error: invalid ? 'INVALID_LOCATION' : 'NO_WINDROSE', detail: e.message
+        });
       }
     }
 

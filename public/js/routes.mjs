@@ -28,6 +28,7 @@ export const ERR = {
   RADIUS_200_3000: ['Le rayon doit être compris entre 200 et 3000 m.', 'Radius must be 200–3000 m.'],
   INVALID_LOCATION: ['Coordonnées invalides.', 'Invalid coordinates.'],
   SITE_CROSSES_DATELINE: ['Le site traverse l\'antiméridien.', 'Site crosses the dateline.'],
+  NO_WINDROSE: ['Rose des vents NASA POWER indisponible.', 'NASA POWER wind rose unavailable.'],
   INVALID_ANALYSES: ['Sélection d\'analyses invalide.', 'Invalid analysis selection.']
 };
 export const errText = (code, lang) => (ERR[code] || [code, code])[lang === 'en' ? 1 : 0];
@@ -72,6 +73,7 @@ export class Routes {
   activate(code, device) { return this.post2d({ action: 'activate', code, device, public: true }); }
   terrain(lat, lon, radius, n, device) { return this.post2d({ action: 'terrain', device, lat, lon, radius, n }, { timeout: 45_000 }); }
   climate(lat, lon, device) { return this.post2d({ action: 'climate', device, lat, lon }, { timeout: 45_000 }); }
+  windrose(lat, lon, device) { return this.post2d({ action: 'windrose', device, lat, lon }, { timeout: 45_000 }); }
   geocode(q) { return this.util({ geocode: q }, 20_000); }
   refcheck(ref) { return this.util({ refcheck: ref }); }
   refcode(code) { return this.util({ refcode: code }); }

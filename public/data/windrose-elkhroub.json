@@ -1,0 +1,96 @@
+{
+  "ok": true,
+  "source": "NASA POWER",
+  "product": "Wind Rose API",
+  "dataset": "MERRA-2",
+  "heightM": 10,
+  "timeStandard": "LST",
+  "period": {
+    "start": "2016-01-01",
+    "end": "2025-12-31",
+    "years": 10
+  },
+  "meanSpeedMs": 2.726,
+  "sectors": [
+    {
+      "bearing": 0,
+      "frequencyPct": 7.2,
+      "meanSpeedMs": 2.09
+    },
+    {
+      "bearing": 22.5,
+      "frequencyPct": 6.65,
+      "meanSpeedMs": 2.03
+    },
+    {
+      "bearing": 45,
+      "frequencyPct": 6.46,
+      "meanSpeedMs": 1.79
+    },
+    {
+      "bearing": 67.5,
+      "frequencyPct": 4.49,
+      "meanSpeedMs": 1.9
+    },
+    {
+      "bearing": 90,
+      "frequencyPct": 2.52,
+      "meanSpeedMs": 1.64
+    },
+    {
+      "bearing": 112.5,
+      "frequencyPct": 1.42,
+      "meanSpeedMs": 1.53
+    },
+    {
+      "bearing": 135,
+      "frequencyPct": 1.26,
+      "meanSpeedMs": 1.47
+    },
+    {
+      "bearing": 157.5,
+      "frequencyPct": 1.72,
+      "meanSpeedMs": 2.41
+    },
+    {
+      "bearing": 180,
+      "frequencyPct": 3.23,
+      "meanSpeedMs": 3.03
+    },
+    {
+      "bearing": 202.5,
+      "frequencyPct": 5.97,
+      "meanSpeedMs": 3.43
+    },
+    {
+      "bearing": 225,
+      "frequencyPct": 9.25,
+      "meanSpeedMs": 3.08
+    },
+    {
+      "bearing": 247.5,
+      "frequencyPct": 9.58,
+      "meanSpeedMs": 2.75
+    },
+    {
+      "bearing": 270,
+      "frequencyPct": 9.28,
+      "meanSpeedMs": 3.12
+    },
+    {
+      "bearing": 292.5,
+      "frequencyPct": 10.65,
+      "meanSpeedMs": 3.25
+    },
+    {
+      "bearing": 315,
+      "frequencyPct": 11.25,
+      "meanSpeedMs": 3.42
+    },
+    {
+      "bearing": 337.5,
+      "frequencyPct": 9.06,
+      "meanSpeedMs": 2.7
+    }
+  ]
+}

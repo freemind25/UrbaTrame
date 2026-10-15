@@ -11,14 +11,17 @@
 
 ### Analyser le tissu urbain
 
-- **44 analyses cartographiques** : voirie, occupation du sol, tissu urbain, densité, volumes bâtis, orientations, points d’intérêt, mobilité, bruit, ensoleillement, relief et climat.
+- **45 analyses cartographiques** : voirie, occupation du sol, tissu urbain, densité, volumes bâtis, orientations, points d’intérêt, mobilité, bruit, ensoleillement, relief, climat et rose des vents NASA POWER/MERRA-2 à 10 m.
 - **8 planches composées Max au format A3 paysage** : carte de contexte, pôles urbains, grille de densité, axonométrie annotée, encarts d’insertion, cônes de vue indicatifs, zonage fonctionnel OSM non réglementaire et analyse radiale.
+- **Synthèse quantitative du site** : emprises bâties, espaces verts, linéaires de voirie, équipements, transports, relief et climat disponibles.
+- **Scénario de capacité indicatif** : l’utilisateur saisit la surface du terrain, le FAR/COS, l’emprise et le nombre de niveaux; le coût n’est calculé que si un coût unitaire est fourni. Ces hypothèses ne valent pas autorisation réglementaire.
 - **Choisir un site** par recherche de lieu ou coordonnées, puis définir un rayon de 200 à 3 000 m et une emprise circulaire ou polygonale.
+- **Comparer la course solaire et les ombres** selon la date et l’heure choisies, dans les simulations 2D et 3D. La rose des vents est une statistique régionale à 10 m; elle ne simule pas le vent local entre les bâtiments.
 - **Consulter les résultats** sous forme de planches lisibles et les exporter individuellement ou en planche A3.
 
 ### Explorer la ville en 3D
 
-La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de régler l’heure solaire et d’examiner les bâtiments sur le relief. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
+La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de choisir la date et l’heure solaires et d’examiner les bâtiments sur le relief. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
 
 ### Utiliser l’atelier topographique Altiplan
 
@@ -60,7 +63,7 @@ Les exemples ci-dessous montrent des planches d’analyse et des livrables de l�
 
 ## Données et limites
 
-UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des limites administratives **GADM**, des données de relief **AWS Terrarium** et des données climatiques **NASA POWER**. Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
+UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des limites administratives **GADM**, des données de relief **AWS Terrarium**, des séries climatiques **NASA POWER** et une rose des vents issue de **MERRA-2**. La rose décrit le flux régional à 10 m; elle ne modélise pas les effets locaux des bâtiments et des rues. Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
 
 Les parcelles ne sont affichées que si leurs limites sont présentes dans OpenStreetMap. UrbaTrame **ne crée ni ne complète de limites juridiques ou cadastrales** : les cartes et maquettes ne remplacent pas un relevé de géomètre. Toute publication utilisant des données OpenStreetMap doit conserver l’attribution **© OpenStreetMap contributors**.
 
@@ -76,7 +79,7 @@ npm start
 
 Ouvrez ensuite <http://localhost:4173>. Pour afficher directement l’exemple intégré d’El Khroub, utilisez <http://localhost:4173/?sample=1>.
 
-Dans la configuration actuelle du dépôt, les **44 analyses sont accessibles sans compte, code de licence ni quota**.
+Dans la configuration actuelle, les **45 analyses sont accessibles sans compte, code de licence ni quota**.
 
 ## Documentation
 

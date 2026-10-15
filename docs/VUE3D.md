@@ -11,14 +11,14 @@ Fonctions reprises de <https://osmbuildings.org> après démontage (voir
 | **Analyse « Volumes 3D »** dans le catalogue | liste des analyses → Morphologie → *Volumes 3D* |
 | **Vue interactive plein écran** | bouton `3D` sur la fiche de cette analyse, ou `?vue3d=1` dans l'adresse |
 | Bâtiments extrudés (hauteur réelle, sinon 9 m) | partout |
-| Ombres portées selon l'heure du site | partout (curseur d'heure, 0–23 h) |
+| Ombres portées selon la date et l'heure solaires | partout (sélecteurs de date et d'heure) |
 | Rotation, inclinaison, zoom | vue interactive : glisser, glisser vertical, molette |
 | Fiche d'un bâtiment au clic | vue interactive |
 | Fond de carte raster (OpenStreetMap) | vue interactive : case *Fond de carte* |
 | **Posé sur le terrain réel** (altimétrie) | partout ; case *Relief* dans la vue interactive |
 | **Cours intérieures évidées** | partout (relations OSM, membres `inner`) |
 | Export PNG et SVG | vue interactive (boutons PNG / SVG) |
-| Export SVG/PNG de la planche | comme les 35 autres analyses |
+| Export SVG/PNG de la planche | comme les autres analyses |
 | **Modèle 3D OBJ et STL**, plan DXF | panneau *Exports CAO* → voir `docs/EXPORTS.md` |
 
 ## Comment c'est fait
@@ -123,7 +123,7 @@ chaque emprise, la liste de ses `trous` :
 
 Les rendus **2D** du projet, eux, continuent de remplir les cours
 (`normalizeElements` écarte les membres `inner`) : c'est un choix assumé, la
-modification du jeu normalisé changerait le tracé des 44 analyses existantes.
+modification du jeu normalisé changerait le tracé des 45 analyses existantes.
 
 Au passage, le centre qui décide du côté « extérieur » d'un mur n'est plus la
 moyenne des sommets (faussée par le point de fermeture répété, et parfois hors

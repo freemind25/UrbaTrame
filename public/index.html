@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#153e3d">
 <title>UrbaTrame — analyse des sites urbains</title>
-<meta name="description" content="UrbaTrame : 44 analyses de sites urbains, dont 8 planches Max A3 fondées sur OpenStreetMap, avec exports vectoriels, 3D et relief.">
+<meta name="description" content="UrbaTrame : analyses de sites urbains, synthèse quantitative, scénario indicatif, exports vectoriels, 3D et relief fondés sur des données cartographiques.">
 <link rel="stylesheet" href="styles.css?v=header-clean">
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
@@ -71,8 +71,12 @@
         <output id="timeOut">12:00</output>
         <input id="time" type="range" min="4" max="21" step="0.25" value="12">
       </div>
-      <p class="hint" data-fr="L'heure pilote l'héliodon et les ombres portées."
-         data-en="The hour drives the sun path and cast shadows.">L'heure pilote l'héliodon et les ombres portées.</p>
+      <div class="row solar-date-row">
+        <label class="lab2" for="sunDate" data-fr="date solaire" data-en="solar date">date solaire</label>
+        <input id="sunDate" type="date" aria-label="Date solaire">
+      </div>
+      <p class="hint" data-fr="La date et l'heure pilotent l'héliodon et les ombres portées en 2D comme en 3D."
+         data-en="The date and time drive the sun path and cast shadows in both 2D and 3D.">La date et l'heure pilotent l'héliodon et les ombres portées en 2D comme en 3D.</p>
     </section>
 
     <section class="panel">
@@ -107,6 +111,7 @@
   <main>
     <div class="toolbar">
       <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
+      <button id="siteReportBtn" class="report-trigger" data-fr="Synthèse & scénario" data-en="Site summary & scenario">Synthèse & scénario</button>
       <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
             data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
     </div>
@@ -116,6 +121,23 @@
     <div id="log" class="log" aria-live="polite"></div>
   </main>
 </div>
+
+<section class="site-report" id="siteReport" aria-hidden="true">
+  <div class="site-report-sheet" role="dialog" aria-modal="true" aria-labelledby="siteReportTitle">
+    <header class="site-report-header">
+      <div class="site-report-heading">
+        <span class="report-kicker" data-fr="URBATRAME · LECTURE DU SITE" data-en="URBATRAME · SITE OVERVIEW">URBATRAME · LECTURE DU SITE</span>
+        <h2 id="siteReportTitle" data-fr="Synthèse du site" data-en="Site summary">Synthèse du site</h2>
+        <p id="siteReportSubtitle"></p>
+      </div>
+      <div class="site-report-actions">
+        <button id="siteReportPrint" class="primary" data-fr="Imprimer / PDF" data-en="Print / PDF">Imprimer / PDF</button>
+        <button id="siteReportClose" class="site-report-close" aria-label="Fermer">×</button>
+      </div>
+    </header>
+    <div class="site-report-body" id="siteReportBody"></div>
+  </div>
+</section>
 
 <div id="loader" class="loader"></div>
 <div id="toast" class="toast"></div>
@@ -139,14 +161,18 @@
           data-en="<b>Place</b>: search goes through the server (OpenStreetMap geocoding). You can also type “lat,lon”."></li>
       <li data-fr="<b>Site</b> : le rayon fixe l'emprise demandée ; certaines analyses ont un plafond (1500 à 3000 m) et sont alors retirées."
           data-en="<b>Site</b>: the radius sets the requested extent; some analyses are capped (1500–3000 m) and get skipped."></li>
-      <li data-fr="<b>Analyses</b> : 4 gratuites + 32 Pro + 8 planches composées Max au format A3 paysage."
-          data-en="<b>Analyses</b>: 4 free + 32 Pro + 8 composed Max boards in A3 landscape format."></li>
-      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, altimétrie Terrarium (SRTM/USGS, AWS Open Data)."
-          data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, Terrarium elevation (SRTM/USGS, AWS Open Data)."></li>
+      <li data-fr="Date solaire : choisissez le jour et l'heure; ils commandent la course du soleil et les ombres des rendus 2D et 3D."
+          data-en="Solar date: choose the day and hour; they drive the sun path and shadows in 2D and 3D views."></li>
+      <li data-fr="<b>Analyses</b> : 4 gratuites + 33 Pro + 8 planches composées Max au format A3 paysage."
+          data-en="<b>Analyses</b>: 4 free + 33 Pro + 8 composed Max boards in A3 landscape format."></li>
+      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, rose des vents MERRA-2 à 10 m (flux régional, pas local) et altimétrie Terrarium (SRTM/USGS)."
+          data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, MERRA-2 wind rose at 10 m (regional, not local flow), and Terrarium elevation (SRTM/USGS)."></li>
       <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
           data-en="<b>Licences</b>: Ed25519 token signed by the server, bound to this device. Demo codes: cs_demo_pro, cs_demo_max, cs_demo_lifetime."></li>
       <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
           data-en="<b>Exports</b>: each card exports as editable SVG or PNG ×3; “Board” prints the grid."></li>
+      <li data-fr="Synthèse & scénario : indicateurs issus des données chargées, puis scénario de capacité calculé uniquement à partir de vos hypothèses. Aucun règlement ni limite cadastrale n’est inventé."
+          data-en="Site summary & scenario: indicators from loaded data, plus a capacity scenario calculated only from your assumptions. No planning rule or cadastral boundary is invented."></li>
     </ol>
     <p class="fine" data-fr="Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques."
        data-en="Results depend on the mapping data available for the selected place. OSM parcel outlines are not cadastral or legal boundaries.">Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques.</p>

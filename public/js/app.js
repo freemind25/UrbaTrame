@@ -9,10 +9,21 @@ import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
+import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const validISODate = value => {
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(value || ''))) return false;
+  const d = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
+};
+const storedSunDate = store.get('sunDate', '');
 
 /* ─────────── état ─────────── */
 const S = {
@@ -26,6 +37,9 @@ const S = {
   D: { roads: [], build: [], green: [], pois: [], rail: [], coast: [] },
   terrain: null,
   climate: null,
+  windrose: null,
+  mapLoaded: false,
+  dataSite: null,                                // contexte exact des couches déjà chargées
   site: { lat: null, lon: null, R: 600, name: '' },
   shape: store.get('shape', 'circle'),
   poly: null,                                  // polygone de site (mode poly)
@@ -34,6 +48,7 @@ const S = {
   names: store.get('names', {}),               // id → titre personnalisé
   noText: new Set(store.get('noText', [])),
   time: store.get('time', 12),
+  sunDate: validISODate(storedSunDate) ? storedSunDate : todayISO(),
   busy: false,
   routes: null,
   cacheInfo: ''
@@ -52,6 +67,7 @@ function applyLang() {
   });
   renderCatalog();
   $('#langBtn').textContent = S.lang === 'fr' ? 'EN' : 'FR';
+  if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
 }
 
 /* ─────────── journal ─────────── */
@@ -147,7 +163,7 @@ function vue3D(opts = {}) {
   return ouvrir3D({
     lat: S.site.lat, lon: S.site.lon, rayon: S.site.R,
     nom: S.site.name, langue: S.lang,
-    heure: Math.round(S.time), inclinaison: 50,
+    heure: Math.round(S.time), sunDate: S.sunDate, inclinaison: 50,
     batiments: (S.D.build || []).length ? S.D.build : null,
     routes: S.D.roads || [],
     eaux: (S.D.green || []).filter(x => x.k === 'w').map(x => x.g),
@@ -188,7 +204,7 @@ function renderCatalog() {
       const limit = LIMITS[a.id];
       row.innerHTML = `
         <input type="checkbox" ${sel ? 'checked' : ''} ${(un && a.impl) ? '' : 'disabled'} data-id="${a.id}">
-        <span class="txt"><b>${T(a.nom, a.en)}</b><i>${T(a.sub, a.sub)}</i></span>
+        <span class="txt"><b>${T(a.nom, a.en)}</b><i>${T(a.sub, a.enSub || a.sub)}</i></span>
         <span class="tags">
           <em>${a.tag}</em>
           ${a.tier === 'free' ? '' : a.tier === 'max' ? '<em class="max">MAX</em>' : '<em class="pro">PRO</em>'}
@@ -235,8 +251,8 @@ function ctxFor(id) {
     sLat: S.site.lat, sLng: S.site.lon, curR: S.site.R,
     shape: S.shape, sitePolygon: S.poly,
     isPro: isPaid(), lang: S.lang === 'en' ? 'en' : 'fr',
-    watermark: !isOpenAccess(), time: S.time, siteName: S.site.name,
-    D: S.D, terrain: S.terrain, climate: S.climate, noSiteMark: false
+    watermark: !isOpenAccess(), time: S.time, sunDate: S.sunDate, siteName: S.site.name,
+    D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, noSiteMark: false
   };
 }
 function renderOne(id) {
@@ -277,7 +293,9 @@ function renderCards() {
         </span>
       </header>
       <div class="body">${renderOne(id)}</div>
-      <footer class="note">${T('données © OpenStreetMap', 'data © OpenStreetMap')}</footer>`;
+      <footer class="note">${id === 'wind'
+        ? T('NASA POWER · MERRA-2 · 10 m · direction = provenance du vent · flux régional, pas de vent local CFD', 'NASA POWER · MERRA-2 · 10 m · direction = where wind comes from · regional flow, not local CFD')
+        : T('données © OpenStreetMap', 'data © OpenStreetMap')}</footer>`;
     card.querySelector('.title').addEventListener('blur', e => {
       S.names[id] = e.target.textContent.trim().slice(0, 60);
       store.set('names', S.names);
@@ -300,6 +318,12 @@ function renderCards() {
     grid.appendChild(card);
   });
   renderMiniMap();
+}
+function refreshSolarCards() {
+  for (const id of ['sun', 'volumes']) {
+    const body = $('#card_' + id + ' .body');
+    if (body) body.innerHTML = renderOne(id);
+  }
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -361,12 +385,285 @@ function renderMiniMap() {
   host.innerHTML = s;
 }
 
+/* ═══════════════ synthèse du site & scénario de faisabilité ═══════════════ */
+function reportNumber(value, digits = 0) {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat(S.lang === 'en' ? 'en-GB' : 'fr-FR', {
+    maximumFractionDigits: digits, minimumFractionDigits: digits
+  }).format(value);
+}
+function reportArea(value) {
+  if (!Number.isFinite(value)) return '—';
+  return value >= 1_000_000 ? `${reportNumber(value / 1_000_000, 2)} km²` : `${reportNumber(value)} m²`;
+}
+function reportLength(value) {
+  if (!Number.isFinite(value)) return '—';
+  return value >= 1_000 ? `${reportNumber(value / 1_000, 2)} km` : `${reportNumber(value)} m`;
+}
+function reportPercent(value) { return Number.isFinite(value) ? `${reportNumber(value, 1)}%` : '—'; }
+function reportMetric(label, value, detail = '') {
+  const card = document.createElement('article');
+  card.className = 'report-metric';
+  const name = document.createElement('span'); name.className = 'report-metric-label'; name.textContent = label;
+  const amount = document.createElement('strong'); amount.className = 'report-metric-value'; amount.textContent = value;
+  card.append(name, amount);
+  if (detail) { const note = document.createElement('small'); note.textContent = detail; card.append(note); }
+  return card;
+}
+function reportSection(title, description = '') {
+  const section = document.createElement('section'); section.className = 'report-section';
+  const heading = document.createElement('div'); heading.className = 'report-section-heading';
+  const h = document.createElement('h3'); h.textContent = title; heading.append(h);
+  if (description) { const p = document.createElement('p'); p.textContent = description; heading.append(p); }
+  section.append(heading);
+  return section;
+}
+function reportNote(text, type = '') {
+  const note = document.createElement('p');
+  note.className = 'report-note' + (type ? ' ' + type : '');
+  note.textContent = text;
+  return note;
+}
+function currentReportContext() {
+  return S.dataSite || (S.site.lat == null ? null : {
+    ...S.site, shape: S.shape, polygon: S.poly
+  });
+}
+function reportDataOutOfDate(snapshot) {
+  if (!S.dataSite || S.site.lat == null) return false;
+  return Math.abs(S.site.lat - snapshot.lat) > 1e-6 ||
+    Math.abs(S.site.lon - snapshot.lon) > 1e-6 ||
+    S.site.R !== snapshot.R || S.shape !== snapshot.shape;
+}
+function scenarioField(parent, id, label, value, options = {}) {
+  const wrap = document.createElement('label'); wrap.className = 'scenario-field';
+  const title = document.createElement('span'); title.textContent = label;
+  const input = document.createElement('input');
+  input.id = id; input.type = options.type || 'number'; input.value = value ?? '';
+  if (options.type === 'text') { input.maxLength = options.maxLength || 8; input.autocomplete = 'off'; }
+  else {
+    input.min = options.min ?? 0; input.max = options.max ?? 1e9; input.step = options.step || 'any';
+    input.inputMode = 'decimal';
+  }
+  wrap.append(title, input); parent.append(wrap);
+  return input;
+}
+function renderScenario(host) {
+  const saved = store.get('siteScenario', {});
+  const section = reportSection(T('Scénario de capacité — hypothèses manuelles', 'Capacity scenario — user assumptions'),
+    T('Renseignez les paramètres de votre projet. La surface du terrain est saisie séparément de la zone d’analyse.',
+      'Enter your project assumptions. Plot area is separate from the study extent.'));
+  section.classList.add('scenario-section');
+  section.append(reportNote(T(
+    'Aucun zonage ni coefficient réglementaire n’est déduit des données cartographiques. Ces résultats sont des ordres de grandeur, à vérifier auprès des documents officiels.',
+    'No zoning or statutory coefficient is inferred from map data. These are indicative figures; check the official planning documents.'), 'important'));
+
+  const fields = document.createElement('div'); fields.className = 'scenario-fields';
+  const area = scenarioField(fields, 'scenarioArea', T('Terrain du projet · m²', 'Project plot · m²'), saved.area || '', { min: 1, max: 1e9 });
+  const far = scenarioField(fields, 'scenarioFar', T('FAR / COS souhaité', 'Target FAR'), saved.far || '', { min: 0, max: 100 });
+  const coverage = scenarioField(fields, 'scenarioCoverage', T('Emprise maximale · %', 'Maximum site coverage · %'), saved.coverage || '', { min: 0, max: 100, step: 0.1 });
+  const floors = scenarioField(fields, 'scenarioFloors', T('Nombre de niveaux', 'Number of floors'), saved.floors || '', { min: 1, max: 300, step: 1 });
+  const cost = scenarioField(fields, 'scenarioCost', T('Coût par m² · facultatif', 'Cost per m² · optional'), saved.cost || '', { min: 0, max: 1e12 });
+  const currency = scenarioField(fields, 'scenarioCurrency', T('Devise', 'Currency'), saved.currency || 'DZD', { type: 'text', maxLength: 8 });
+  section.append(fields);
+
+  const output = document.createElement('div'); output.className = 'scenario-output'; output.setAttribute('aria-live', 'polite');
+  section.append(output);
+  const inputs = { area, far, coverage, floors, cost, currency };
+  const update = () => {
+    const values = Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value.trim()]));
+    store.set('siteScenario', values);
+    output.replaceChildren();
+    const result = calculateFeasibility({
+      siteAreaM2: values.area === '' ? NaN : Number(values.area),
+      far: values.far === '' ? NaN : Number(values.far),
+      coveragePct: values.coverage === '' ? NaN : Number(values.coverage),
+      floors: values.floors === '' ? NaN : Number(values.floors),
+      costPerM2: values.cost === '' ? null : Number(values.cost)
+    });
+    if (!result) {
+      output.append(reportNote(T(
+        'Saisissez une surface, un FAR, un pourcentage d’emprise et un nombre de niveaux pour afficher une capacité indicative.',
+        'Enter plot area, FAR, coverage and floor count to see an indicative capacity.'), 'scenario-prompt'));
+      return;
+    }
+    const grid = document.createElement('div'); grid.className = 'report-metrics scenario-results';
+    grid.append(
+      reportMetric(T('Capacité selon le FAR', 'FAR-based capacity'), reportArea(result.areaByFarM2)),
+      reportMetric(T('Capacité selon emprise × niveaux', 'Coverage × floors capacity'), reportArea(result.areaByCoverageM2)),
+      reportMetric(T('Surface de plancher retenue', 'Indicative floor area'), reportArea(result.floorAreaM2),
+        T('contrainte la plus stricte appliquée', 'most restrictive input applied')),
+      reportMetric(T('Emprise au sol estimée', 'Indicative footprint'), reportArea(result.footprintM2))
+    );
+    if (result.costEstimate != null) {
+      const unit = (values.currency || 'DZD').slice(0, 8);
+      grid.append(reportMetric(T('Coût de construction indicatif', 'Indicative construction cost'),
+        `${reportNumber(result.costEstimate)} ${unit}`, T('hors terrain, réseaux, honoraires et taxes', 'excluding land, utilities, fees and taxes')));
+    }
+    output.append(grid);
+    output.append(reportNote(result.bindingConstraint === 'far'
+      ? T('Dans cette hypothèse, le FAR/COS limite la surface de plancher.', 'Under these assumptions, FAR is the limiting factor.')
+      : T('Dans cette hypothèse, l’emprise au sol multipliée par les niveaux limite la surface de plancher.', 'Under these assumptions, coverage multiplied by floors is the limiting factor.'), 'scenario-explanation'));
+  };
+  for (const input of Object.values(inputs)) input.addEventListener('input', update);
+  update();
+  host.append(section);
+}
+function renderSiteReport() {
+  const host = $('#siteReportBody'), subtitle = $('#siteReportSubtitle');
+  if (!host || !subtitle) return;
+  host.replaceChildren();
+  const site = currentReportContext();
+  if (!site) {
+    subtitle.textContent = T('Recherchez un lieu pour commencer.', 'Search for a place to begin.');
+    host.append(reportNote(T('Choisissez un lieu, puis générez les analyses pour remplir cette synthèse.',
+      'Choose a place, then generate analyses to fill this report.')));
+    return;
+  }
+  const lat = Number(site.lat), lon = Number(site.lon), radius = Number(site.R) || 600;
+  const shapeName = site.shape === 'square' || site.shape === 'rect' ? T('carré', 'square')
+    : Array.isArray(site.polygon) ? T('polygone fourni', 'provided polygon') : T('cercle', 'circle');
+  subtitle.textContent = `${site.name || 'Site'} · ${lat.toFixed(5)}, ${lon.toFixed(5)} · ${shapeName} · ${reportNumber(radius)} m`;
+
+  if (reportDataOutOfDate(site)) {
+    host.append(reportNote(T(
+      `Les données cartographiques chargées concernent ${site.name || 'le site précédent'} (${reportNumber(site.R)} m). La sélection actuelle a changé : relancez la génération pour actualiser cette synthèse.`,
+      `The loaded map data belong to ${site.name || 'the previous site'} (${reportNumber(site.R)} m). The current selection has changed; generate again to refresh this report.`), 'warning'));
+  }
+
+  if (!S.dataSite) {
+    host.append(reportNote(T(
+      'Aucune analyse n’a encore été générée pour ce lieu. Les indicateurs apparaîtront après le chargement des données OSM.',
+      'No analysis has been generated for this place yet. OSM indicators will appear after data are loaded.')));
+    renderScenario(host);
+    host.append(reportNote(T(
+      'Les métriques cartographiques s’appuient sur les objets OSM dont le centre est dans l’emprise. Les surfaces ne sont pas rognées au bord; les chevauchements et cours intérieures non soustraites peuvent influer sur les totaux. L’emprise d’analyse n’est pas une parcelle cadastrale.',
+      'Map metrics use OSM objects whose centre falls within the extent. Areas are not clipped at the edge; overlaps and un-subtracted inner rings can affect totals. The study extent is not a cadastral plot.'), 'method-note'));
+    return;
+  }
+
+  const m = summarizeSite({
+    D: S.D, terrain: S.terrain, climate: S.climate,
+    lat, lon, radius, shape: site.shape || 'circle', polygon: site.polygon || null
+  });
+  const windSectors = Array.isArray(S.windrose?.sectors) ? S.windrose.sectors : [];
+  const dominantWind = windSectors.length
+    ? windSectors.reduce((best, x) => x.frequencyPct > best.frequencyPct ? x : best, windSectors[0])
+    : null;
+  const compass16 = S.lang === 'en'
+    ? ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+    : ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+  const windDirection = dominantWind
+    ? compass16[Math.round(dominantWind.bearing / 22.5) % 16] : null;
+  const rosePeriod = S.windrose?.period?.start && S.windrose?.period?.end
+    ? `${String(S.windrose.period.start).slice(0, 4)}–${String(S.windrose.period.end).slice(0, 4)}` : T('10 ans', '10 years');
+
+  const intro = document.createElement('div'); intro.className = 'report-intro';
+  const introText = document.createElement('div');
+  const place = document.createElement('h3'); place.textContent = site.name || T('Zone analysée', 'Study area');
+  const blurb = document.createElement('p');
+  blurb.textContent = S.mapLoaded
+    ? T(
+      `${reportNumber(m.buildings.count)} emprise(s) bâtie(s) OSM centrée(s) dans cette zone; ${reportArea(m.green.areaM2)} de polygones verts cartographiés; ${reportLength(m.roads.lengthM)} de voirie mesurée dans l’emprise.`,
+      `${reportNumber(m.buildings.count)} OSM building footprint(s) centred in this extent; ${reportArea(m.green.areaM2)} of mapped green polygons; ${reportLength(m.roads.lengthM)} of road network measured inside the extent.`)
+    : S.windrose
+      ? T(
+        'Rose des vents NASA POWER chargée pour ce point; statistique régionale à 10 m, sans calcul local autour des bâtiments.',
+        'NASA POWER wind rose loaded for this point; a regional 10 m statistic, with no local calculation around buildings.')
+      : T('Aucune couche cartographique OSM n’a été demandée dans cette génération.',
+        'No OpenStreetMap layer was requested in this generation.');
+  introText.append(place, blurb);
+  const badge = document.createElement('span'); badge.className = 'report-status';
+  badge.textContent = S.mapLoaded
+    ? T('Indicateurs issus des données chargées', 'Indicators from loaded data')
+    : S.windrose
+      ? T('Climatologie régionale NASA POWER', 'NASA POWER regional climatology')
+      : T('Aucune couche OSM chargée', 'No OSM layer loaded');
+  intro.append(introText, badge); host.append(intro);
+
+  if (S.mapLoaded) {
+  const morph = reportSection(T('Indicateurs urbains', 'Urban indicators'),
+    T('Comptages et surfaces dérivés des couches cartographiques disponibles.', 'Counts and areas derived from available mapped layers.'));
+  const grid = document.createElement('div'); grid.className = 'report-metrics';
+  const climateText = m.climate.meanMaxC == null || m.climate.meanMinC == null
+    ? T('Non chargé', 'Not loaded')
+    : `${reportNumber(m.climate.meanMaxC, 1)} / ${reportNumber(m.climate.meanMinC, 1)} °C`;
+  const terrainText = m.terrain.reliefM == null ? T('Non chargé', 'Not loaded')
+    : `${reportNumber(m.terrain.minM)}–${reportNumber(m.terrain.maxM)} m`;
+  grid.append(
+    reportMetric(T('Surface de l’emprise d’analyse', 'Study extent area'), reportArea(m.areaM2), shapeName),
+    reportMetric(T('Bâtiments OpenStreetMap', 'OpenStreetMap buildings'), reportNumber(m.buildings.count),
+      `${reportNumber(m.buildings.heightsKnown)} ${T('avec hauteur renseignée', 'with mapped height')}`),
+    reportMetric(T('Empreintes bâties cumulées', 'Summed building footprints'), reportArea(m.buildings.footprintM2),
+      `${reportPercent(m.buildings.coveragePct)} ${T('de l’emprise · somme indicative', 'of extent · indicative sum')}`),
+    reportMetric(T('Espaces verts cartographiés', 'Mapped green areas'), reportArea(m.green.areaM2),
+      `${reportNumber(m.green.count)} ${T('polygone(s)', 'polygon(s)')} · ${reportPercent(m.green.coveragePct)}`),
+    reportMetric(T('Eau cartographiée', 'Mapped water'), reportArea(m.water.areaM2),
+      `${reportNumber(m.water.count)} ${T('polygone(s)', 'polygon(s)')} · ${reportPercent(m.water.coveragePct)}`),
+    reportMetric(T('Voirie mesurée', 'Road network measured'), reportLength(m.roads.lengthM),
+      `${reportNumber(m.roads.count)} ${T('tronçon(s) touchant l’emprise', 'segments intersecting the extent')}`),
+    reportMetric(T('Équipements & arrêts', 'Amenities & transit stops'), reportNumber(m.points.total),
+      `${reportNumber(m.points.amenities)} ${T('équipement(s)', 'amenity point(s)')} · ${reportNumber(m.points.transit)} ${T('arrêt(s)', 'transit stop(s)')}`),
+    reportMetric(T('Relief échantillonné', 'Sampled terrain range'), terrainText,
+      m.terrain.reliefM == null ? T('Grille d’altitude non chargée', 'Elevation grid not loaded') : `${reportNumber(m.terrain.reliefM)} m · ${reportNumber(m.terrain.samples)} ${T('points', 'samples')}`),
+    reportMetric(T('Températures journalières moyennes', 'Mean daily temperatures'), climateText,
+      m.climate.days ? `${reportNumber(m.climate.days)} ${T('jours NASA POWER valides', 'valid NASA POWER days')}` : T('Séries climatiques non chargées', 'Climate series not loaded'))
+  );
+  morph.append(grid); host.append(morph);
+  }
+
+  const env = reportSection(T('Climat & environnement', 'Climate & environment'),
+    T('Moyennes indicatives de séries journalières; elles ne remplacent pas une étude microclimatique.', 'Indicative averages from daily series; not a substitute for a microclimate study.'));
+  const envGrid = document.createElement('div'); envGrid.className = 'report-metrics report-metrics-compact';
+  envGrid.append(
+    reportMetric(T('Précipitations annualisées', 'Annualised precipitation'), m.climate.estimatedAnnualRainMm == null ? '—' : `${reportNumber(m.climate.estimatedAnnualRainMm)} mm/an`, T('moyenne journalière × 365', 'daily mean × 365')),
+    reportMetric(T('Vent moyen à 10 m', 'Mean wind at 10 m'), m.climate.meanWind10mMs == null ? '—' : `${reportNumber(m.climate.meanWind10mMs, 1)} m/s`, 'NASA POWER'),
+    reportMetric(T('Rayonnement solaire moyen', 'Mean solar radiation'), m.climate.meanSolarKwhM2Day == null ? '—' : `${reportNumber(m.climate.meanSolarKwhM2Day, 1)} kWh/m²/j`, 'NASA POWER'),
+    ...(S.mapLoaded ? [reportMetric(T('Hauteurs bâties connues', 'Mapped building heights'), m.buildings.count ? `${reportNumber(m.buildings.heightsKnown)} / ${reportNumber(m.buildings.count)}` : '—',
+      m.buildings.meanKnownHeightM == null ? T('Hauteurs OSM non renseignées', 'No OSM heights available') : `${T('moyenne', 'mean')} ${reportNumber(m.buildings.meanKnownHeightM, 1)} m · ${T('max.', 'max')} ${reportNumber(m.buildings.maxKnownHeightM, 1)} m · ${T('volume connu', 'known volume')} ${reportNumber(m.buildings.knownVolumeM3)} m³`)] : []),
+    reportMetric(T('Direction dominante du vent · 10 m', 'Prevailing wind direction · 10 m'),
+      dominantWind ? `${windDirection} · ${reportNumber(dominantWind.frequencyPct, 1)}%` : '—',
+      dominantWind ? `NASA POWER · MERRA-2 · ${rosePeriod} · ${reportNumber(dominantWind.meanSpeedMs, 1)} m/s · ${T('flux régional', 'regional flow')}` : T('Rose des vents non chargée', 'Wind rose not loaded')),
+    reportMetric(T('Vitesse moyenne pondérée · 10 m', 'Weighted mean wind speed · 10 m'),
+      Number.isFinite(S.windrose?.meanSpeedMs) ? `${reportNumber(S.windrose.meanSpeedMs, 1)} m/s` : '—',
+      T('NASA POWER · MERRA-2 · pondération des 16 secteurs', 'NASA POWER · MERRA-2 · weighted across 16 sectors'))
+  );
+  env.append(envGrid);
+  if (m.points.categories.length) {
+    const cats = document.createElement('p'); cats.className = 'report-categories';
+    const label = document.createElement('strong'); label.textContent = T('Catégories de points les plus fréquentes : ', 'Most frequent point categories: ');
+    cats.append(label, document.createTextNode(m.points.categories.slice(0, 6).map(x => `${x.name} (${reportNumber(x.count)})`).join(' · ')));
+    env.append(cats);
+  }
+  host.append(env);
+
+  renderScenario(host);
+  host.append(reportNote(S.mapLoaded ? T(
+    'Méthode & limites : les emprises bâties et vertes sont comptées lorsque leur centroïde tombe dans la zone; leur surface entière est sommée, sans découpe au contour. Les superpositions OSM et les cours intérieures non soustraites peuvent augmenter les totaux. La pluie annualisée est une moyenne quotidienne NASA POWER × 365. Les hauteurs ne sont utilisées que lorsqu’elles sont cartographiées. La rose des vents MERRA-2 à 10 m décrit un flux régional et ne simule pas le vent local entre les bâtiments.',
+    'Method & limits: building and green polygons are counted when their centroid falls inside the extent; whole areas are summed, without clipping at the boundary. OSM overlaps and un-subtracted inner rings can raise totals. Annualised rainfall is the NASA POWER daily mean × 365. Heights are used only when mapped. The MERRA-2 wind rose at 10 m describes regional flow; it does not simulate local wind between buildings.') : T(
+    'Limite : la rose des vents NASA POWER/MERRA-2 à 10 m est une statistique régionale; elle ne représente pas les effets locaux du bâti, des rues ou du relief fin.',
+    'Limitation: the NASA POWER/MERRA-2 wind rose at 10 m is a regional statistic; it does not represent local effects of buildings, streets or fine-scale terrain.'), 'method-note'));
+  host.append(reportNote(T(
+    'Sources : © OpenStreetMap contributors (ODbL) · climat et rose des vents NASA POWER (MERRA-2, 10 m) · relief Terrarium (SRTM/USGS). La zone affichée est une emprise d’analyse, pas une limite foncière/cadastrale. Aucun zonage local, droit à construire ou coût de marché n’est inféré.',
+    'Sources: © OpenStreetMap contributors (ODbL) · NASA POWER climate and wind rose (MERRA-2, 10 m) · Terrarium terrain (SRTM/USGS). The displayed shape is a study extent, not a cadastral/property boundary. No local zoning, development right or market cost is inferred.'), 'method-note'));
+}
+function openSiteReport() {
+  renderSiteReport();
+  const modal = $('#siteReport'); modal.classList.add('on'); modal.setAttribute('aria-hidden', 'false');
+  $('#siteReportClose').focus();
+}
+function closeSiteReport() {
+  const modal = $('#siteReport'); modal.classList.remove('on'); modal.setAttribute('aria-hidden', 'true');
+  $('#siteReportBtn')?.focus();
+}
+
 /* ═══════════════ chargement (étapes) ═══════════════ */
 function stages(planObj, extra) {
   const list = [{ id: 'prepare', fr: 'Préparation de la sélection', en: 'Preparing selection' }];
   for (const g of planObj.groups)
     list.push({ id: 'g_' + g.id, fr: g.fr, en: g.en });
   if (planObj.climate) list.push({ id: 'climate', fr: 'Lecture des séries NASA POWER', en: 'Reading NASA POWER series' });
+  if (planObj.windrose) list.push({ id: 'windrose', fr: 'Calcul de la rose des vents NASA POWER', en: 'Loading NASA POWER wind rose' });
   if (planObj.terrain) list.push({ id: 'terrain', fr: 'Échantillonnage de l\'altimétrie', en: 'Sampling elevation' });
   list.push({ id: 'render', fr: 'Composition des diagrammes', en: 'Composing diagrams' });
   return list;
@@ -401,6 +698,11 @@ async function generate() {
   catch (e) { toast(errText(e.message, S.lang), false); log('plan refusé : ' + e.message); return; }
   if (p.skipped.length)
     log(`rayon ${S.site.R} m : ${p.skipped.length} analyse(s) ignorée(s) (${p.skipped.join(', ')})`);
+  const requestedSite = {
+    ...S.site, shape: S.shape,
+    polygon: S.poly ? JSON.parse(JSON.stringify(S.poly)) : null
+  };
+  if (p.windrose) S.windrose = null;
 
   S.busy = true;
   const list = stages(p, null);
@@ -460,12 +762,24 @@ async function generate() {
       state['g_' + g.id] = 'done'; drawLoader(list, state, t0);
     }
     S.D = acc;
+    S.mapLoaded = p.groups.length > 0;
 
     /* 3 · sources annexes */
     if (p.climate) {
       state.climate = 'active'; drawLoader(list, state, t0);
       try { S.climate = await S.routes.climate(S.site.lat, S.site.lon, S.device); log('climat NASA POWER chargé'); state.climate = 'done'; }
       catch (e) { S.climate = null; state.climate = 'failed'; log('climat indisponible (' + (e.error || e.message) + ')'); }
+    }
+    if (p.windrose) {
+      state.windrose = 'active'; drawLoader(list, state, t0);
+      try {
+        S.windrose = await S.routes.windrose(S.site.lat, S.site.lon, S.device);
+        log(`rose NASA POWER/MERRA-2 chargée · ${S.windrose.period.start} → ${S.windrose.period.end}`);
+        state.windrose = 'done';
+      } catch (e) {
+        S.windrose = null; state.windrose = 'failed';
+        log('rose des vents indisponible (' + (e.error || e.message) + ')');
+      }
     }
     if (p.terrain) {
       state.terrain = 'active'; drawLoader(list, state, t0);
@@ -476,8 +790,10 @@ async function generate() {
       } catch (e) { S.terrain = null; state.terrain = 'failed'; log('altimétrie indisponible (' + (e.error || e.message) + ')'); }
     }
 
+    S.dataSite = requestedSite;
     state.render = 'done';
     renderCards();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
     updateGenBtn();
     log(`terminé en ${((Date.now() - t0) / 1000).toFixed(1)} s · ${acc.build.length} emprises, ${acc.roads.length} tronçons, ${acc.green.length} polygones, ${acc.pois.length} POI`);
   } catch (e) {
@@ -500,18 +816,24 @@ async function loadSample() {
   try {
     log('chargement de l\'exemple (El Khroub, Constantine)…');
     const d = await (await fetch('data/sample-elkhroub.json')).json();
+    S.windrose = await fetch('data/windrose-elkhroub.json').then(r => r.ok ? r.json() : null).catch(() => null);
     S.site.lat = d.site.lat; S.site.lon = d.site.lon; S.site.R = d.site.R; S.site.name = d.site.name;
     $('#q').value = d.site.name;
     $('#radius').value = d.site.R; $('#radiusOut').textContent = d.site.R + ' m';
     S.D = normalizeElements(null, dedupe(d.elements));
+    S.mapLoaded = true;
     S.terrain = d.terrain || null;
     S.climate = d.climate || null;
     S.cacheInfo = T('exemple embarqué', 'bundled sample');
+    S.dataSite = { ...d.site, shape: S.shape, polygon: null };
     setSite(d.site.lat, d.site.lon, d.site.name);
-    renderCards(); updateGenBtn();
+    renderCards();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
+    updateGenBtn();
     log(`exemple : ${S.D.build.length} emprises · ${S.D.roads.length} tronçons · ${S.D.green.length} vert/eau · ${S.D.pois.length} POI`
         + (S.terrain ? ` · altimétrie ${S.terrain.n}×${S.terrain.n}` : '')
-        + (S.climate ? ' · climat NASA POWER' : ''));
+        + (S.climate ? ' · climat NASA POWER' : '')
+        + (S.windrose ? ' · rose NASA POWER/MERRA-2' : ''));
     toast(isOpenAccess() ? T('Exemple chargé.', 'Sample loaded.') : T('Exemple chargé — changez de palier pour voir les analyses Pro.', 'Sample loaded — switch tier to see the Pro analyses.'));
   } catch (e) { toast(T('Exemple indisponible', 'Sample unavailable'), false); log('exemple : ' + e.message); }
 }
@@ -534,10 +856,17 @@ async function doSearch() {
   } catch (e) { toast(T('Géocodage en échec', 'Geocoding failed'), false); log('géocodage : ' + (e.message || e)); }
 }
 function setSite(lat, lon, name) {
+  const locationChanged = S.site.lat !== lat || S.site.lon !== lon;
   S.site.lat = lat; S.site.lon = lon; S.site.name = name;
+  if (locationChanged) {
+    S.windrose = null;
+    const card = $('#card_wind');
+    if (card) card.querySelector('.body').innerHTML = renderOne('wind');
+  }
   $('#siteInfo').innerHTML = `<b>${esc(name)}</b><span>${lat.toFixed(5)}°, ${lon.toFixed(5)}° · r = ${S.site.R} m</span>`;
   log(`site · ${name} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
   updateGenBtn();
+  if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
 }
 
 /* ═══════════════ modales ═══════════════ */
@@ -630,7 +959,7 @@ function wireUI() {
     S.lang = S.lang === 'fr' ? 'en' : 'fr';
     store.set('lang', S.lang);
     applyLang();
-    if (S.D.build.length || S.D.roads.length) renderCards();
+    if (S.dataSite || S.D.build.length || S.D.roads.length || S.windrose || S.climate || S.terrain) renderCards();
   });
   $('#search').addEventListener('click', doSearch);
   $('#sample')?.addEventListener('click', loadSample);
@@ -641,25 +970,34 @@ function wireUI() {
     if (S.site.name) $('#siteInfo').querySelector('span').textContent =
       `${S.site.lat.toFixed(5)}°, ${S.site.lon.toFixed(5)}° · r = ${S.site.R} m`;
     updateGenBtn();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   });
   $('#shape').addEventListener('change', e => {
     S.shape = e.target.value; store.set('shape', S.shape);
     const rw = $('#radiusWrap'); if (rw) rw.style.opacity = S.shape === 'poly' ? '.45' : '1';
     renderCards();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   });
   $('#time').addEventListener('input', e => {
     S.time = +e.target.value;
     const h = Math.floor(S.time), m = Math.round((S.time % 1) * 60);
     $('#timeOut').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     store.set('time', S.time);
-    if (S.sel.has('sun')) {
-      const card = $('#card_sun'); if (card) card.querySelector('.body').innerHTML = renderOne('sun');
-    }
+    refreshSolarCards();
+  });
+  $('#sunDate').addEventListener('change', e => {
+    if (!validISODate(e.target.value)) { e.target.value = S.sunDate; return; }
+    S.sunDate = e.target.value;
+    store.set('sunDate', S.sunDate);
+    refreshSolarCards();
   });
   $('#gen').addEventListener('click', generate);
   $('#clear').addEventListener('click', () => {
-    S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] }; S.terrain = null; S.climate = null;
-    renderCards(); log('carte vidée');
+    S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
+    S.terrain = null; S.climate = null; S.windrose = null; S.mapLoaded = false; S.dataSite = null;
+    renderCards();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
+    log('carte vidée');
   });
   $('#cacheBtn').addEventListener('click', async () => {
     await cacheClear(); toast(T('Cache des requêtes vidé', 'Query cache cleared'));
@@ -668,6 +1006,19 @@ function wireUI() {
   $('#plansBtn').addEventListener('click', openPlans);
   $('#restoreBtn')?.addEventListener('click', restore);
   $('#helpBtn').addEventListener('click', () => openModal('help'));
+  $('#siteReportBtn').addEventListener('click', openSiteReport);
+  $('#siteReportClose').addEventListener('click', closeSiteReport);
+  $('#siteReport').addEventListener('click', e => { if (e.target === $('#siteReport')) closeSiteReport(); });
+  $('#siteReportPrint').addEventListener('click', () => {
+    document.body.classList.add('printing-report');
+    const cleanup = () => document.body.classList.remove('printing-report');
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    setTimeout(cleanup, 1200);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('#siteReport').classList.contains('on')) closeSiteReport();
+  });
   $('#devBtn').addEventListener('click', () => {
     const d = $('#devPanel');
     d.classList.toggle('on');
@@ -732,7 +1083,8 @@ async function init() {
   $('#radiusOut').textContent = S.site.R + ' m';
   $('#shape').value = S.shape;
   $('#time').value = S.time;
-  $('#timeOut').textContent = String(Math.floor(S.time)).padStart(2, '0') + ':00';
+  $('#sunDate').value = S.sunDate;
+  $('#timeOut').textContent = String(Math.floor(S.time)).padStart(2, '0') + ':' + String(Math.round((S.time % 1) * 60)).padStart(2, '0');
 
   await loadPublicKey();
   /* licence : relecture au démarrage puis vérification serveur */

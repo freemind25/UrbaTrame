@@ -10,7 +10,7 @@ ce qui fonctionne, ce qui change, et ce qu'il faut configurer.
 |---|---|
 | Interface, sélection du site, disposition des cartes | ✅ |
 | Exemple embarqué (`?sample=1`) | ✅ |
-| Les 44 analyses (dont les 8 planches Max) | ✅ |
+| Les 45 analyses (dont les 8 planches Max) | ✅ |
 | Recherche de lieu par nom | ✅ (`/api/util` → Nominatim) |
 | Relief et climat (Terrarium, NASA POWER) | ✅ |
 | Activation d'un code de licence | ✅ si `FM_SIGNING_KEY` est définie |

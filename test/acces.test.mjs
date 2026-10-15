@@ -60,6 +60,13 @@ describe('accès libre (période d’essai, le défaut)', () => {
     await post({ action: 'end', device: DEVICE, run: r.body.run });
   });
 
+  test('la rose régionale ouvre un run sans lot Overpass local', async () => {
+    const r = await post({ action: 'begin', device: DEVICE, ids: ['wind'], radius: 600, lat: 36.2642, lon: 6.6969 });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.groups, []);
+    await post({ action: 'end', device: DEVICE, run: r.body.run });
+  });
+
   test('plusieurs analyses en parallèle ne sont pas refusées (aucun quota)', async () => {
     const [a, b, c] = await Promise.all([
       post({ action: 'begin', device: DEVICE, ...ANALYSE_PRO }),
