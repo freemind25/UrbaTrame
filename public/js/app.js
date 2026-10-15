@@ -2,9 +2,10 @@
    Orchestration : catalogue, plan partagé, appels réseau, vérification des
    licences signées Ed25519, rendu des cartes, exports, interface.
    ───────────────────────────────────────────────────────────────────────── */
-import { plan, FREE_IDS, MAX_IDS, LIMITS, DEPS, VERSION } from './plan-2d.mjs';
+import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from './plan-2d.mjs';
+import { estimateDataPreview, layerLabel } from './data-preview.mjs';
 import { Routes, errText } from './routes.mjs';
-import { store, deviceId, cacheClear } from './persist.mjs';
+import { store, deviceId, cacheClear, cacheGet } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
@@ -62,6 +63,8 @@ const S = {
 };
 S.routes = new Routes('', m => log(m));
 let latestAssistantResult = null;
+let dataPreviewTimer = null;
+let dataPreviewRevision = 0;
 
 /* ─────────── i18n minimal ─────────── */
 const T = (fr, en) => (S.lang === 'en' ? en : fr);
@@ -252,6 +255,173 @@ function updateGenBtn() {
     ? T(`${skipped.length} analyse(s) dépassent leur rayon maximal à ${S.site.R} m`,
         `${skipped.length} analysis/analyses exceed their max radius at ${S.site.R} m`)
     : '';
+  scheduleDataPreview();
+}
+
+/* ═══════════════ prévision des couches et de la charge ═══════════════ */
+function scheduleDataPreview() {
+  if (!$('#dataPreview')) return;
+  dataPreviewRevision++;
+  clearTimeout(dataPreviewTimer);
+  dataPreviewTimer = setTimeout(updateDataPreview, 120);
+}
+function previewNumber(value, digits = 1) {
+  return new Intl.NumberFormat(S.lang === 'en' ? 'en-US' : 'fr-FR', { maximumFractionDigits: digits }).format(value);
+}
+function previewCacheAge(timestamp) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 60) return T(`il y a ${Math.max(1, minutes)} min`, `${Math.max(1, minutes)} min ago`);
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return T(`il y a ${hours} h`, `${hours} h ago`);
+  const days = Math.floor(hours / 24);
+  return T(`il y a ${days} j`, `${days} d ago`);
+}
+function previewElement(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text != null) el.textContent = text;
+  return el;
+}
+function renderDataPreviewEmpty(message, badge, invalid = false) {
+  const badgeEl = $('#dataPreviewBadge');
+  badgeEl.className = 'data-preview-badge' + (invalid ? ' invalid' : '');
+  badgeEl.textContent = badge;
+  $('#dataPreviewLead').textContent = message;
+  $('#dataPreviewStats').replaceChildren();
+  $('#dataPreviewRows').replaceChildren();
+  $('#dataPreviewNote').textContent = T(
+    'Cet aperçu est local : aucune requête OSM, NASA POWER ou relief n’est lancée avant « Générer ».',
+    'This preview is local: no OSM, NASA POWER or terrain request is made before “Generate”.'
+  );
+}
+function renderDataPreview(estimate, cacheStates, checking) {
+  const badge = $('#dataPreviewBadge');
+  const loadLabel = {
+    low: T('faible', 'light'), medium: T('modérée', 'moderate'), high: T('élevée', 'high')
+  }[estimate.load];
+  badge.className = `data-preview-badge ${estimate.load}`;
+  badge.textContent = T(`Charge estimée : ${loadLabel}`, `Estimated load: ${loadLabel}`);
+
+  const skippedCount = estimate.skipped.length;
+  const selectedCount = estimate.selected.length;
+  $('#dataPreviewLead').textContent = T(
+    `${selectedCount} analyse(s) planifiée(s) · ${skippedCount} écartée(s) par leur plafond · estimation locale, sans requête aux fournisseurs.`,
+    `${selectedCount} analysis/analyses planned · ${skippedCount} skipped by radius limit · local estimate, no provider requests.`
+  );
+
+  const stats = $('#dataPreviewStats');
+  stats.replaceChildren();
+  const addStat = (value, label) => {
+    const card = previewElement('div', 'data-preview-stat');
+    card.append(previewElement('b', '', value), previewElement('span', '', label));
+    stats.append(card);
+  };
+  addStat(`${previewNumber(estimate.studyAreaKm2, 2)} km²`, T('surface d’étude estimée', 'estimated study area'));
+  addStat(`${previewNumber(estimate.osmAreaKm2, 2)} km²`, T('boîte OSM interrogée', 'OSM query bounding box'));
+  addStat(String(estimate.groups.length), T('lots Overpass planifiés', 'planned Overpass batches'));
+  addStat(loadLabel, T('indice indicatif, densité inconnue', 'indicative; density unknown'));
+
+  const rows = $('#dataPreviewRows');
+  rows.replaceChildren();
+  const addRow = (title, detail, status, statusClass = 'pending') => {
+    const row = previewElement('article', 'data-preview-row');
+    const main = previewElement('div', 'data-preview-row-main');
+    main.append(previewElement('div', 'data-preview-row-title', title), previewElement('div', 'data-preview-row-detail', detail));
+    row.append(main, previewElement('div', `data-preview-status ${statusClass}`, status));
+    rows.append(row);
+  };
+  for (const group of estimate.groups) {
+    const cache = cacheStates.get(group.id);
+    const layers = group.keys.map(key => layerLabel(key, S.lang)).join(' · ');
+    const title = T(`OpenStreetMap · lot ${group.id}`, `OpenStreetMap · ${group.id} batch`);
+    let status, statusClass;
+    if (checking && cache === undefined) {
+      status = T('Lecture du cache local…', 'Checking local cache…'); statusClass = 'pending';
+    } else if (cache?.hit) {
+      status = T(`Cache exact : ${previewNumber(cache.count, 0)} objet(s) · ${previewCacheAge(cache.timestamp)}`,
+        `Exact cache: ${previewNumber(cache.count, 0)} object(s) · ${previewCacheAge(cache.timestamp)}`);
+      statusClass = 'hit';
+    } else {
+      status = T('Pas de cache exact récent · réseau non testé', 'No recent exact cache · network not tested');
+      statusClass = 'miss';
+    }
+    addRow(title, layers, status, statusClass);
+  }
+  if (estimate.climate) {
+    addRow(
+      'NASA POWER · climat',
+      T(`${estimate.climate.series} séries × ${previewNumber(estimate.climate.days, 0)} jours ≈ ${previewNumber(estimate.climate.values, 0)} valeurs`,
+        `${estimate.climate.series} series × ${previewNumber(estimate.climate.days, 0)} days ≈ ${previewNumber(estimate.climate.values, 0)} values`),
+      T('Requête prévue · disponibilité réseau non vérifiée', 'Request planned · network availability not checked')
+    );
+  }
+  if (estimate.windrose) {
+    addRow(
+      'NASA POWER / MERRA-2 · rose des vents',
+      T(`${estimate.windrose.sectors} secteurs · ${estimate.windrose.years} années civiles achevées`,
+        `${estimate.windrose.sectors} sectors · ${estimate.windrose.years} completed calendar years`),
+      T('Requête prévue · disponibilité réseau non vérifiée', 'Request planned · network availability not checked')
+    );
+  }
+  if (estimate.terrain) {
+    addRow(
+      T('Terrarium · altimétrie', 'Terrarium · terrain'),
+      T(`Grille ${Math.sqrt(estimate.terrain.samples)} × ${Math.sqrt(estimate.terrain.samples)} · zoom ${estimate.terrain.zoom} · ≈ ${estimate.terrain.tiles} tuile(s)`,
+        `${Math.sqrt(estimate.terrain.samples)} × ${Math.sqrt(estimate.terrain.samples)} grid · zoom ${estimate.terrain.zoom} · ≈ ${estimate.terrain.tiles} tile(s)`),
+      T('Requête prévue · disponibilité réseau non vérifiée', 'Request planned · network availability not checked')
+    );
+  }
+  if (!estimate.groups.length && !estimate.climate && !estimate.windrose && !estimate.terrain) {
+    addRow(T('Calcul local', 'Local calculation'),
+      T('Aucune couche ou série externe nécessaire pour cette sélection.', 'No external layer or series is required for this selection.'),
+      T('Pas de téléchargement prévu', 'No download planned'), 'hit');
+  }
+  if (skippedCount) {
+    const names = estimate.skipped.map(id => {
+      const analysis = CAT.find(item => item.id === id);
+      return analysis ? T(analysis.nom, analysis.en) : id;
+    }).join(', ');
+    addRow(T('Hors plafond de rayon', 'Over radius limit'), names,
+      T(`Non exécutée à ${S.site.R} m`, `Not run at ${S.site.R} m`), 'miss');
+  }
+  $('#dataPreviewNote').textContent = T(
+    'La boîte interrogée est rectangulaire autour du site; sa surface peut dépasser le cercle affiché. L’indice combine cette surface, le nombre de lots Overpass et les requêtes annexes — ce n’est ni un nombre prédit d’objets ni une taille de fichier. Les comptes réels varient selon la densité cartographique. Le cache navigateur exact (7 jours) est indicatif : selon le mode, le serveur peut être interrogé en premier.',
+    'The query box is rectangular around the site and can exceed the displayed circle. The index combines its area, Overpass batch count and ancillary requests—it is not a predicted feature count or file size. Actual counts vary with mapped density. The exact browser cache (7 days) is indicative: depending on access mode, the server may be queried first.'
+  );
+}
+async function updateDataPreview() {
+  const ids = selected();
+  const revision = ++dataPreviewRevision;
+  if (S.site.lat == null || S.site.lon == null) {
+    renderDataPreviewEmpty(T('Choisissez un lieu pour prévoir les couches et la charge.', 'Choose a place to preview layers and workload.'), T('Lieu requis', 'Place required'));
+    return;
+  }
+  if (!ids.length) {
+    renderDataPreviewEmpty(T('Cochez au moins une analyse pour prévoir les couches requises.', 'Select at least one analysis to preview its required layers.'), T('Aucune analyse', 'No analyses'));
+    return;
+  }
+  let estimate;
+  try {
+    estimate = estimateDataPreview({ analysisIds: ids, radius: S.site.R, lat: S.site.lat, lon: S.site.lon, shape: S.shape });
+  } catch {
+    renderDataPreviewEmpty(T('Le plan ne peut pas être estimé : vérifiez le lieu, le rayon et la sélection.', 'The plan cannot be estimated: check the place, radius and selection.'), T('Paramètres à vérifier', 'Check settings'), true);
+    return;
+  }
+  const cacheStates = new Map();
+  renderDataPreview(estimate, cacheStates, true);
+  const checks = await Promise.all(estimate.groups.map(async group => {
+    try {
+      const hit = await cacheGet(group.query);
+      return [group.id, hit ? {
+        hit: true,
+        count: Array.isArray(hit.d?.elements) ? hit.d.elements.length : 0,
+        timestamp: hit.t
+      } : { hit: false }];
+    } catch { return [group.id, { hit: false }]; }
+  }));
+  if (revision !== dataPreviewRevision) return;
+  for (const [id, state] of checks) cacheStates.set(id, state);
+  renderDataPreview(estimate, cacheStates, false);
 }
 
 /* ═══════════════ contexte de rendu ═══════════════ */
@@ -1288,6 +1458,7 @@ function wireUI() {
     S.shape = e.target.value; store.set('shape', S.shape);
     const rw = $('#radiusWrap'); if (rw) rw.style.opacity = S.shape === 'poly' ? '.45' : '1';
     renderCards();
+    scheduleDataPreview();
     if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   });
   $('#time').addEventListener('input', e => {
@@ -1307,13 +1478,13 @@ function wireUI() {
   $('#clear').addEventListener('click', () => {
     S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
     S.terrain = null; S.climate = null; S.windrose = null; S.mapLoaded = false; S.dataSite = null;
-    renderCards();
+    renderCards(); updateGenBtn();
     if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
     log('carte vidée');
   });
   $('#cacheBtn').addEventListener('click', async () => {
     await cacheClear(); toast(T('Cache des requêtes vidé', 'Query cache cleared'));
-    log('cache IndexedDB vidé');
+    log('cache IndexedDB vidé'); scheduleDataPreview();
   });
   $('#plansBtn').addEventListener('click', openPlans);
   $('#restoreBtn')?.addEventListener('click', restore);

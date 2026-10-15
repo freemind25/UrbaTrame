@@ -117,6 +117,18 @@
       <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
             data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
     </div>
+    <details id="dataPreview" class="data-preview" open>
+      <summary>
+        <span data-fr="Aperçu des couches · disponibilité & charge" data-en="Layer preview · availability & workload">Aperçu des couches · disponibilité & charge</span>
+        <span id="dataPreviewBadge" class="data-preview-badge">En attente d’un lieu</span>
+      </summary>
+      <div class="data-preview-body">
+        <p id="dataPreviewLead" class="data-preview-lead" aria-live="polite">Choisissez un lieu et des analyses pour afficher l’aperçu.</p>
+        <div id="dataPreviewStats" class="data-preview-stats"></div>
+        <div id="dataPreviewRows" class="data-preview-rows"></div>
+        <p id="dataPreviewNote" class="data-preview-note"></p>
+      </div>
+    </details>
     <div id="grid" class="grid">
       <p class="empty">Sélectionnez des analyses, puis lancez la génération.</p>
     </div>
