@@ -89,6 +89,8 @@ main{min-width:0}
 button.gen{height:44px;padding:0 20px;font-size:14px;background:rgba(255,255,255,.06);border-color:var(--line)}
 button.gen.ready{background:var(--red);border-color:var(--red);color:#fff}
 button.gen.ready:hover{background:var(--red2)}
+.toolbar .assistant-trigger,.toolbar .workspace-trigger{height:44px;border-color:rgba(61,129,112,.38);background:rgba(61,129,112,.1);color:#B8D7C8}
+.toolbar .assistant-trigger:hover,.toolbar .workspace-trigger:hover{background:rgba(61,129,112,.2)}
 .tool-hint{font-size:12px;color:var(--mut2);max-width:520px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:16px}
 .empty{grid-column:1/-1;color:var(--mut2);font-size:13px;padding:40px 0;text-align:center}
@@ -152,6 +154,34 @@ button.gen.ready:hover{background:var(--red2)}
 .activate label{flex:1;font-size:12px;color:var(--mut)}
 .activate input{width:100%;margin-top:5px}
 .fine{font-size:11.5px;color:var(--mut2);margin:12px 0 0}
+.spatial-sheet,.workspace-sheet{width:min(820px,96vw)}
+.assistant-query-label,.workspace-save>label{display:block;margin:12px 0 6px;color:var(--mut);font-size:12px;font-weight:700}
+#assistantQuery{display:block;width:100%;min-height:88px;resize:vertical;background:#0b0b0d;border:1px solid var(--line);border-radius:11px;color:var(--txt);padding:11px;font:13px/1.5 var(--sans)}
+#assistantQuery:focus,.workspace-save input:focus{outline:2px solid rgba(61,129,112,.7);outline-offset:1px}
+.assistant-examples,.workspace-save-actions,.workspace-file-actions,.workspace-record-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.assistant-examples{margin:9px 0 13px}
+.assistant-examples button,.workspace-file-button{height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.04);color:var(--mut);font-size:11px;cursor:pointer}
+.assistant-results{display:grid;gap:9px;margin-top:14px}
+.assistant-result-card,.workspace-save,.workspace-record{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.assistant-result-card h3,.workspace-lists h3{margin:0 0 7px;font-size:12px;color:var(--txt)}
+.assistant-result-card ul{margin:0;padding-left:18px;color:var(--mut);font-size:12px}
+.assistant-result-card li{margin:3px 0}
+.assistant-warning{padding:9px 11px;border:1px solid rgba(224,168,58,.3);border-radius:9px;background:rgba(224,168,58,.07);color:#E7C879;font-size:11.5px;line-height:1.5}
+.assistant-actions{display:flex;flex-wrap:wrap;gap:8px}
+.workspace-save{margin:12px 0}
+.workspace-save input{width:100%;height:38px;background:#0b0b0d;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:0 11px;font:inherit}
+.workspace-save-actions{margin-top:10px}
+.workspace-file-actions{margin:10px 0 14px}
+.workspace-file-button{display:inline-flex;align-items:center}
+.workspace-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.workspace-lists h3{padding-bottom:7px;border-bottom:1px solid var(--line)}
+.workspace-records{display:grid;gap:8px;max-height:280px;overflow:auto}
+.workspace-record{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px}
+.workspace-record-title{font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.workspace-record-meta{margin-top:2px;color:var(--mut2);font:10px/1.45 var(--mono);overflow-wrap:anywhere}
+.workspace-record-actions{justify-content:flex-end}
+.workspace-record-actions button{height:30px;padding:0 8px;font-size:10.5px}
+.workspace-empty{padding:12px;border:1px dashed var(--line);border-radius:10px;color:var(--mut2);font-size:11px;text-align:center}
 .mono{font-family:var(--mono)}
 .help{padding-left:18px;color:var(--mut);font-size:13px}
 .help li{margin:7px 0}
@@ -233,6 +263,9 @@ body.v3d-ouvert{overflow:hidden}
   .brand-credit{font-size:6px}
   .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px}
   .top nav button,.top nav .atelier-nav{height:32px;padding:0 9px;font-size:11px}
+  .workspace-lists{grid-template-columns:1fr}
+  .workspace-record{grid-template-columns:1fr}
+  .workspace-record-actions{justify-content:flex-start}
   .v3d-barre{gap:9px;font-size:11px}
   .v3d-c input[type=range]{width:64px}
   .v3d-fiche{width:200px}
@@ -362,7 +395,7 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
 }
 @media (max-width:540px){
   .toolbar{align-items:stretch}
-  .toolbar .gen,.toolbar .report-trigger{flex:1 1 100%}
+  .toolbar .gen,.toolbar .report-trigger,.toolbar .assistant-trigger,.toolbar .workspace-trigger{flex:1 1 100%}
   .site-report-header{gap:12px}
   #siteReportTitle{font-size:21px}
   .site-report-actions{width:100%;justify-content:flex-end}

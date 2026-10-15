@@ -112,6 +112,8 @@
     <div class="toolbar">
       <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
       <button id="siteReportBtn" class="report-trigger" data-fr="Synthèse & scénario" data-en="Site summary & scenario">Synthèse & scénario</button>
+      <button id="assistantBtn" class="assistant-trigger" data-fr="Assistant spatial local" data-en="Local spatial helper">Assistant spatial local</button>
+      <button id="workspaceBtn" class="workspace-trigger" data-fr="Projets & modèles" data-en="Projects & templates">Projets & modèles</button>
       <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
             data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
     </div>
@@ -139,23 +141,69 @@
   </div>
 </section>
 
+<section class="modal" id="assistantModal" aria-hidden="true">
+  <div class="sheet spatial-sheet" role="dialog" aria-modal="true" aria-labelledby="assistantTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="assistantTitle" data-fr="Assistant spatial local" data-en="Local spatial helper">Assistant spatial local</h2>
+    <p class="lead" data-fr="Décrivez votre question. L’assistant associe vos mots aux analyses déjà disponibles; aucune question, coordonnée ou donnée n’est envoyée à un modèle externe. Vérifiez les propositions avant de lancer les analyses."
+       data-en="Describe your question. This helper maps your words to existing analyses; no question, coordinate or data is sent to an external model. Review suggestions before running analyses.">Décrivez votre question. L’assistant associe vos mots aux analyses déjà disponibles; aucune question, coordonnée ou donnée n’est envoyée à un modèle externe. Vérifiez les propositions avant de lancer les analyses.</p>
+    <label class="assistant-query-label" for="assistantQuery" data-fr="Votre question" data-en="Your question">Votre question</label>
+    <textarea id="assistantQuery" rows="3" maxlength="500" data-fr="Ex. Où sont les équipements et les arrêts de transport ?" data-en="e.g. Where are amenities and transit stops?" placeholder="Ex. Où sont les équipements et les arrêts de transport ?"></textarea>
+    <div class="assistant-examples">
+      <button type="button" data-assistant-query="Où sont les espaces verts et l’eau ?" data-fr="Espaces verts & eau" data-en="Green space & water">Espaces verts & eau</button>
+      <button type="button" data-assistant-query="Analyse l’accès piéton et les transports" data-fr="Accessibilité & transport" data-en="Accessibility & transit">Accessibilité & transport</button>
+      <button type="button" data-assistant-query="Faisabilité avec mon FAR et mon emprise" data-fr="Capacité du projet" data-en="Project capacity">Capacité du projet</button>
+    </div>
+    <button id="assistantAnalyze" class="primary" data-fr="Proposer des analyses" data-en="Suggest analyses">Proposer des analyses</button>
+    <div id="assistantResults" class="assistant-results" aria-live="polite"></div>
+  </div>
+</section>
+
+<section class="modal" id="workspaceModal" aria-hidden="true">
+  <div class="sheet workspace-sheet" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="workspaceTitle" data-fr="Projets & modèles locaux" data-en="Local projects & templates">Projets & modèles locaux</h2>
+    <p class="lead" data-fr="Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site."
+       data-en="Saved in this browser only. Projects retain the place/coordinates, analysis selection and assumptions—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
+    <div class="workspace-save">
+      <label for="workspaceName" data-fr="Nom du projet ou modèle" data-en="Project or template name">Nom du projet ou modèle</label>
+      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet">
+      <div class="workspace-save-actions">
+        <button id="saveWorkspaceProject" class="primary" data-fr="Enregistrer le projet" data-en="Save project">Enregistrer le projet</button>
+        <button id="saveWorkspaceTemplate" data-fr="Enregistrer comme modèle" data-en="Save as template">Enregistrer comme modèle</button>
+      </div>
+    </div>
+    <div class="workspace-file-actions">
+      <button id="exportWorkspaceProject" data-fr="Exporter la configuration JSON" data-en="Export JSON configuration">Exporter la configuration JSON</button>
+      <label for="importWorkspaceFile" class="workspace-file-button" data-fr="Importer un fichier JSON" data-en="Import JSON file">Importer un fichier JSON</label>
+      <input id="importWorkspaceFile" type="file" accept="application/json,.json" hidden>
+    </div>
+    <div class="workspace-lists">
+      <section><h3 data-fr="Projets enregistrés" data-en="Saved projects">Projets enregistrés</h3><div id="workspaceProjects" class="workspace-records"></div></section>
+      <section><h3 data-fr="Modèles réutilisables" data-en="Reusable templates">Modèles réutilisables</h3><div id="workspaceTemplates" class="workspace-records"></div></section>
+    </div>
+    <p class="fine" data-fr="Espace local, sans compte ni synchronisation d’équipe. Supprimer les données du navigateur effacera ces projets et modèles."
+       data-en="Local workspace, with no account or team sync. Clearing browser data removes these projects and templates.">Espace local, sans compte ni synchronisation d’équipe. Supprimer les données du navigateur effacera ces projets et modèles.</p>
+  </div>
+</section>
+
 <div id="loader" class="loader"></div>
 <div id="toast" class="toast"></div>
 
-<section class="modal" id="plans">
-  <div class="sheet">
-    <button class="x" data-close>×</button>
-    <h2 data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
+<section class="modal" id="plans" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="plansTitle" data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
     <p class="lead" data-fr="4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur."
        data-en="4 watermarked analyses are always available. The rest require a server-signed licence.">4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur.</p>
     <div id="planBody"></div>
   </div>
 </section>
 
-<section class="modal" id="help">
-  <div class="sheet">
-    <button class="x" data-close>×</button>
-    <h2 data-fr="Comment ça marche" data-en="How it works">Comment ça marche</h2>
+<section class="modal" id="help" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="helpTitle" data-fr="Comment ça marche" data-en="How it works">Comment ça marche</h2>
     <ol class="help">
       <li data-fr="<b>Lieu</b> : la recherche passe par le serveur (géocodage OpenStreetMap). Vous pouvez aussi saisir « lat,lon »."
           data-en="<b>Place</b>: search goes through the server (OpenStreetMap geocoding). You can also type “lat,lon”."></li>

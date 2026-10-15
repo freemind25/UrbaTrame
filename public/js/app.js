@@ -12,6 +12,11 @@ import { svgElementToPngBlob } from './png-export.mjs';
 import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
+import { analyzeSpatialQuestion } from './local-assistant.mjs';
+import {
+  createWorkspaceProject, createWorkspaceTemplate, makeWorkspaceId,
+  parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
+} from './workspace.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -56,6 +61,7 @@ const S = {
   cacheInfo: ''
 };
 S.routes = new Routes('', m => log(m));
+let latestAssistantResult = null;
 
 /* ─────────── i18n minimal ─────────── */
 const T = (fr, en) => (S.lang === 'en' ? en : fr);
@@ -70,6 +76,8 @@ function applyLang() {
   renderCatalog();
   $('#langBtn').textContent = S.lang === 'fr' ? 'EN' : 'FR';
   if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
+  if ($('#assistantModal')?.classList.contains('on') && latestAssistantResult) renderAssistantResult(latestAssistantResult);
+  if ($('#workspaceModal')?.classList.contains('on')) renderWorkspace();
 }
 
 /* ─────────── journal ─────────── */
@@ -945,8 +953,237 @@ function setSite(lat, lon, name) {
 }
 
 /* ═══════════════ modales ═══════════════ */
-function openModal(id) { $('#' + id).classList.add('on'); }
-function closeModal(id) { $('#' + id).classList.remove('on'); }
+const modalReturnFocus = new WeakMap();
+function openModal(id) {
+  const modal = $('#' + id);
+  if (!modal.classList.contains('on')) modalReturnFocus.set(modal, document.activeElement);
+  modal.classList.add('on');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.querySelector('[autofocus], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')?.focus();
+}
+function closeModal(id) {
+  const modal = $('#' + id);
+  modal.classList.remove('on');
+  modal.setAttribute('aria-hidden', 'true');
+  const returnFocus = modalReturnFocus.get(modal);
+  if (returnFocus?.isConnected) returnFocus.focus();
+  modalReturnFocus.delete(modal);
+}
+
+/* ═══════════════ assistant spatial local ═══════════════ */
+function renderAssistantResult(result) {
+  const host = $('#assistantResults');
+  if (!host) return;
+  host.replaceChildren();
+  if (result.warnings.includes('empty')) {
+    host.append(reportNote(T('Écrivez une question pour obtenir des propositions.', 'Enter a question to get suggestions.'), 'scenario-prompt'));
+    return;
+  }
+  const card = document.createElement('section'); card.className = 'assistant-result-card';
+  const heading = document.createElement('h3');
+  heading.textContent = result.noMatch
+    ? T('Aucune analyse correspondante dans le catalogue actuel', 'No matching analysis in the current catalogue')
+    : T('Analyses proposées · aucune génération lancée', 'Suggested analyses · nothing has been run yet');
+  card.append(heading);
+  const available = result.analysisIds.filter(id => CAT.some(a => a.id === id && a.impl && unlocked(id)));
+  const list = document.createElement('ul');
+  for (const id of result.analysisIds) {
+    const item = CAT.find(a => a.id === id);
+    if (!item) continue;
+    const li = document.createElement('li');
+    const access = !item.impl ? T(' · prochainement', ' · not implemented') : !unlocked(id) ? ` · ${item.tier.toUpperCase()}` : '';
+    li.textContent = T(item.nom, item.en) + access;
+    list.append(li);
+  }
+  if (list.children.length) card.append(list);
+  if (result.openReport) {
+    const report = document.createElement('p'); report.className = 'fine';
+    report.textContent = T('La question concerne aussi le scénario de capacité dans « Synthèse & scénario ».', 'The question also relates to the capacity scenario in “Site summary & scenario”.');
+    card.append(report);
+  }
+  if (!list.children.length && !result.openReport) {
+    const noData = document.createElement('p'); noData.className = 'fine';
+    noData.textContent = T('Essayez « densité bâtie », « espaces verts », « transport », « soleil » ou « relief ».', 'Try “building density”, “green space”, “transit”, “sun” or “terrain”.');
+    card.append(noData);
+  }
+  host.append(card);
+  const warningText = {
+    'legal-data': T('Les termes de zonage renvoient seulement aux usages fonctionnels cartographiés dans OSM. Aucun règlement, droit à construire ni contour cadastral n’est fourni ou déduit.', 'Zoning terms map only to functional land-use tags in OSM. No planning rule, development right or cadastral boundary is supplied or inferred.'),
+    'indicative-walking-speed': T('L’accessibilité piétonne disponible utilise le réseau OSM et une vitesse indicative fixe de 4,8 km/h; ce n’est pas un trajet en temps réel ni un service de transport public.', 'The available walking-access analysis uses the OSM network and a fixed indicative speed of 4.8 km/h; it is not live routing or public-transit travel time.'),
+    'market-data-unavailable': T('Les données démographiques, loyers et fréquentation commerciale ne sont pas actuellement branchées. Elles ne seront pas estimées sans source vérifiable.', 'Demographics, rents and retail footfall are not currently connected. They will not be estimated without a verifiable source.'),
+    'user-cost-only': T('Le coût de construction est calculé seulement si vous saisissez un coût unitaire dans le scénario; aucun tarif de marché n’est fourni.', 'Construction cost is calculated only if you enter a unit cost in the scenario; no market price is supplied.')
+  };
+  for (const code of result.warnings) if (warningText[code])
+    host.append(reportNote(warningText[code], 'assistant-warning'));
+  if (result.noMatch && !result.warnings.length)
+    host.append(reportNote(T('La demande ne correspond pas encore à une analyse disponible. L’assistant local ne fabrique pas de réponse.', 'This request does not yet map to an available analysis. The local helper does not invent an answer.'), 'scenario-prompt'));
+
+  const actions = document.createElement('div'); actions.className = 'assistant-actions';
+  if (available.length) {
+    const apply = (replace, label) => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = replace ? '' : 'primary'; button.textContent = label;
+      button.addEventListener('click', () => {
+        S.sel = replace ? new Set(available) : new Set([...S.sel, ...available]);
+        store.set('sel', [...S.sel]);
+        renderCatalog(); updateGenBtn();
+        closeModal('assistantModal');
+        toast(T(`${available.length} analyse(s) prêtes; cliquez sur « Générer » après vérification.`, `${available.length} analysis/analyses ready; review, then click “Generate”.`));
+      });
+      return button;
+    };
+    actions.append(
+      apply(false, T('Ajouter à la sélection', 'Add to selection')),
+      apply(true, T('Remplacer la sélection', 'Replace selection'))
+    );
+  }
+  if (result.openReport) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = T('Ouvrir la synthèse du site', 'Open site summary');
+    button.addEventListener('click', () => { closeModal('assistantModal'); openSiteReport(); });
+    actions.append(button);
+  }
+  if (actions.children.length) host.append(actions);
+}
+function runSpatialAssistant() {
+  latestAssistantResult = analyzeSpatialQuestion($('#assistantQuery').value);
+  renderAssistantResult(latestAssistantResult);
+}
+
+/* ═══════════════ espace local : projets et modèles ═══════════════ */
+const emptySpatialData = () => ({ roads: [], build: [], green: [], pois: [], rail: [], coast: [] });
+function readWorkspaceList(key, type) {
+  const raw = store.get(key, []);
+  const rows = (Array.isArray(raw) ? raw : []).map(validateWorkspaceRecord).filter(x => x && x.type === type);
+  store.set(key, rows);
+  return rows;
+}
+function currentWorkspaceName() {
+  return $('#workspaceName').value.trim() || S.site.name || T('Projet UrbaTrame', 'UrbaTrame project');
+}
+function currentWorkspaceFields(name) {
+  return {
+    name, selectedIds: [...S.sel], shape: S.shape, radius: S.site.R,
+    time: S.time, sunDate: S.sunDate, scenario: store.get('siteScenario', {})
+  };
+}
+function saveWorkspaceProject() {
+  const record = createWorkspaceProject({ ...currentWorkspaceFields(currentWorkspaceName()), site: S.site, id: makeWorkspaceId() });
+  if (!record) { toast(T('Choisissez un lieu valide avant d’enregistrer un projet.', 'Choose a valid place before saving a project.'), false); return; }
+  const rows = upsertWorkspaceRecord(readWorkspaceList('workspaceProjects', 'urbatrame-project'), record);
+  store.set('workspaceProjects', rows); renderWorkspace();
+  toast(T('Projet enregistré dans ce navigateur.', 'Project saved in this browser.'));
+}
+function saveWorkspaceTemplate() {
+  const record = createWorkspaceTemplate({ ...currentWorkspaceFields(currentWorkspaceName()), id: makeWorkspaceId() });
+  if (!record) { toast(T('Nom ou paramètres du modèle invalides.', 'Template name or settings are invalid.'), false); return; }
+  const rows = upsertWorkspaceRecord(readWorkspaceList('workspaceTemplates', 'urbatrame-template'), record);
+  store.set('workspaceTemplates', rows); renderWorkspace();
+  toast(T('Modèle réutilisable enregistré.', 'Reusable template saved.'));
+}
+function workspaceDate(timestamp) {
+  return Number.isFinite(Number(timestamp)) ? new Intl.DateTimeFormat(S.lang === 'en' ? 'en-GB' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(Number(timestamp))) : '—';
+}
+function workspaceButton(label, handler, primary = false) {
+  const button = document.createElement('button'); button.type = 'button';
+  if (primary) button.className = 'primary';
+  button.textContent = label; button.addEventListener('click', handler); return button;
+}
+function renderWorkspace() {
+  const projectHost = $('#workspaceProjects'), templateHost = $('#workspaceTemplates');
+  if (!projectHost || !templateHost) return;
+  projectHost.replaceChildren(); templateHost.replaceChildren();
+  const projects = readWorkspaceList('workspaceProjects', 'urbatrame-project');
+  const templates = readWorkspaceList('workspaceTemplates', 'urbatrame-template');
+  const fill = (host, rows, isProject) => {
+    if (!rows.length) {
+      const empty = document.createElement('p'); empty.className = 'workspace-empty';
+      empty.textContent = isProject ? T('Aucun projet enregistré.', 'No saved projects.') : T('Aucun modèle enregistré.', 'No saved templates.');
+      host.append(empty); return;
+    }
+    for (const item of rows) {
+      const row = document.createElement('article'); row.className = 'workspace-record';
+      const info = document.createElement('div');
+      const name = document.createElement('div'); name.className = 'workspace-record-title'; name.textContent = item.name;
+      const detail = document.createElement('div'); detail.className = 'workspace-record-meta';
+      const place = isProject ? (item.site.name || `${item.site.lat.toFixed(4)}, ${item.site.lon.toFixed(4)}`) + ` · ${item.radius} m` : `${item.radius} m · ${item.shape}`;
+      detail.textContent = `${place} · ${item.selectedIds.length} ${T('analyse(s)', 'analysis/analyses')} · ${workspaceDate(item.updatedAt)}`;
+      info.append(name, detail);
+      const controls = document.createElement('div'); controls.className = 'workspace-record-actions';
+      controls.append(workspaceButton(isProject ? T('Ouvrir', 'Load') : T('Appliquer', 'Apply'), () => {
+        if (isProject) loadWorkspaceProject(item); else applyWorkspaceTemplate(item);
+      }, true));
+      controls.append(workspaceButton(T('Supprimer', 'Delete'), () => {
+        const key = isProject ? 'workspaceProjects' : 'workspaceTemplates';
+        store.set(key, removeWorkspaceRecord(rows, item.id)); renderWorkspace();
+      }));
+      row.append(info, controls); host.append(row);
+    }
+  };
+  fill(projectHost, projects, true); fill(templateHost, templates, false);
+}
+function setWorkspaceControls(record) {
+  S.sel = new Set(record.selectedIds);
+  S.shape = record.shape; S.site.R = record.radius; S.time = record.time; S.sunDate = record.sunDate; S.poly = null;
+  store.set('sel', [...S.sel]); store.set('shape', S.shape); store.set('time', S.time); store.set('sunDate', S.sunDate);
+  store.set('siteScenario', record.scenario || {});
+  $('#radius').value = S.site.R; $('#radiusOut').textContent = S.site.R + ' m';
+  $('#shape').value = S.shape; $('#time').value = S.time; $('#sunDate').value = S.sunDate;
+  $('#timeOut').textContent = `${String(Math.floor(S.time)).padStart(2, '0')}:${String(Math.round((S.time % 1) * 60)).padStart(2, '0')}`;
+  const radiusWrap = $('#radiusWrap'); if (radiusWrap) radiusWrap.style.opacity = S.shape === 'poly' ? '.45' : '1';
+}
+function clearWorkspaceResults() {
+  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null;
+  S.mapLoaded = false; S.dataSite = null; S.cacheInfo = '';
+}
+function finishWorkspaceLoad() {
+  renderCatalog(); renderCards(); updateGenBtn();
+  if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
+  closeModal('workspaceModal');
+  toast(T('Configuration chargée. Relancez les analyses pour actualiser les résultats.', 'Configuration loaded. Rerun analyses to refresh results.'));
+}
+function loadWorkspaceProject(project) {
+  clearWorkspaceResults(); setWorkspaceControls(project);
+  S.site.R = project.radius;
+  const name = project.site.name || `${project.site.lat.toFixed(4)}, ${project.site.lon.toFixed(4)}`;
+  $('#q').value = name;
+  setSite(project.site.lat, project.site.lon, name);
+  finishWorkspaceLoad();
+}
+function applyWorkspaceTemplate(template) {
+  clearWorkspaceResults(); setWorkspaceControls(template);
+  if (S.site.lat == null) $('#q').value = '';
+  finishWorkspaceLoad();
+}
+async function importWorkspaceFile(file) {
+  if (!file) return;
+  try {
+    if (file.size > 200_000) throw new Error('FILE_TOO_LARGE');
+    const record = parseWorkspaceFile(await file.text());
+    if (!record) throw new Error('INVALID_FILE');
+    const key = record.type === 'urbatrame-project' ? 'workspaceProjects' : 'workspaceTemplates';
+    const rows = readWorkspaceList(key, record.type);
+    store.set(key, upsertWorkspaceRecord(rows, record));
+    $('#workspaceName').value = record.name;
+    renderWorkspace();
+    toast(T('Configuration importée dans l’espace local.', 'Configuration imported into the local workspace.'));
+  } catch {
+    toast(T('Fichier JSON UrbaTrame invalide ou trop volumineux.', 'Invalid or oversized UrbaTrame JSON file.'), false);
+  } finally { $('#importWorkspaceFile').value = ''; }
+}
+function exportCurrentWorkspaceProject() {
+  const record = createWorkspaceProject({ ...currentWorkspaceFields(currentWorkspaceName()), site: S.site, id: makeWorkspaceId() });
+  if (!record) { toast(T('Choisissez un lieu valide avant l’export.', 'Choose a valid place before exporting.'), false); return; }
+  const safeName = record.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9-]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'projet';
+  download(new Blob([serializeWorkspaceRecord(record)], { type: 'application/json' }), `urbatrame-${safeName}.json`);
+}
+function openWorkspace() {
+  $('#workspaceName').value = S.site.name || '';
+  renderWorkspace(); openModal('workspaceModal');
+}
+function openAssistant() {
+  latestAssistantResult = null; $('#assistantResults').replaceChildren();
+  openModal('assistantModal'); $('#assistantQuery').focus();
+}
+
 function openPlans() {
   const p = $('#planBody');
   if (isOpenAccess()) {
@@ -1081,6 +1318,18 @@ function wireUI() {
   $('#plansBtn').addEventListener('click', openPlans);
   $('#restoreBtn')?.addEventListener('click', restore);
   $('#helpBtn').addEventListener('click', () => openModal('help'));
+  $('#assistantBtn').addEventListener('click', openAssistant);
+  $('#assistantAnalyze').addEventListener('click', runSpatialAssistant);
+  $('#assistantQuery').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) runSpatialAssistant(); });
+  $$('[data-assistant-query]').forEach(button => button.addEventListener('click', () => {
+    $('#assistantQuery').value = button.dataset.assistantQuery || '';
+    runSpatialAssistant();
+  }));
+  $('#workspaceBtn').addEventListener('click', openWorkspace);
+  $('#saveWorkspaceProject').addEventListener('click', saveWorkspaceProject);
+  $('#saveWorkspaceTemplate').addEventListener('click', saveWorkspaceTemplate);
+  $('#exportWorkspaceProject').addEventListener('click', exportCurrentWorkspaceProject);
+  $('#importWorkspaceFile').addEventListener('change', e => importWorkspaceFile(e.target.files?.[0]));
   $('#siteReportBtn').addEventListener('click', openSiteReport);
   $('#siteReportClose').addEventListener('click', closeSiteReport);
   $('#siteReport').addEventListener('click', e => { if (e.target === $('#siteReport')) closeSiteReport(); });
@@ -1092,7 +1341,12 @@ function wireUI() {
     setTimeout(cleanup, 1200);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('#siteReport').classList.contains('on')) closeSiteReport();
+    if (e.key !== 'Escape') return;
+    if ($('#siteReport').classList.contains('on')) closeSiteReport();
+    else {
+      const modal = $$('.modal.on').at(-1);
+      if (modal) closeModal(modal.id);
+    }
   });
   $('#devBtn').addEventListener('click', () => {
     const d = $('#devPanel');
@@ -1108,8 +1362,8 @@ function wireUI() {
     renderCards();
     $$('#theme button').forEach(x => x.classList.toggle('on', x === b));
   });
-  $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal').classList.remove('on')));
-  $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); }));
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.closest('.modal').id)));
+  $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }));
   $('#expAll').addEventListener('click', async () => {
     for (const id of selected()) {
       const card = $('#card_' + id);
