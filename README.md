@@ -23,6 +23,8 @@
 
 La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de choisir la date et l’heure solaires et d’examiner les bâtiments sur le relief. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
 
+Le rapport de site propose aussi un **générateur de volumes 3D conceptuels** : à partir de la capacité calculée selon les hypothèses saisies, l’utilisateur choisit le nombre de volumes, la hauteur d’étage, le rapport largeur/profondeur et l’écartement. La maquette en rangée peut être tournée à l’écran puis exportée en SVG, OBJ ou STL. Elle est schématique, non géoréférencée, ne représente aucune limite foncière et ne vérifie pas le zonage ni la réglementation.
+
 ### Utiliser l’atelier topographique Altiplan
 
 **Altiplan est une section intégrée à UrbaTrame**, accessible depuis le bouton « Atelier topo » — ce n’est pas une application séparée. Elle permet de sélectionner un site sur la carte, de choisir les couches utiles, de prévisualiser les résultats et de préparer :
@@ -42,7 +44,8 @@ L’**atlas administratif GADM**, ajouté dans l’Atelier Altiplan, permet de p
 | Analyses cartographiques | SVG, PNG, planche A3 |
 | Plan topographique | DXF, SVG, PNG |
 | Coupe de terrain | DXF, SVG, PNG |
-| Maquette 3D | OBJ, STL, aperçu PNG |
+| Maquette 3D du terrain et des éléments cartographiés | OBJ, STL, aperçu PNG |
+| Volumes 3D conceptuels | SVG, OBJ, STL |
 
 Les exports topographiques peuvent être exprimés en mètres locaux ou géoréférencés en UTM WGS 84. Les analyses et les livrables peuvent être consultés dans les logiciels compatibles avec ces formats, notamment les outils de DAO/CAO.
 

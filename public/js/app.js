@@ -10,6 +10,8 @@ import { ouvrir3D } from './vue3d-ui.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
 import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
+import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
+import { objDeScene, stlDeScene } from './exports.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -467,9 +469,21 @@ function renderScenario(host) {
   const currency = scenarioField(fields, 'scenarioCurrency', T('Devise', 'Currency'), saved.currency || 'DZD', { type: 'text', maxLength: 8 });
   section.append(fields);
 
+  const conceptSection = reportSection(T('Volumes 3D conceptuels', 'Conceptual 3D massing'), T(
+    'Décrivez la composition à générer. La maquette est un schéma de volumes rectangulaires égaux, disposés en rangée; elle n’est pas géoréférencée et ne représente aucune limite foncière.',
+    'Describe the massing to generate. The model is a schematic row of equal rectangular volumes; it is not georeferenced and shows no land boundary.'));
+  conceptSection.classList.add('concept-section');
+  const conceptFields = document.createElement('div'); conceptFields.className = 'scenario-fields concept-fields';
+  const volumeCount = scenarioField(conceptFields, 'scenarioVolumeCount', T('Nombre de volumes', 'Number of volumes'), saved.volumeCount || '', { min: 1, max: 24, step: 1 });
+  const floorHeight = scenarioField(conceptFields, 'scenarioFloorHeight', T('Hauteur d’étage · m', 'Floor-to-floor height · m'), saved.floorHeight || '', { min: 1, max: 20, step: 0.1 });
+  const aspect = scenarioField(conceptFields, 'scenarioAspect', T('Largeur / profondeur', 'Width / depth ratio'), saved.aspect || '', { min: 0.1, max: 10, step: 0.1 });
+  const gap = scenarioField(conceptFields, 'scenarioGap', T('Écart entre volumes · m', 'Gap between volumes · m'), saved.gap || '', { min: 0, max: 1000, step: 0.5 });
+  conceptSection.append(conceptFields);
+  section.append(conceptSection);
+
   const output = document.createElement('div'); output.className = 'scenario-output'; output.setAttribute('aria-live', 'polite');
   section.append(output);
-  const inputs = { area, far, coverage, floors, cost, currency };
+  const inputs = { area, far, coverage, floors, cost, currency, volumeCount, floorHeight, aspect, gap };
   const update = () => {
     const values = Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value.trim()]));
     store.set('siteScenario', values);
@@ -485,25 +499,86 @@ function renderScenario(host) {
       output.append(reportNote(T(
         'Saisissez une surface, un FAR, un pourcentage d’emprise et un nombre de niveaux pour afficher une capacité indicative.',
         'Enter plot area, FAR, coverage and floor count to see an indicative capacity.'), 'scenario-prompt'));
-      return;
+    } else {
+      const grid = document.createElement('div'); grid.className = 'report-metrics scenario-results';
+      grid.append(
+        reportMetric(T('Capacité selon le FAR', 'FAR-based capacity'), reportArea(result.areaByFarM2)),
+        reportMetric(T('Capacité selon emprise × niveaux', 'Coverage × floors capacity'), reportArea(result.areaByCoverageM2)),
+        reportMetric(T('Surface de plancher retenue', 'Indicative floor area'), reportArea(result.floorAreaM2),
+          T('contrainte la plus stricte appliquée', 'most restrictive input applied')),
+        reportMetric(T('Emprise au sol estimée', 'Indicative footprint'), reportArea(result.footprintM2))
+      );
+      if (result.costEstimate != null) {
+        const unit = (values.currency || 'DZD').slice(0, 8);
+        grid.append(reportMetric(T('Coût de construction indicatif', 'Indicative construction cost'),
+          `${reportNumber(result.costEstimate)} ${unit}`, T('hors terrain, réseaux, honoraires et taxes', 'excluding land, utilities, fees and taxes')));
+      }
+      output.append(grid);
+      output.append(reportNote(result.bindingConstraint === 'far'
+        ? T('Dans cette hypothèse, le FAR/COS limite la surface de plancher.', 'Under these assumptions, FAR is the limiting factor.')
+        : T('Dans cette hypothèse, l’emprise au sol multipliée par les niveaux limite la surface de plancher.', 'Under these assumptions, coverage multiplied by floors is the limiting factor.'), 'scenario-explanation'));
     }
-    const grid = document.createElement('div'); grid.className = 'report-metrics scenario-results';
-    grid.append(
-      reportMetric(T('Capacité selon le FAR', 'FAR-based capacity'), reportArea(result.areaByFarM2)),
-      reportMetric(T('Capacité selon emprise × niveaux', 'Coverage × floors capacity'), reportArea(result.areaByCoverageM2)),
-      reportMetric(T('Surface de plancher retenue', 'Indicative floor area'), reportArea(result.floorAreaM2),
-        T('contrainte la plus stricte appliquée', 'most restrictive input applied')),
-      reportMetric(T('Emprise au sol estimée', 'Indicative footprint'), reportArea(result.footprintM2))
-    );
-    if (result.costEstimate != null) {
-      const unit = (values.currency || 'DZD').slice(0, 8);
-      grid.append(reportMetric(T('Coût de construction indicatif', 'Indicative construction cost'),
-        `${reportNumber(result.costEstimate)} ${unit}`, T('hors terrain, réseaux, honoraires et taxes', 'excluding land, utilities, fees and taxes')));
-    }
-    output.append(grid);
-    output.append(reportNote(result.bindingConstraint === 'far'
-      ? T('Dans cette hypothèse, le FAR/COS limite la surface de plancher.', 'Under these assumptions, FAR is the limiting factor.')
-      : T('Dans cette hypothèse, l’emprise au sol multipliée par les niveaux limite la surface de plancher.', 'Under these assumptions, coverage multiplied by floors is the limiting factor.'), 'scenario-explanation'));
+
+    const concept = result && buildConceptMassing({
+      siteAreaM2: values.area === '' ? null : Number(values.area),
+      floorAreaM2: result.floorAreaM2,
+      footprintM2: result.footprintM2,
+      floors: values.floors === '' ? null : Number(values.floors),
+      floorHeightM: values.floorHeight === '' ? null : Number(values.floorHeight),
+      volumeCount: values.volumeCount === '' ? null : Number(values.volumeCount),
+      aspectRatio: values.aspect === '' ? null : Number(values.aspect),
+      gapM: values.gap === '' ? null : Number(values.gap)
+    });
+    const conceptControls = document.createElement('div'); conceptControls.className = 'concept-controls';
+    const generate = document.createElement('button'); generate.type = 'button'; generate.className = 'primary concept-generate';
+    generate.textContent = T('Générer / actualiser la maquette 3D', 'Generate / refresh 3D massing');
+    generate.disabled = !concept;
+    conceptControls.append(generate);
+    const conceptHint = reportNote(concept
+      ? T('Les dimensions sont dérivées des valeurs saisies ci-dessus. La disposition en rangée est schématique; aucun ajustement au terrain, au nord, au zonage ou à une réglementation n’est effectué.',
+        'Dimensions come from the inputs above. The row layout is schematic; no fit to the site, north, zoning or regulations is performed.')
+      : T('Pour générer la maquette, complétez le scénario de capacité, le nombre de volumes, la hauteur d’étage et le rapport largeur/profondeur. L’écart doit aussi être renseigné pour plusieurs volumes.',
+        'To generate the model, complete the capacity scenario, number of volumes, floor-to-floor height and width/depth ratio. Enter a gap when using multiple volumes.'), 'scenario-prompt');
+    const conceptPreview = document.createElement('div'); conceptPreview.className = 'concept-preview';
+    generate.addEventListener('click', () => {
+      if (!concept) return;
+      const view = document.createElement('label'); view.className = 'concept-view-control';
+      const viewText = document.createElement('span'); viewText.textContent = T('Angle de vue · graphique, sans nord', 'View angle · graphic only, not north');
+      const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '359'; slider.step = '1'; slider.value = '45';
+      const angleValue = document.createElement('output'); angleValue.textContent = '45°';
+      view.append(viewText, slider, angleValue);
+      let svg = '';
+      const draw = () => {
+        svg = renderConceptMassingSvg(concept, { lang: S.lang === 'en' ? 'en' : 'fr', viewAngleDeg: Number(slider.value) });
+        conceptPreview.innerHTML = svg;
+        angleValue.textContent = `${slider.value}°`;
+      };
+      slider.addEventListener('input', draw);
+      const exports = document.createElement('div'); exports.className = 'concept-export-actions';
+      const exportButton = (label, handler) => {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+        button.addEventListener('click', handler); return button;
+      };
+      exports.append(
+        exportButton(T('Télécharger SVG', 'Download SVG'), () => download(
+          new Blob([svg], { type: 'image/svg+xml' }), 'urbatrame-volumes-conceptuels.svg')),
+        exportButton('OBJ', () => {
+          const scene = conceptMeshScene(concept);
+          download(new Blob([objDeScene(scene, { titre: 'volumes 3D conceptuels', mention: 'hypotheses utilisateur · sans georeferencement' })], { type: 'text/plain' }), 'urbatrame-volumes-conceptuels.obj');
+        }),
+        exportButton('STL', () => {
+          const scene = conceptMeshScene(concept);
+          download(new Blob([stlDeScene(scene)], { type: 'model/stl' }), 'urbatrame-volumes-conceptuels.stl');
+        })
+      );
+      generate.textContent = T('Maquette générée', 'Model generated');
+      generate.disabled = true;
+      conceptControls.replaceChildren(generate);
+      conceptPreview.replaceChildren();
+      output.append(view, conceptPreview, exports);
+      draw();
+    });
+    output.append(conceptControls, conceptHint);
   };
   for (const input of Object.values(inputs)) input.addEventListener('input', update);
   update();

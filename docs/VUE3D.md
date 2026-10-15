@@ -21,6 +21,27 @@ Fonctions reprises de <https://osmbuildings.org> après démontage (voir
 | Export SVG/PNG de la planche | comme les autres analyses |
 | **Modèle 3D OBJ et STL**, plan DXF | panneau *Exports CAO* → voir `docs/EXPORTS.md` |
 
+## Volumes 3D conceptuels
+
+Dans **Synthèse & scénario → Volumes 3D conceptuels**, UrbaTrame peut générer
+une maquette indicative à partir du scénario de capacité et de paramètres
+explicitement saisis : nombre de volumes, hauteur d'étage, rapport
+largeur/profondeur et écartement entre volumes. Les blocs sont égaux, ont le
+même nombre de niveaux et sont disposés en rangée; l'angle de vue peut être
+ajusté sans représenter le nord.
+
+Le scénario fournit les surfaces de plancher et d'emprise retenues. La maquette
+est un schéma local en mètres, **non géoréférencé**, sans implantation sur une
+carte ou une parcelle. Elle ne crée aucune limite cadastrale, ne déduit pas de
+zonage ou de règle et ne vérifie ni l'insertion réelle ni la conformité
+réglementaire. L'espacement, la hauteur d'étage et les proportions proviennent
+des champs saisis par l'utilisateur.
+
+L'aperçu peut être téléchargé en **SVG**, et la géométrie en **OBJ** ou **STL**.
+Les axes des modèles exportés sont locaux (X/Y), avec Z vers le haut, en mètres;
+l'origine n'est pas une coordonnée géographique. Des volumes qui se touchent
+sans écart sont fusionnés dans les exports pour éviter des faces internes.
+
 ## Comment c'est fait
 
 ```

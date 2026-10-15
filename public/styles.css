@@ -339,6 +339,18 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
 .scenario-field input:focus{border-color:#3D8170;box-shadow:0 0 0 3px rgba(61,129,112,.12)}
 .scenario-results .report-metric{border-color:#D7E2D9;background:#FBFDFB}
 .scenario-results .report-metric-value{font-size:17px}
+.concept-section{margin-top:3px;padding:14px;border:1px solid #E1E7E0;border-radius:13px;background:#FBFCF9}
+.concept-section .report-section-heading h3{color:#314A3D}
+.concept-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
+.concept-controls,.concept-export-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.concept-controls button:disabled{opacity:.5;cursor:not-allowed}
+.concept-view-control{display:grid;grid-template-columns:minmax(180px,auto) minmax(100px,1fr) 48px;align-items:center;gap:12px;color:#52645A;font-size:11px;font-weight:600}
+.concept-view-control input{width:100%;accent-color:#3D8170}
+.concept-view-control output{font:12px var(--mono);color:#29463A}
+.concept-preview{min-width:0}
+.concept-preview svg{display:block;width:100%;height:auto;border-radius:14px;background:#FBFCF9}
+.concept-export-actions button{min-height:36px;padding:0 13px;border:1px solid #C7D5C8;border-radius:9px;background:#FFF;color:#29463A;font:600 11px var(--mono);cursor:pointer}
+.concept-export-actions button:hover{background:#EEF4EF;border-color:#8EAA95}
 .report-empty{padding:25px;border:1px dashed #CBD5CC;border-radius:14px;background:#FAFCF9;color:#5A6A60;text-align:center}
 @media (max-width:900px){
   .site-report{padding:10px}
@@ -360,6 +372,8 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
   .report-metrics{gap:7px}
   .report-metric{min-height:84px;padding:10px}
   .report-metric-value{font-size:16px}
+  .concept-view-control{grid-template-columns:minmax(0,1fr) 48px;gap:6px}
+  .concept-view-control span{grid-column:1/-1}
 }
 @media print{
   body.printing-report{background:#fff!important;color:#111!important}
@@ -375,5 +389,7 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
   body.printing-report .report-intro,body.printing-report .report-note{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   body.printing-report .report-metric{box-shadow:none!important;break-inside:avoid}
   body.printing-report .scenario-field input{border-color:#bbb!important;color:#111!important;background:#fff!important}
+  body.printing-report .concept-controls,body.printing-report .concept-view-control,body.printing-report .concept-export-actions{display:none!important}
+  body.printing-report .concept-preview{break-inside:avoid}
   @page{size:A4 portrait;margin:12mm}
 }

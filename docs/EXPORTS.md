@@ -1,18 +1,22 @@
 # Exports CAO — plan DXF, coupe, modèle OBJ/STL
 
-Freemap produit trois familles de fichiers, à partir des mêmes données que les
-analyses (OpenStreetMap, altimétrie Terrarium) :
+UrbaTrame produit des fichiers cartographiques et topographiques à partir des
+données OpenStreetMap et du relief Terrarium, ainsi qu'une maquette de volumes
+conceptuels calculée à partir des hypothèses saisies par l'utilisateur :
 
 | Fichier | Format | Usage |
 | --- | --- | --- |
 | Plan topographique | `.dxf` (R12 / AC1009) | AutoCAD, QCAD, Illustrator, Inkscape, Blender |
 | Coupe topographique | `.dxf`, `.svg` | dessin d'axe, profil en long, planche de présentation |
-| Modèle 3D | `.obj`, `.stl` | Blender, SketchUp, Rhino, impression 3D |
+| Modèle 3D du terrain et du bâti cartographié | `.obj`, `.stl` | Blender, SketchUp, Rhino, impression 3D |
+| Volumes 3D conceptuels | `.svg`, `.obj`, `.stl` | maquette indicative depuis les hypothèses du scénario |
 
 Deux façons de les obtenir :
 
 - **Dans l'application** : bouton **« Exports CAO (DXF · coupe · OBJ/STL) »** du
-  panneau de droite. Trois onglets, un aperçu avant téléchargement.
+  panneau de droite pour le plan, la coupe et la maquette du terrain. Pour les
+  volumes conceptuels, ouvrez **Synthèse & scénario**, complétez les hypothèses,
+  générez la maquette, puis choisissez SVG, OBJ ou STL.
 - **En ligne de commande** : `node tools/exporter.mjs` écrit les fichiers à
   partir de l'exemple embarqué, sans navigateur ni réseau.
 
@@ -65,6 +69,17 @@ qu'elles sont évidées à l'écran et dans le plan (anneau intérieur).
 l'impression 3D ; le maillage est ouvert (le terrain est une nappe, pas un
 solide), les outils de découpe le traitent bien, mais un calcul de volume
 suppose de fermer la base.
+
+**Volumes conceptuels.** La surface de plancher et l'emprise proviennent du
+scénario de capacité; l'utilisateur renseigne le nombre de blocs, la hauteur
+d'étage, le rapport largeur/profondeur et, pour plusieurs blocs, leur écart.
+Les volumes égaux sont rangés le long d'un axe graphique, au même nombre de
+niveaux. Ils ne sont **ni géoréférencés ni placés sur une parcelle**; aucun
+zonage, règle ou contrôle réglementaire n'est déduit. Les exports OBJ/STL sont
+des solides fermés, en mètres, avec Z vers le haut et une origine locale
+arbitraire. Une rangée de blocs contigus est exportée comme un seul solide sans
+faces internes. Ces fichiers n'ajoutent pas de données OSM ni de limites
+foncières.
 
 **Coupe.** Le profil est échantillonné le long de l'axe (161 points pour 1 km),
 l'altitude est interpolée bilinéairement dans la grille. Le DXF de coupe place
@@ -132,7 +147,9 @@ normales unitaires.
 
 ## Sources et licences
 
-Les fichiers exportés portent l'attribution dans leur cartouche (plan) ou leur
-en-tête (OBJ) : **données © OpenStreetMap (ODbL)** et **relief Terrarium**. Si
-vous publiez ou diffusez un plan produit ici, gardez cette mention — c'est la
-condition de l'ODbL. Le logiciel lui-même est sous licence MIT (voir `LICENSE`).
+Les fichiers issus des données cartographiques portent l'attribution dans
+leur cartouche (plan) ou leur en-tête (OBJ) : **données © OpenStreetMap
+(ODbL)** et **relief Terrarium**. Si vous publiez ou diffusez ces livrables,
+gardez cette mention — c'est la condition de l'ODbL. Les volumes conceptuels
+ne proviennent que des hypothèses saisies et n'embarquent ni fond de carte ni
+limite foncière. Le logiciel lui-même est sous licence MIT.
