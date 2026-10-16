@@ -38,6 +38,12 @@ L’atelier est accessible sans compte ni quota. Les notes restent locales à ce
 
 L’**atlas administratif GADM**, ajouté dans l’Atelier Altiplan, permet de parcourir les pays et leurs subdivisions, de sélectionner les limites et leurs métadonnées, de consulter les aperçus thématiques GADM (altitude, température, précipitations et éclairage nocturne), puis de télécharger les données par pays ou pour le monde. Les téléchargements proposent les versions 4.1, 4.0.4 et 3.6 selon les formats officiels disponibles.
 
+### Comparer les cartes historiques · séance S5
+
+Le comparateur S5 de l’atelier d’analyse accepte deux cartes raster (PNG, JPEG ou WebP), conserve leurs métadonnées de période, échelle, source et droits, puis les aligne à partir d’au moins trois points communs dont les coordonnées WGS84 et les positions sur chaque image sont saisies par l’étudiant. La transformation affine est calculée en EPSG:3857; son RMSE et les résidus par point (mètres planimétriques dans cette projection) sont visibles et exportés pour vérification. La superposition se consulte par transparence ou balayage, avec des observations manuelles et un texte de synthèse relu par le groupe; seul le texte confirmé est inclus au plan PNG sourcé et daté. Les points, résidus, métadonnées et annotations peuvent aussi être exportés en JSON (sans les images).
+
+L’analyse reste locale par défaut. L’aide IA est facultative et nécessite le choix d’un fournisseur, la clé API personnelle de l’étudiant et un consentement explicite. La clé n’est pas enregistrée; le chargement d’un catalogue transmet une requête authentifiée sans carte, tandis qu’une analyse envoie les deux images réduites et les métadonnées de période, d’échelle et de source directement au fournisseur choisi. Les modèles gratuits, leurs quotas et leur capacité image peuvent changer; les coûts éventuels, la rétention et l’usage pour l’entraînement dépendent du fournisseur et du modèle. OpenAlex est une API de données scientifiques, pas un fournisseur d’inférence. Les suggestions IA doivent être validées pour figurer parmi les observations retenues; elles ne créent jamais de parcelles, de limites cadastrales ou de zonage juridique.
+
 ### Exporter et partager
 
 | Contenu | Formats disponibles |
@@ -78,7 +84,7 @@ L’exemple intégré d’El Khroub permet de découvrir les analyses et les exp
 ## Documentation
 
 - [Rapport de présentation](docs/UrbaTrame_Rapport_de_presentation.docx) · [Notice d’utilisation](docs/UrbaTrame_Notice_d_utilisation.docx)
-- [Atelier topographique Altiplan](docs/ALTIPLAN.md) · [Atlas administratif GADM](docs/GADM.md)
+- [Atelier topographique Altiplan](docs/ALTIPLAN.md) · [Comparateur historique S5](docs/ATELIER-S5.md) · [Atlas administratif GADM](docs/GADM.md)
 - [Exports topographiques et CAO](docs/EXPORTS.md)
 - [Visualisation 3D](docs/VUE3D.md)
 - [Données, sources et attribution](docs/DONNEES.md)

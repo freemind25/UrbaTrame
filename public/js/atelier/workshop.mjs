@@ -134,12 +134,12 @@ function renderSessions() {
     const item = state.sessions[session.id];
     const noteLabel = `Notes du groupe pour ${session.id}`;
     const history = session.historyProposal
-      ? '<aside class="history-proposal"><strong>Prochaine évolution à construire :</strong> importer une carte d’époque, la géoréférencer et la comparer à la carte actuelle par transparence ou par balayage. Les tracés historiques resteront datés, sourcés et non cadastraux.</aside>'
+      ? '<aside class="history-proposal"><strong>Outil S5 disponible :</strong> importer des cartes historiques et actuelles, saisir leurs sources, vérifier le géoréférencement par points de contrôle, puis comparer les images par transparence ou balayage. Les observations restent datées, sourcées et non cadastrales. <a class="history-tool-link" href="/atelier-s5.html">Ouvrir le comparateur S5 →</a></aside>'
       : '';
     const caution = session.caution
       ? `<aside class="history-proposal"><strong>Précaution :</strong> ${session.caution}</aside>`
       : '';
-    return `<article class="session-card" data-session="${session.id}" data-status="${item.status}">
+    return `<article class="session-card" id="${session.id}" data-session="${session.id}" data-status="${item.status}">
       <div class="session-card-head">
         <span class="session-number">${session.id}</span>
         <div class="session-title-wrap"><p class="session-phase">${session.phase}</p><h3>${session.title}</h3></div>

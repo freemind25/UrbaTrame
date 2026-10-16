@@ -68,7 +68,7 @@ button,input,select,textarea{font:inherit}
 .session-note-label{display:grid;gap:4px;color:#7f8a81;font-size:8px;font-weight:700}
 .session-note{width:100%;min-height:55px;resize:vertical;border:1px solid #e0e6df;border-radius:6px;background:#fcfdfa;padding:7px 8px;color:#455348;font-size:9px;line-height:1.45;outline:none}
 .history-proposal{margin:10px 0 0;padding:9px 10px;border:1px solid #eadbc8;border-radius:7px;background:#fbf6ef;color:#7b6349;font-size:8px;line-height:1.5}
-.history-proposal strong{color:#805d35}
+.history-proposal strong{color:#805d35}.history-tool-link{display:inline-block;margin-left:5px;color:#246b54;font-weight:800;text-decoration:underline;text-underline-offset:2px}
 .no-sessions{grid-column:1/-1;padding:24px;border:1px dashed #ccd8ce;border-radius:9px;color:#738076;text-align:center;font-size:11px}
 .no-script{padding:14px;border:1px solid #e7d7c4;border-radius:8px;background:#fbf6ef;color:#765e43;font-size:11px}
 .workshop-footer{display:flex;justify-content:space-between;gap:12px;margin-top:28px;padding-top:13px;border-top:1px solid #dfe5de;color:#89938a;font-size:8px;letter-spacing:.2px}

@@ -104,6 +104,29 @@ describe('service', () => {
     assert.match(source, /localStorage/);
   });
 
+  test('le comparateur historique S5 est intégré, local par défaut et doté d’exports vérifiables', async () => {
+    const page = await fetch(base + '/atelier-s5.html');
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.ok(html.includes('UrbaTrame — Comparateur historique S5'));
+    assert.ok(html.includes('Designed by M.SADI'));
+    assert.ok(html.includes('imageConsent'));
+    assert.ok(html.includes('clé API'));
+    assert.ok(html.includes('limite parcellaire ou juridique'));
+    assert.equal((await fetch(base + '/atelier-s5.css')).status, 200);
+    assert.equal((await fetch(base + '/js/atelier/s5-core.mjs')).status, 200);
+    const script = await fetch(base + '/js/atelier/s5-comparison.mjs');
+    assert.equal(script.status, 200);
+    const source = await script.text();
+    assert.ok(source.includes('/chat/completions'));
+    assert.ok(source.includes('no-referrer'));
+    assert.ok(source.includes('includeUnconfirmed: false'));
+    assert.equal(source.includes('localStorage'), false);
+    const workshopScript = await (await fetch(base + '/js/atelier/workshop.mjs')).text();
+    assert.ok(workshopScript.includes('/atelier-s5.html'));
+    assert.ok(workshopScript.includes('id="${session.id}"'));
+  });
+
   test('l’atelier Altiplan est intégré à UrbaTrame, sans compte ni quota', async () => {
     const page = await fetch(base + '/atelier.html');
     assert.equal(page.status, 200);
