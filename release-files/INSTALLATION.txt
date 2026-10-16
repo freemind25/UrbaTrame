@@ -1,14 +1,16 @@
-URBATRAME — INSTALLATION
+URBATRAME — INSTALLATION (1.0.1)
 
-Ces applications ouvrent la version web UrbaTrame déployée sur Vercel et nécessitent une connexion Internet. Elles utilisent la préversion publique contenant la dernière version d’Altiplan et les repères/notes locaux :
-https://freemap-5j3b1xjtp-freemind25-2831s-projects.vercel.app
+Ces applications ouvrent la version publique d’UrbaTrame et nécessitent une connexion Internet :
+https://freemap-rose.vercel.app
+
+L’onglet « Atelier d’analyse urbaine » présente le suivi des 14 séances (S1–S14), avec statuts, notes locales et export JSON. Il est intégré à UrbaTrame.
 
 WINDOWS
-Fichier : windows/UrbaTrame-Setup-1.0.0.exe
+Fichier : windows/UrbaTrame-Setup-1.0.1.exe
 Système : Windows 10/11, 64 bits.
 1. Téléchargez et ouvrez l’installeur.
 2. Choisissez une installation pour votre compte et, si souhaité, créez le raccourci du Bureau.
-3. Au premier lancement, Windows peut afficher SmartScreen car l’installeur n’a pas de signature de certificat commercial. Vérifiez que le fichier s’appelle bien UrbaTrame-Setup-1.0.0.exe avant de continuer.
+3. Au premier lancement, Windows peut afficher SmartScreen car l’installeur n’a pas de signature de certificat commercial. Vérifiez le nom du fichier avant de continuer.
 
 ANDROID
 Fichier : UrbaTrame-Android.apk
@@ -18,4 +20,4 @@ Système : Android 10 ou plus récent.
 3. Appuyez sur Installer, puis ouvrez UrbaTrame.
 Les exports créés dans l’application sont enregistrés dans Téléchargements/UrbaTrame.
 
-L’APK est signé pour installation directe et tests, pas pour publication sur Google Play. Les données locales du navigateur sont conservées par appareil; désinstaller l’application peut les supprimer.
+L’APK 1.0.1 est signé pour installation directe et test, pas pour publication sur Google Play. Il utilise une clé de test différente de l’ancienne APK. Si Android signale une signature différente de la version précédente, il faudra désinstaller celle-ci avant l’installation; les données locales de l’application peuvent alors être supprimées. Les notes et autres données du navigateur restent enregistrées sur l’appareil.

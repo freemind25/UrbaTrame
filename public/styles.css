@@ -286,7 +286,7 @@ body.v3d-ouvert{overflow:hidden}
   .logo{font-size:16px}
   .sub{font-size:9px}
   .brand-credit{font-size:6px}
-  .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px}
+  .top nav{order:3;flex:1 0 100%;justify-content:flex-end;gap:4px;flex-wrap:wrap}
   .top nav button,.top nav .atelier-nav{height:32px;padding:0 9px;font-size:11px}
   .workspace-lists{grid-template-columns:1fr}
   .workspace-record{grid-template-columns:1fr}

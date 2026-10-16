@@ -70,6 +70,7 @@ describe('service', () => {
     const homeHtml = await home.text();
     assert.ok(homeHtml.includes('<title>UrbaTrame — analyse des sites urbains</title>'));
     assert.match(homeHtml, /Analyse des sites urbains/);
+    assert.match(homeHtml, /atelier-analyse\.html/, 'onglet de suivi de l’atelier d’analyse');
     assert.match(homeHtml, /id="sunDate"/, 'date solaire sélectionnable');
     assert.match(homeHtml, /js\/renderers-obm\.js/, 'rendu OpenBuildingMap chargé');
     assert.equal((await fetch(base + '/urbatrame-emblem.png')).status, 200);
@@ -86,12 +87,30 @@ describe('service', () => {
     assert.equal((await fetch(base + '/js/inexistant.js')).status, 404);
   });
 
+  test('l’atelier d’analyse urbaine est intégré à UrbaTrame', async () => {
+    const page = await fetch(base + '/atelier-analyse.html');
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /UrbaTrame — Atelier d’analyse urbaine/);
+    assert.match(html, /Designed by M\.SADI/);
+    assert.match(html, /GROUPE N°5/);
+    assert.match(html, /js\/atelier\/workshop\.mjs/);
+    assert.equal((await fetch(base + '/atelier-analyse.css')).status, 200);
+    const script = await fetch(base + '/js/atelier/workshop.mjs');
+    assert.equal(script.status, 200);
+    const source = await script.text();
+    assert.match(source, /id: 'S1'/);
+    assert.match(source, /id: 'S14'/);
+    assert.match(source, /localStorage/);
+  });
+
   test('l’atelier Altiplan est intégré à UrbaTrame, sans compte ni quota', async () => {
     const page = await fetch(base + '/atelier.html');
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /UrbaTrame — Atelier topographique Altiplan/);
     assert.match(html, /Analyse des sites urbains/);
+    assert.match(html, /Atelier d’analyse/);
     assert.match(html, /intégrée à UrbaTrame/);
     assert.match(html, /urbatrame-emblem\.png/);
     assert.doesNotMatch(html, /github\.com\/freemind25\/altiplan/);
