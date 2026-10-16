@@ -1,0 +1,21 @@
+URBATRAME — INSTALLATION
+
+Ces applications ouvrent la version web UrbaTrame déployée sur Vercel et nécessitent une connexion Internet. Elles utilisent la préversion publique contenant la dernière version d’Altiplan et les repères/notes locaux :
+https://freemap-5j3b1xjtp-freemind25-2831s-projects.vercel.app
+
+WINDOWS
+Fichier : windows/UrbaTrame-Setup-1.0.0.exe
+Système : Windows 10/11, 64 bits.
+1. Téléchargez et ouvrez l’installeur.
+2. Choisissez une installation pour votre compte et, si souhaité, créez le raccourci du Bureau.
+3. Au premier lancement, Windows peut afficher SmartScreen car l’installeur n’a pas de signature de certificat commercial. Vérifiez que le fichier s’appelle bien UrbaTrame-Setup-1.0.0.exe avant de continuer.
+
+ANDROID
+Fichier : UrbaTrame-Android.apk
+Système : Android 10 ou plus récent.
+1. Téléchargez l’APK sur le téléphone et ouvrez-le depuis Téléchargements.
+2. Si Android le demande, autorisez temporairement l’installation depuis l’application utilisée pour ouvrir le fichier.
+3. Appuyez sur Installer, puis ouvrez UrbaTrame.
+Les exports créés dans l’application sont enregistrés dans Téléchargements/UrbaTrame.
+
+L’APK est signé pour installation directe et tests, pas pour publication sur Google Play. Les données locales du navigateur sont conservées par appareil; désinstaller l’application peut les supprimer.

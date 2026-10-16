@@ -1,0 +1,48 @@
+{
+  "name": "urbatrame-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application de bureau UrbaTrame connectée au service en ligne",
+  "author": "UrbaTrame",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:windows": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "44.8.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.urbatrame.desktop",
+    "productName": "UrbaTrame",
+    "directories": {
+      "output": "../../release-files/windows"
+    },
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "electronLanguages": ["en-US", "fr"],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "../assets/urbatrame.ico",
+      "artifactName": "UrbaTrame-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UrbaTrame",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
