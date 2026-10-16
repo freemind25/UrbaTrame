@@ -5,13 +5,13 @@
 **UrbaTrame** aide à lire et analyser un site urbain à partir de données cartographiques et territoriales. L’application rassemble des planches d’analyse, une visualisation 3D interactive et un atelier intégré pour explorer un lieu, consulter l’atlas administratif GADM et produire des livrables exploitables.
 
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/freemind25/freemap/actions/workflows/ci.yml/badge.svg)](https://github.com/freemind25/freemap/actions/workflows/ci.yml)
 
 ## Fonctionnalités
 
 ### Analyser le tissu urbain
 
-- **45 analyses cartographiques** : voirie, occupation du sol, tissu urbain, densité, volumes bâtis, orientations, points d’intérêt, mobilité, bruit, ensoleillement, relief, climat et rose des vents NASA POWER/MERRA-2 à 10 m.
+- **46 analyses cartographiques** : voirie, occupation du sol, tissu urbain, densité, volumes bâtis, orientations, points d’intérêt, mobilité, bruit, ensoleillement, relief, climat et rose des vents NASA POWER/MERRA-2 à 10 m.
+- **Occupation des bâtiments OpenBuildingMap** : empreintes coloriées par classe d’usage, parts classées/inconnues et synthèse des catégories, dans une couche facultative distincte des données OSM.
 - **8 planches composées Max au format A3 paysage** : carte de contexte, pôles urbains, grille de densité, axonométrie annotée, encarts d’insertion, cônes de vue indicatifs, zonage fonctionnel OSM non réglementaire et analyse radiale.
 - **Synthèse quantitative du site** : emprises bâties, espaces verts, linéaires de voirie, équipements, transports, relief et climat disponibles.
 - **Scénario de capacité indicatif** : l’utilisateur saisit la surface du terrain, le FAR/COS, l’emprise et le nombre de niveaux; le coût n’est calculé que si un coût unitaire est fourni. Ces hypothèses ne valent pas autorisation réglementaire.
@@ -66,23 +66,13 @@ Les exemples ci-dessous montrent des planches d’analyse et des livrables de l�
 
 ## Données et limites
 
-UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des limites administratives **GADM**, des données de relief **AWS Terrarium**, des séries climatiques **NASA POWER** et une rose des vents issue de **MERRA-2**. La rose décrit le flux régional à 10 m; elle ne modélise pas les effets locaux des bâtiments et des rues. Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
+UrbaTrame s’appuie sur des données cartographiques d’**OpenStreetMap**, des empreintes et classes d’occupation **OpenBuildingMap**, des limites administratives **GADM**, des données de relief **AWS Terrarium**, des séries climatiques **NASA POWER** et une rose des vents issue de **MERRA-2**. La rose décrit le flux régional à 10 m; elle ne modélise pas les effets locaux des bâtiments et des rues. OpenBuildingMap est une couche facultative distincte des objets OSM; le flux public d’occupation ne fournit pas ici les hauteurs, surfaces de plancher ou la provenance par bâtiment. Les données OBM sont sous ODbL 1.0 : l’usage non commercial n’exonère ni d’attribution ni des conditions de partage à l’identique applicables aux bases dérivées publiées. Les données GADM sont utilisées selon l’autorisation commerciale et de redistribution confirmée pour UrbaTrame. La disponibilité et le niveau de détail varient selon les lieux et les sources consultées.
 
 Les parcelles ne sont affichées que si leurs limites sont présentes dans OpenStreetMap. UrbaTrame **ne crée ni ne complète de limites juridiques ou cadastrales** : les cartes et maquettes ne remplacent pas un relevé de géomètre. Toute publication utilisant des données OpenStreetMap doit conserver l’attribution **© OpenStreetMap contributors**.
 
-## Essayer l’application
+## Accès
 
-Pour lancer l’application localement, Node.js 20.11 ou une version ultérieure est nécessaire :
-
-```bash
-git clone https://github.com/freemind25/freemap.git
-cd freemap
-npm start
-```
-
-Ouvrez ensuite <http://localhost:4173>. Pour afficher directement l’exemple intégré d’El Khroub, utilisez <http://localhost:4173/?sample=1>.
-
-Dans la configuration actuelle, les **45 analyses sont accessibles sans compte, code de licence ni quota**.
+L’exemple intégré d’El Khroub permet de découvrir les analyses et les exports. Dans la configuration actuelle, les **46 analyses sont accessibles sans compte, code de licence ni quota**.
 
 ## Documentation
 

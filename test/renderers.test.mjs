@@ -34,6 +34,30 @@ describe('jeu de données du banc d\'essai', () => {
   });
 });
 
+describe('rendu OpenBuildingMap', () => {
+  test('dessine la couche d’occupation avec une attribution qui reste dans le SVG exporté', () => {
+    const site = { lat: sample.site.lat, lon: sample.site.lon, radius: sample.site.R, shape: 'circle' };
+    const d = render('obmoccupancy', {
+      obm: {
+        ok: true, site, featureCount: 1, tilesLoaded: 1, tilesRequested: 1,
+        partial: false, featuresTruncated: false,
+        features: [{
+          id: '123', occupancy: 'RES1', category: 'RES',
+          rings: [[
+            [site.lat - 0.0001, site.lon - 0.0001], [site.lat - 0.0001, site.lon + 0.0001],
+            [site.lat + 0.0001, site.lon + 0.0001], [site.lat + 0.0001, site.lon - 0.0001]
+          ]]
+        }]
+      }
+    });
+    assert.match(d, /OpenBuildingMap · GFZ Data Services · © OpenStreetMap contributors · ODbL 1\.0/);
+    assert.match(d, /Classe inconnue ≠ absence de bâtiment/);
+    assert.match(d, /textLength="232" lengthAdjust="spacingAndGlyphs"/);
+    assert.match(d, /fill="#C85D50"/);
+    assert.match(d, /<path d="M/);
+  });
+});
+
 describe('rose des vents et course solaire', () => {
   test('la rose représente les secteurs réels, la période et le vent dominant', () => {
     const svg = render('wind');

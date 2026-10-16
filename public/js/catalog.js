@@ -1,5 +1,5 @@
 /* Freemap · catalogue des analyses
-   Les 45 entrées reprises du plan fonctionnel décrit dans le rapport.
+   Les 46 entrées reprises du plan fonctionnel décrit dans le rapport.
    `impl:false` ⇒ sur la feuille de route v0.2 (affichée mais non rendue).
    tier : 'free' (essai, filigrané) · 'pro' · 'max'. */
 (function (G) {
@@ -22,6 +22,7 @@
     /* ── usage & vie urbaine ── */
     { id: 'poiheat', nom: 'Chaleur des POI', en: 'POI density heat', sub: 'concentration des services', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
     { id: 'poitype', nom: 'Types de POI', en: 'POI type map', sub: 'catégories de destinations', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
+    { id: 'obmoccupancy', nom: 'Occupation des bâtiments', en: 'Building occupancy', sub: 'empreintes OBM · usages et classes inconnues', enSub: 'OBM footprints · uses and unknown classes', tag: 'OBM', tier: 'free', g: 'usage', impl: true },
     { id: 'vitality', nom: 'Vitalité des rues', en: 'Street vitality', sub: 'activité riveraine par tronçon', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
     { id: 'nodes', nom: 'Analyse nodale', en: 'Node analysis', sub: 'carrefours et polarités', tag: 'SIG', tier: 'pro', g: 'usage', impl: true },
     { id: 'sitemap', nom: 'Carte annotée', en: 'Annotated site map', sub: 'équipements et distances', tag: 'CARTE', tier: 'pro', g: 'usage', impl: true },

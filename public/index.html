@@ -14,6 +14,7 @@
 <script src="js/vue3d.js"></script>
 <script src="js/renderers-core.js"></script>
 <script src="js/renderers-pro.js"></script>
+<script src="js/renderers-obm.js"></script>
 <script src="js/renderers-boards.js"></script>
 </head>
 <body>
@@ -206,8 +207,8 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
     <button class="x" data-close aria-label="Fermer">×</button>
     <h2 id="plansTitle" data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
-    <p class="lead" data-fr="4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur."
-       data-en="4 watermarked analyses are always available. The rest require a server-signed licence.">4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur.</p>
+    <p class="lead" data-fr="5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur."
+       data-en="5 free analyses, including OpenBuildingMap building occupancy. The rest require a server-signed licence.">5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur.</p>
     <div id="planBody"></div>
   </div>
 </section>
@@ -223,10 +224,10 @@
           data-en="<b>Site</b>: the radius sets the requested extent; some analyses are capped (1500–3000 m) and get skipped."></li>
       <li data-fr="Date solaire : choisissez le jour et l'heure; ils commandent la course du soleil et les ombres des rendus 2D et 3D."
           data-en="Solar date: choose the day and hour; they drive the sun path and shadows in 2D and 3D views."></li>
-      <li data-fr="<b>Analyses</b> : 4 gratuites + 33 Pro + 8 planches composées Max au format A3 paysage."
-          data-en="<b>Analyses</b>: 4 free + 33 Pro + 8 composed Max boards in A3 landscape format."></li>
-      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, rose des vents MERRA-2 à 10 m (flux régional, pas local) et altimétrie Terrarium (SRTM/USGS)."
-          data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, MERRA-2 wind rose at 10 m (regional, not local flow), and Terrarium elevation (SRTM/USGS)."></li>
+      <li data-fr="<b>Analyses</b> : 5 gratuites + 33 Pro + 8 planches composées Max au format A3 paysage."
+          data-en="<b>Analyses</b>: 5 free + 33 Pro + 8 composed Max boards in A3 landscape format."></li>
+      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), couche facultative OpenBuildingMap d’occupation bâtie (ODbL 1.0), climat NASA POWER, rose des vents MERRA-2 à 10 m (flux régional, pas local) et altimétrie Terrarium (SRTM/USGS)."
+          data-en="<b>Data</b>: OpenStreetMap (Overpass), optional OpenBuildingMap building-occupancy layer (ODbL 1.0), NASA POWER climate, MERRA-2 wind rose at 10 m (regional, not local flow), and Terrarium elevation (SRTM/USGS)."></li>
       <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
           data-en="<b>Licences</b>: Ed25519 token signed by the server, bound to this device. Demo codes: cs_demo_pro, cs_demo_max, cs_demo_lifetime."></li>
       <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
@@ -242,8 +243,8 @@
 <div id="devPanel" class="dev"></div>
 
 <footer class="foot">
-  <span data-fr="Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org"
-        data-en="Map data © OpenStreetMap (ODbL) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
+  <span data-fr="Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org"
+        data-en="Map data © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, optional occupancy layer) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
 </footer>
 
 <script type="module" src="js/app.js"></script>

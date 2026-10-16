@@ -9,7 +9,7 @@
    Aucune dépendance DOM : utilisable en Node comme en ESM navigateur.
    ───────────────────────────────────────────────────────────────────────── */
 
-export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric'];
+export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy'];
 
 export const MAX_IDS = [
   'mappingboard', 'urbanstations', 'urbangrid', 'axocallout',
@@ -73,6 +73,9 @@ export const DEPS = {
   contour: ['buildings', 'terrain'],
   aspect: ['buildings', 'terrain'],
   wireframe: ['buildings', 'terrain'],
+
+  /* ── Sources d’occupation hors OSM/Overpass ── */
+  obmoccupancy: [],
 
   /* ── Rose NASA POWER régionale à 10 m (aucune couche OSM requise) ── */
   wind: [],

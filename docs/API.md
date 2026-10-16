@@ -8,7 +8,7 @@ commun à l'instance, qui permet de rattacher un incident à un journal serveur.
 
 État du service et paramètres publics. Le champ `access` dit le régime en
 vigueur : `open` (période d'essai ouverte — toutes les analyses, sans licence
-ni quota) ou `licence` (4 gratuites / Pro / Max). Voir `docs/ACCES.md`.
+ni quota) ou `licence` (5 analyses gratuites / Pro / Max). Voir `docs/ACCES.md`.
 
 ```json
 {
@@ -17,10 +17,10 @@ ni quota) ou `licence` (4 gratuites / Pro / Max). Voir `docs/ACCES.md`.
   "trace": "9f2c1a4e",
   "pub": "…",                       // clé publique Ed25519 (base64, 32 octets)
   "access": "open",                 // « open » (période d'essai) ou « licence »
-  "free": ["roads", "landuse", "gw", "fabric"],
+  "free": ["roads", "landuse", "gw", "fabric", "obmoccupancy"],
   "max": ["mappingboard", "…"],
   "limits": { "roads": 3000, "poiheat": 1500, "…" },
-  "sources": { "overpass": "2 miroirs", "nominatim": true, "nasa": true, "windrose": true, "terrain": true },
+  "sources": { "overpass": "2 miroirs", "nominatim": true, "nasa": true, "windrose": true, "terrain": true, "openBuildingMap": true },
   "codes": ["cs_demo_pro", "cs_demo_max", "cs_demo_lifetime", "cs_etude_2026"]
 }
 ```
@@ -145,6 +145,34 @@ cartographique OSM n'est planifiée pour cette analyse. La réponse contient
 indiquent d'où vient le vent. C'est une statistique régionale de la grille
 MERRA-2, pas une simulation locale du vent entre les bâtiments.
 
+### `action: "obmoccupancy"`
+
+Charge la couche publique d’empreintes et de classes d’occupation
+OpenBuildingMap, séparément des groupes Overpass/OSM. Le client envoie
+`device`, `lat`, `lon`, `radius` (200 à 3 000 m) et `shape` (`circle`, `square`
+ou `rect`). Le serveur choisit des tuiles d’occupation au zoom 14, en abaissant
+jusqu’au zoom 12 pour rester sous 16 tuiles; les réponses de tuiles sont mises
+en cache en mémoire cinq minutes.
+
+La réponse contient notamment les champs `ok`, `source`, `license`,
+`attribution`, `site`, `tileZoom`, `tilesRequested`, `tilesLoaded`, `tilesFailed`,
+`partial`, `featureCount`, `returnedFeatureCount`, `featuresTruncated`,
+`knownOccupancyCount`, `unknownOccupancyCount`, `classifiedOccupancyPct`,
+`occupancyCounts` et `features`. `classifiedOccupancyPct` est la part des empreintes
+OBM retournées dont la
+classe d’occupation est renseignée — **pas** un taux de complétude cartographique
+ni une confiance par bâtiment. Les comptes utilisent le centroïde des polygones;
+la géométrie de tuile peut être généralisée ou coupée aux bords.
+
+Le flux public inspecté fournit les classes `occupancy`, l’identifiant `osm_id`
+et les empreintes; il ne fournit pas ici les hauteurs, surfaces de plancher ou
+la provenance par bâtiment. Les empreintes OBM ne sont pas des parcelles ou des
+limites cadastrales. Une classe inconnue ne signifie pas qu’il n’existe pas de
+bâtiment. Erreurs : `OBM_SOURCE_UNAVAILABLE` (502), `OBM_TILE_LIMIT` (400),
+`INVALID_SHAPE` (400), ainsi que les erreurs de coordonnées et de rayon.
+L’attribution est visible dans l’interface et les exports; les données sont
+sous ODbL 1.0 même pour un usage non commercial.
+
 ## `POST /` (ou `/api/util`)
 
 Corps `application/x-www-form-urlencoded`.
@@ -178,6 +206,9 @@ Corps `application/x-www-form-urlencoded`.
 | `TERRAIN_UNAVAILABLE` | 502 | tuiles d'altitude indisponibles |
 | `NO_CLIMATE` | 502 | série climatique indisponible |
 | `NO_WINDROSE` | 502 | rose des vents régionale indisponible |
+| `OBM_SOURCE_UNAVAILABLE` | 502 | tuiles d’occupation OpenBuildingMap indisponibles |
+| `OBM_TILE_LIMIT` | 400 | emprise au-delà du plafond de tuiles |
+| `INVALID_SHAPE` | 400 | forme d’emprise non prise en charge |
 
 Les codes sont traduits en français et en anglais dans
 `public/js/routes.mjs` (`ERR`), qui porte aussi les délais d'attente par

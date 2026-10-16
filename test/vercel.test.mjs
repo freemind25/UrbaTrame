@@ -156,7 +156,7 @@ describe('fonctions serverless', () => {
     assert.equal(res.statusCode, 200);
     assert.equal(res.json.ok, true);
     assert.equal(Buffer.from(res.json.pub, 'base64').length, 32);
-    assert.deepEqual(res.json.free, ['roads', 'landuse', 'gw', 'fabric']);
+    assert.deepEqual(res.json.free, ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy']);
   });
 
   test('POST /analysis/2d : check sans identifiants → essai', async () => {

@@ -1,6 +1,6 @@
 /* Chargement du noyau de rendu dans Node, exactement comme le navigateur :
-   les quatre scripts classiques (catalog, engine, renderers-core, renderers-pro)
-   sont évalués tels quels et s'installent sur globalThis. Aucune transformation,
+   les scripts classiques du catalogue, moteur et renderers sont évalués tels quels
+   et s'installent sur globalThis. Aucune transformation,
    aucune étape de build — ce que le banc d'essai exécute est ce qui est servi. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import { normalizeElements, dedupe } from '../public/js/osm.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const KERNEL_FILES = ['catalog.js', 'engine.js', 'vue3d.js', 'renderers-core.js', 'renderers-pro.js', 'renderers-boards.js'];
+const KERNEL_FILES = ['catalog.js', 'engine.js', 'vue3d.js', 'renderers-core.js', 'renderers-pro.js', 'renderers-obm.js', 'renderers-boards.js'];
 let loaded = false;
 
 export function loadKernel() {

@@ -4,6 +4,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 import { plan, FREE_IDS, MAX_IDS, LIMITS, VERSION } from './plan-2d.mjs';
 import { estimateDataPreview, layerLabel } from './data-preview.mjs';
+import { OBM_CATEGORIES, obmCategoryLabel } from './openbuildingmap.mjs';
 import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear, cacheGet } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
@@ -46,12 +47,13 @@ const S = {
   terrain: null,
   climate: null,
   windrose: null,
+  obm: null,
   mapLoaded: false,
   dataSite: null,                                // contexte exact des couches déjà chargées
   site: { lat: null, lon: null, R: 600, name: '' },
   shape: store.get('shape', 'circle'),
   poly: null,                                  // polygone de site (mode poly)
-  sel: new Set(store.get('sel', FREE_IDS.slice())),
+  sel: new Set(store.get('sel', ['roads', 'landuse', 'gw', 'fabric'])),
   pal: store.get('pal', {}),                   // id → index de palette
   names: store.get('names', {}),               // id → titre personnalisé
   noText: new Set(store.get('noText', [])),
@@ -290,8 +292,8 @@ function renderDataPreviewEmpty(message, badge, invalid = false) {
   $('#dataPreviewStats').replaceChildren();
   $('#dataPreviewRows').replaceChildren();
   $('#dataPreviewNote').textContent = T(
-    'Cet aperçu est local : aucune requête OSM, NASA POWER ou relief n’est lancée avant « Générer ».',
-    'This preview is local: no OSM, NASA POWER or terrain request is made before “Generate”.'
+    'Cet aperçu est local : aucune requête OSM, OpenBuildingMap, NASA POWER ou relief n’est lancée avant « Générer ».',
+    'This preview is local: no OSM, OpenBuildingMap, NASA POWER or terrain request is made before “Generate”.'
   );
 }
 function renderDataPreview(estimate, cacheStates, checking) {
@@ -371,7 +373,15 @@ function renderDataPreview(estimate, cacheStates, checking) {
       T('Requête prévue · disponibilité réseau non vérifiée', 'Request planned · network availability not checked')
     );
   }
-  if (!estimate.groups.length && !estimate.climate && !estimate.windrose && !estimate.terrain) {
+  if (estimate.obm) {
+    addRow(
+      'OpenBuildingMap · occupation',
+      T(`Empreintes et classes d’occupation · zoom ${estimate.obm.zoom} · ≈ ${estimate.obm.tiles} tuile(s)`,
+        `Footprints and occupancy classes · zoom ${estimate.obm.zoom} · ≈ ${estimate.obm.tiles} tile(s)`),
+      T('Requête prévue · réseau non testé', 'Request planned · network not tested')
+    );
+  }
+  if (!estimate.groups.length && !estimate.climate && !estimate.windrose && !estimate.terrain && !estimate.obm) {
     addRow(T('Calcul local', 'Local calculation'),
       T('Aucune couche ou série externe nécessaire pour cette sélection.', 'No external layer or series is required for this selection.'),
       T('Pas de téléchargement prévu', 'No download planned'), 'hit');
@@ -385,7 +395,7 @@ function renderDataPreview(estimate, cacheStates, checking) {
       T(`Non exécutée à ${S.site.R} m`, `Not run at ${S.site.R} m`), 'miss');
   }
   $('#dataPreviewNote').textContent = T(
-    'La boîte interrogée est rectangulaire autour du site; sa surface peut dépasser le cercle affiché. L’indice combine cette surface, le nombre de lots Overpass et les requêtes annexes — ce n’est ni un nombre prédit d’objets ni une taille de fichier. Les comptes réels varient selon la densité cartographique. Le cache navigateur exact (7 jours) est indicatif : selon le mode, le serveur peut être interrogé en premier.',
+    'La boîte interrogée est rectangulaire autour du site; sa surface peut dépasser le cercle affiché. L’indice combine cette surface, le nombre de lots Overpass et les requêtes annexes — ce n’est ni un nombre prédit d’objets ni une taille de fichier. Le zoom OBM peut baisser pour plafonner le nombre de tuiles; disponibilité et densité restent inconnues avant le chargement. Les comptes réels varient selon la densité cartographique. Le cache navigateur exact (7 jours) est indicatif : selon le mode, le serveur peut être interrogé en premier.',
     'The query box is rectangular around the site and can exceed the displayed circle. The index combines its area, Overpass batch count and ancillary requests—it is not a predicted feature count or file size. Actual counts vary with mapped density. The exact browser cache (7 days) is indicative: depending on access mode, the server may be queried first.'
   );
 }
@@ -432,7 +442,7 @@ function ctxFor(id) {
     shape: S.shape, sitePolygon: S.poly,
     isPro: isPaid(), lang: S.lang === 'en' ? 'en' : 'fr',
     watermark: !isOpenAccess(), time: S.time, sunDate: S.sunDate, siteName: S.site.name,
-    D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, noSiteMark: false
+    D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, obm: S.obm, noSiteMark: false
   };
 }
 function renderOne(id) {
@@ -441,7 +451,7 @@ function renderOne(id) {
   let svg;
   try { svg = fn(ctxFor(id), S.pal[id] || 0); }
   catch (e) { console.error(id, e); svg = ENG.blank(ctxFor(id), 'ERREUR DE RENDU'); }
-  if (S.noText.has(id)) svg = svg.replace(/<text\b[\s\S]*?<\/text>/g, '');
+  if (S.noText.has(id) && id !== 'obmoccupancy') svg = svg.replace(/<text\b[\s\S]*?<\/text>/g, '');
   return svg;
 }
 
@@ -466,8 +476,8 @@ function renderCards() {
         <span class="tag">${a.tag}</span>
         <span class="ctl">
           ${id === 'volumes' ? `<button title="${T('ouvrir la vue 3D interactive', 'open interactive 3D view')}" data-3d>3D</button>` : ''}
-          <button title="${T('palette suivante', 'next palette')}" data-pal>◨</button>
-          <button title="${T('texte on/off', 'text on/off')}" data-txt class="${S.noText.has(id) ? 'off' : ''}">✎</button>
+          ${id === 'obmoccupancy' ? '' : `<button title="${T('palette suivante', 'next palette')}" data-pal>◨</button>`}
+          ${id === 'obmoccupancy' ? '' : `<button title="${T('texte on/off', 'text on/off')}" data-txt class="${S.noText.has(id) ? 'off' : ''}">✎</button>`}
           <button title="SVG" data-svg>SVG</button>
           <button title="PNG ×3" data-png>PNG</button>
         </span>
@@ -475,17 +485,21 @@ function renderCards() {
       <div class="body">${renderOne(id)}</div>
       <footer class="note">${id === 'wind'
         ? T('NASA POWER · MERRA-2 · 10 m · direction = provenance du vent · flux régional, pas de vent local CFD', 'NASA POWER · MERRA-2 · 10 m · direction = where wind comes from · regional flow, not local CFD')
-        : T('données © OpenStreetMap', 'data © OpenStreetMap')}</footer>`;
+        : id === 'obmoccupancy'
+          ? T('OpenBuildingMap · GFZ Data Services (2025) · © OpenStreetMap contributors · ODbL 1.0 · classe inconnue ≠ absence de bâti', 'OpenBuildingMap · GFZ Data Services (2025) · © OpenStreetMap contributors · ODbL 1.0 · unknown class ≠ no building')
+          : T('données © OpenStreetMap', 'data © OpenStreetMap')}</footer>`;
     card.querySelector('.title').addEventListener('blur', e => {
       S.names[id] = e.target.textContent.trim().slice(0, 60);
       store.set('names', S.names);
     });
-    card.querySelector('[data-pal]').addEventListener('click', () => {
+    const paletteButton = card.querySelector('[data-pal]');
+    if (paletteButton) paletteButton.addEventListener('click', () => {
       S.pal[id] = ((S.pal[id] || 0) + 1) % 6;
       store.set('pal', S.pal);
       card.querySelector('.body').innerHTML = renderOne(id);
     });
-    card.querySelector('[data-txt]').addEventListener('click', e => {
+    const textToggle = card.querySelector('[data-txt]');
+    if (textToggle) textToggle.addEventListener('click', e => {
       S.noText.has(id) ? S.noText.delete(id) : S.noText.add(id);
       store.set('noText', [...S.noText]);
       e.currentTarget.classList.toggle('off', S.noText.has(id));
@@ -819,20 +833,75 @@ function renderSiteReport() {
     ? T(
       `${reportNumber(m.buildings.count)} emprise(s) bâtie(s) OSM centrée(s) dans cette zone; ${reportArea(m.green.areaM2)} de polygones verts cartographiés; ${reportLength(m.roads.lengthM)} de voirie mesurée dans l’emprise.`,
       `${reportNumber(m.buildings.count)} OSM building footprint(s) centred in this extent; ${reportArea(m.green.areaM2)} of mapped green polygons; ${reportLength(m.roads.lengthM)} of road network measured inside the extent.`)
-    : S.windrose
+    : S.obm?.ok
       ? T(
-        'Rose des vents NASA POWER chargée pour ce point; statistique régionale à 10 m, sans calcul local autour des bâtiments.',
-        'NASA POWER wind rose loaded for this point; a regional 10 m statistic, with no local calculation around buildings.')
-      : T('Aucune couche cartographique OSM n’a été demandée dans cette génération.',
-        'No OpenStreetMap layer was requested in this generation.');
+        `${reportNumber(S.obm.featureCount)} empreinte(s) de la couche OpenBuildingMap; ${S.obm.classifiedOccupancyPct == null ? '—' : reportPercent(S.obm.classifiedOccupancyPct)} ont une classe d’occupation renseignée.`,
+        `${reportNumber(S.obm.featureCount)} OpenBuildingMap footprint(s); ${S.obm.classifiedOccupancyPct == null ? '—' : reportPercent(S.obm.classifiedOccupancyPct)} have a recorded occupancy class.`)
+      : S.windrose
+        ? T(
+          'Rose des vents NASA POWER chargée pour ce point; statistique régionale à 10 m, sans calcul local autour des bâtiments.',
+          'NASA POWER wind rose loaded for this point; a regional 10 m statistic, with no local calculation around buildings.')
+        : T('Aucune couche cartographique OSM n’a été demandée dans cette génération.',
+          'No OpenStreetMap layer was requested in this generation.');
   introText.append(place, blurb);
   const badge = document.createElement('span'); badge.className = 'report-status';
   badge.textContent = S.mapLoaded
     ? T('Indicateurs issus des données chargées', 'Indicators from loaded data')
-    : S.windrose
-      ? T('Climatologie régionale NASA POWER', 'NASA POWER regional climatology')
-      : T('Aucune couche OSM chargée', 'No OSM layer loaded');
+    : S.obm?.ok
+      ? T('Couche OpenBuildingMap chargée séparément', 'Separate OpenBuildingMap layer loaded')
+      : S.windrose
+        ? T('Climatologie régionale NASA POWER', 'NASA POWER regional climatology')
+        : T('Aucune couche OSM chargée', 'No OSM layer loaded');
   intro.append(introText, badge); host.append(intro);
+
+  if (S.obm) {
+    const obmSection = reportSection(
+      T('OpenBuildingMap · occupation des bâtiments', 'OpenBuildingMap · building occupancy'),
+      T('Couche facultative, distincte des objets OpenStreetMap interrogés par UrbaTrame.',
+        'Optional layer, kept separate from the OpenStreetMap objects queried by UrbaTrame.')
+    );
+    if (!S.obm.ok) {
+      obmSection.append(reportNote(T(
+        'La couche OpenBuildingMap n’a pas pu être chargée. Les analyses OSM déjà chargées restent indépendantes.',
+        'The OpenBuildingMap layer could not be loaded. Any loaded OSM analyses remain independent.'), 'warning'));
+    } else {
+      const obmGrid = document.createElement('div'); obmGrid.className = 'report-metrics report-metrics-compact';
+      const classifiedText = S.obm.classifiedOccupancyPct == null ? '—' : reportPercent(S.obm.classifiedOccupancyPct);
+      obmGrid.append(
+        reportMetric(T('Empreintes OpenBuildingMap', 'OpenBuildingMap footprints'), reportNumber(S.obm.featureCount),
+          T(`centroïdes dans l’emprise · tuiles z${S.obm.tileZoom}`, `centroids in extent · z${S.obm.tileZoom} tiles`)),
+        reportMetric(T('Occupation classée', 'Occupancy classified'), classifiedText,
+          T(`${reportNumber(S.obm.knownOccupancyCount)} empreinte(s) sur ${reportNumber(S.obm.featureCount)} · uniquement dans la couche OBM`,
+            `${reportNumber(S.obm.knownOccupancyCount)} of ${reportNumber(S.obm.featureCount)} footprints · OBM layer only`)),
+        reportMetric(T('Classe inconnue / non renseignée', 'Unknown / unreported class'), reportNumber(S.obm.unknownOccupancyCount),
+          T('Ne signifie pas qu’il n’y a pas de bâtiment.', 'Does not mean there is no building.')),
+        reportMetric(T('Tuiles reçues', 'Tiles received'), `${reportNumber(S.obm.tilesLoaded)} / ${reportNumber(S.obm.tilesRequested)}`,
+          S.obm.partial ? T('Réponse partielle', 'Partial response') : T('Toutes les tuiles demandées', 'All requested tiles'))
+      );
+      obmSection.append(obmGrid);
+      const categories = OBM_CATEGORIES
+        .map(item => ({ item, count: S.obm.occupancyCounts?.[item.key] || 0 }))
+        .filter(entry => entry.count > 0)
+        .sort((a, b) => b.count - a.count);
+      if (categories.length) {
+        const categoryLine = document.createElement('p'); categoryLine.className = 'report-categories';
+        const label = document.createElement('strong');
+        label.textContent = T('Classes d’occupation : ', 'Occupancy classes: ');
+        categoryLine.append(label, document.createTextNode(categories
+          .map(({ item, count }) => `${obmCategoryLabel(item.key, S.lang)} (${reportNumber(count)})`).join(' · ')));
+        obmSection.append(categoryLine);
+      }
+      if (S.obm.partial || S.obm.featuresTruncated) {
+        obmSection.append(reportNote(T(
+          `Résultat incomplet : ${reportNumber(S.obm.tilesFailed)} tuile(s) en échec${S.obm.featuresTruncated ? ' · affichage des empreintes plafonné, comptages calculés sur les tuiles reçues' : ''}.`,
+          `Incomplete result: ${reportNumber(S.obm.tilesFailed)} tile(s) failed${S.obm.featuresTruncated ? ' · displayed footprints capped; counts use the received tiles' : ''}.`), 'warning'));
+      }
+      obmSection.append(reportNote(T(
+        'La part classée décrit seulement les empreintes OBM retournées dans cette emprise; ce n’est pas un taux de complétude du bâti. Les tuiles publiques fournissent ici la classe d’occupation et l’identifiant OSM, pas la hauteur, la surface de plancher ni la provenance par bâtiment. Une classe inconnue ou l’absence d’empreintes renvoyées ne prouve pas l’absence de bâtiments; les empreintes OBM ne sont pas des parcelles ou limites cadastrales.',
+        'The classified share describes only the OBM footprints returned within this extent; it is not a building-map completeness rate. The public tiles expose occupancy class and OSM identifier here, not height, floorspace or per-building provenance. An unknown class or zero returned footprints is not evidence of absence; OBM footprints are not plots or cadastral boundaries.'), 'method-note'));
+    }
+    host.append(obmSection);
+  }
 
   if (S.mapLoaded) {
   const morph = reportSection(T('Indicateurs urbains', 'Urban indicators'),
@@ -891,14 +960,29 @@ function renderSiteReport() {
   host.append(env);
 
   renderScenario(host);
-  host.append(reportNote(S.mapLoaded ? T(
-    'Méthode & limites : les emprises bâties et vertes sont comptées lorsque leur centroïde tombe dans la zone; leur surface entière est sommée, sans découpe au contour. Les superpositions OSM et les cours intérieures non soustraites peuvent augmenter les totaux. La pluie annualisée est une moyenne quotidienne NASA POWER × 365. Les hauteurs ne sont utilisées que lorsqu’elles sont cartographiées. La rose des vents MERRA-2 à 10 m décrit un flux régional et ne simule pas le vent local entre les bâtiments.',
-    'Method & limits: building and green polygons are counted when their centroid falls inside the extent; whole areas are summed, without clipping at the boundary. OSM overlaps and un-subtracted inner rings can raise totals. Annualised rainfall is the NASA POWER daily mean × 365. Heights are used only when mapped. The MERRA-2 wind rose at 10 m describes regional flow; it does not simulate local wind between buildings.') : T(
-    'Limite : la rose des vents NASA POWER/MERRA-2 à 10 m est une statistique régionale; elle ne représente pas les effets locaux du bâti, des rues ou du relief fin.',
-    'Limitation: the NASA POWER/MERRA-2 wind rose at 10 m is a regional statistic; it does not represent local effects of buildings, streets or fine-scale terrain.'), 'method-note'));
-  host.append(reportNote(T(
-    'Sources : © OpenStreetMap contributors (ODbL) · climat et rose des vents NASA POWER (MERRA-2, 10 m) · relief Terrarium (SRTM/USGS). La zone affichée est une emprise d’analyse, pas une limite foncière/cadastrale. Aucun zonage local, droit à construire ou coût de marché n’est inféré.',
-    'Sources: © OpenStreetMap contributors (ODbL) · NASA POWER climate and wind rose (MERRA-2, 10 m) · Terrarium terrain (SRTM/USGS). The displayed shape is a study extent, not a cadastral/property boundary. No local zoning, development right or market cost is inferred.'), 'method-note'));
+  const generalMethod = S.mapLoaded ? T(
+    'Méthode & limites : les emprises bâties et vertes sont comptées lorsque leur centroïde tombe dans la zone; leur surface entière est sommée, sans découpe au contour. Les superpositions OSM et les cours intérieures non soustraites peuvent augmenter les totaux. Les hauteurs ne sont utilisées que lorsqu’elles sont cartographiées.',
+    'Method & limits: building and green polygons are counted when their centroid falls inside the extent; whole areas are summed, without clipping at the boundary. OSM overlaps and un-subtracted inner rings can raise totals. Heights are used only when mapped.')
+    : S.windrose ? T(
+      'Limite : la rose des vents NASA POWER/MERRA-2 à 10 m est une statistique régionale; elle ne représente pas les effets locaux du bâti, des rues ou du relief fin.',
+      'Limitation: the NASA POWER/MERRA-2 wind rose at 10 m is a regional statistic; it does not represent local effects of buildings, streets or fine-scale terrain.')
+      : S.obm?.ok ? T(
+        'Méthode : les empreintes OBM sont retenues par centroïde dans l’emprise; le dessin des tuiles peut être généralisé et n’est pas découpé au contour.',
+        'Method: OBM footprints are selected by centroid within the extent; tile geometry may be generalized and is not clipped to the boundary.')
+        : '';
+  if (generalMethod) host.append(reportNote(generalMethod, 'method-note'));
+  const sourceAttribution = [
+    ...(S.mapLoaded ? ['© OpenStreetMap contributors (ODbL)'] : []),
+    ...(S.obm?.ok ? ['OpenBuildingMap, GFZ Data Services (2025), ODbL 1.0 · doi.org/10.5880/GFZ.LKUT.2025.002'] : []),
+    ...(S.climate || S.windrose ? ['NASA POWER / MERRA-2'] : []),
+    ...(S.terrain ? ['Terrarium (SRTM/USGS)'] : [])
+  ];
+  const sourceNote = `${sourceAttribution.length
+    ? T('Sources : ', 'Sources: ') + sourceAttribution.join(' · ')
+    : T('Aucune source externe n’a été chargée.', 'No external data source was loaded.')}. ${T(
+    'La zone affichée est une emprise d’analyse, pas une limite foncière/cadastrale. Aucun zonage local, droit à construire ou coût de marché n’est inféré.',
+    'The displayed shape is a study extent, not a cadastral/property boundary. No local zoning, development right or market cost is inferred.')}`;
+  host.append(reportNote(sourceNote, 'method-note'));
 }
 function openSiteReport() {
   renderSiteReport();
@@ -918,6 +1002,7 @@ function stages(planObj, extra) {
   if (planObj.climate) list.push({ id: 'climate', fr: 'Lecture des séries NASA POWER', en: 'Reading NASA POWER series' });
   if (planObj.windrose) list.push({ id: 'windrose', fr: 'Calcul de la rose des vents NASA POWER', en: 'Loading NASA POWER wind rose' });
   if (planObj.terrain) list.push({ id: 'terrain', fr: 'Échantillonnage de l\'altimétrie', en: 'Sampling elevation' });
+  if (planObj.selected.includes('obmoccupancy')) list.push({ id: 'obmoccupancy', fr: 'Chargement des tuiles OpenBuildingMap', en: 'Loading OpenBuildingMap tiles' });
   list.push({ id: 'render', fr: 'Composition des diagrammes', en: 'Composing diagrams' });
   return list;
 }
@@ -955,7 +1040,12 @@ async function generate() {
     ...S.site, shape: S.shape,
     polygon: S.poly ? JSON.parse(JSON.stringify(S.poly)) : null
   };
-  if (p.windrose) S.windrose = null;
+  /* Une génération fraîche ne doit pas réutiliser les séries d'un autre site
+     ou d'une précédente sélection dans la synthèse. */
+  S.climate = null;
+  S.windrose = null;
+  S.terrain = null;
+  S.obm = null;
 
   S.busy = true;
   const list = stages(p, null);
@@ -987,8 +1077,11 @@ async function generate() {
           throw e;
         }
       }
-      /* essai gratuit : le serveur n'est pas indispensable, on continue en direct */
-      log('serveur indisponible → Overpass public directement (' + code + ')');
+      /* essai gratuit : les lots OSM peuvent partir directement; les sources
+         annexes restent appelées séparément et signaleront leurs propres échecs. */
+      log(p.groups.length
+        ? 'serveur indisponible → Overpass public directement (' + code + ')'
+        : 'session indisponible (' + code + ')');
     }
 
     /* 2 · données OSM, par groupe */
@@ -1042,6 +1135,19 @@ async function generate() {
         state.terrain = 'done';
       } catch (e) { S.terrain = null; state.terrain = 'failed'; log('altimétrie indisponible (' + (e.error || e.message) + ')'); }
     }
+    if (p.selected.includes('obmoccupancy')) {
+      state.obmoccupancy = 'active'; drawLoader(list, state, t0);
+      try {
+        S.obm = await S.routes.obmOccupancy(S.site.lat, S.site.lon, S.site.R, S.shape, S.device);
+        log(`OpenBuildingMap · ${S.obm.featureCount} empreintes · ${S.obm.knownOccupancyCount} classes renseignées · tuiles z${S.obm.tileZoom} ${S.obm.tilesLoaded}/${S.obm.tilesRequested}`);
+        state.obmoccupancy = 'done';
+      } catch (e) {
+        const error = e.error || e.message || 'OBM_SOURCE_UNAVAILABLE';
+        S.obm = { ok: false, error, site: { ...requestedSite, radius: requestedSite.R } };
+        state.obmoccupancy = 'failed';
+        log('OpenBuildingMap indisponible (' + error + ')');
+      }
+    }
 
     S.dataSite = requestedSite;
     state.render = 'done';
@@ -1075,6 +1181,7 @@ async function loadSample() {
     $('#radius').value = d.site.R; $('#radiusOut').textContent = d.site.R + ' m';
     S.D = normalizeElements(null, dedupe(d.elements));
     S.mapLoaded = true;
+    S.obm = null;
     S.terrain = d.terrain || null;
     S.climate = d.climate || null;
     S.cacheInfo = T('exemple embarqué', 'bundled sample');
@@ -1301,7 +1408,7 @@ function setWorkspaceControls(record) {
   const radiusWrap = $('#radiusWrap'); if (radiusWrap) radiusWrap.style.opacity = S.shape === 'poly' ? '.45' : '1';
 }
 function clearWorkspaceResults() {
-  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null;
+  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null; S.obm = null;
   S.mapLoaded = false; S.dataSite = null; S.cacheInfo = '';
 }
 function finishWorkspaceLoad() {
@@ -1477,7 +1584,7 @@ function wireUI() {
   $('#gen').addEventListener('click', generate);
   $('#clear').addEventListener('click', () => {
     S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
-    S.terrain = null; S.climate = null; S.windrose = null; S.mapLoaded = false; S.dataSite = null;
+    S.terrain = null; S.climate = null; S.windrose = null; S.obm = null; S.mapLoaded = false; S.dataSite = null;
     renderCards(); updateGenBtn();
     if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
     log('carte vidée');
@@ -1606,7 +1713,7 @@ async function init() {
   }
   log(isOpenAccess()
     ? `prêt · ${T('accès libre — toutes les analyses, sans filigrane', 'open access — every analysis, no watermark')}`
-    : `prêt · ${T('essai gratuit = 4 analyses filigranées', 'free trial = 4 watermarked analyses')}`);
+    : `prêt · ${T('essai gratuit = 5 analyses filigranées', 'free trial = 5 watermarked analyses')}`);
 }
 
 init();

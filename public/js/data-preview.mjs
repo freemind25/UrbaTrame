@@ -4,6 +4,7 @@
    pas été exécutée; seules l'emprise, les dépendances et la charge indicative
    sont calculées ici. */
 import { LAYER_NAMES, plan } from './plan-2d.mjs';
+import { getObmTilePlan } from './openbuildingmap.mjs';
 
 export const TERRAIN_GRID_SIZE = 24;
 export const CLIMATE_DAYS = 3 * 365;
@@ -13,6 +14,11 @@ export const WINDROSE_SECTORS = 16;
 
 export function terrainZoomForRadius(radius) {
   return radius <= 700 ? 14 : radius <= 1600 ? 13 : 12;
+}
+
+export function estimateObmTiles(lat, lon, radius) {
+  const plan = getObmTilePlan(lat, lon, radius);
+  return { zoom: plan.z, tiles: plan.tiles.length, maxTiles: plan.maxTiles };
 }
 
 const lonToX = (lon, z) => (lon + 180) / 360 * 2 ** z;
@@ -65,13 +71,16 @@ export function estimateDataPreview({ analysisIds, radius, lat, lon, shape = 'ci
     years: WINDROSE_YEARS,
     sectors: WINDROSE_SECTORS
   } : null;
+  const obm = requestPlan.selected.includes('obmoccupancy')
+    ? estimateObmTiles(lat, lon, radius)
+    : null;
   const osmGroups = requestPlan.groups.map(group => ({
     id: group.id,
     keys: group.keys.slice(),
     query: group.query
   }));
   const keys = [...new Set(osmGroups.flatMap(group => group.keys))];
-  const ancillaryActions = Number(!!climate) + Number(!!windrose) + Number(!!terrain);
+  const ancillaryActions = Number(!!climate) + Number(!!windrose) + Number(!!terrain) + Number(!!obm);
 
   return {
     selected: requestPlan.selected,
@@ -85,6 +94,7 @@ export function estimateDataPreview({ analysisIds, radius, lat, lon, shape = 'ci
     climate,
     windrose,
     terrain,
+    obm,
     ancillaryActions,
     load: loadBand({ osmGroups: osmGroups.length, osmAreaKm2, terrainTiles: terrain?.tiles || 0, ancillaryActions })
   };

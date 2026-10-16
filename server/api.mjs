@@ -13,6 +13,7 @@ import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
 import { windrose } from './sources/windrose.mjs';
 import { terrain } from './sources/terrain.mjs';
+import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 
 /* Chaque route est exportée séparément : le serveur Node les compose,
@@ -30,7 +31,7 @@ export function createStatusHandler({ licence }) {
       limits: LIMITS,
       sources: {
         overpass: SOURCES.overpass.length + ' miroirs',
-        nominatim: true, nasa: true, windrose: true, terrain: true
+        nominatim: true, nasa: true, windrose: true, terrain: true, openBuildingMap: true
       },
       codes: licence.knownCodes()
     });
@@ -228,6 +229,28 @@ export function createAnalysisHandler({ licence, quota, runs }) {
         if (!invalid) log('windrose indisponible', e.message);
         return send(res, invalid ? 400 : 502, {
           error: invalid ? 'INVALID_LOCATION' : 'NO_WINDROSE', detail: e.message
+        });
+      }
+    }
+
+    /* ── OpenBuildingMap : couche d'occupation séparée des données OSM ── */
+    if (action === 'obmoccupancy') {
+      const lat = Number(body.lat), lon = Number(body.lon), radius = Number(body.radius);
+      const shape = body.shape || 'circle';
+      if (!['circle', 'square', 'rect'].includes(shape))
+        return send(res, 400, { error: 'INVALID_SHAPE' });
+      try { plan(['obmoccupancy'], radius, lat, lon); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+      try {
+        const t0 = Date.now();
+        const obm = await fetchOpenBuildingMap({ lat, lon, radius, shape });
+        log('OpenBuildingMap', obm.featureCount + ' empreintes', obm.tilesLoaded + '/' + obm.tilesRequested + ' tuiles', (Date.now() - t0) + ' ms');
+        return send(res, 200, obm);
+      } catch (e) {
+        const invalid = ['INVALID_LOCATION', 'SITE_CROSSES_DATELINE', 'OBM_TILE_LIMIT', 'INVALID_SHAPE'].includes(e.message);
+        if (!invalid) log('OpenBuildingMap indisponible', e.message);
+        return send(res, invalid ? 400 : 502, {
+          error: invalid ? e.message : 'OBM_SOURCE_UNAVAILABLE', detail: e.message
         });
       }
     }

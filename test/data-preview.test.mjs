@@ -40,6 +40,18 @@ describe('aperçu local de disponibilité et de charge', () => {
     assert.equal(preview.ancillaryActions, 2);
   });
 
+  test('prévoit les tuiles OBM sans réseau et les sépare des lots Overpass', () => {
+    const small = estimateDataPreview({ analysisIds: ['obmoccupancy'], radius: 600, ...SITE });
+    const large = estimateDataPreview({ analysisIds: ['obmoccupancy'], radius: 3000, ...SITE });
+    assert.deepEqual(small.groups, []);
+    assert.deepEqual(small.layerKeys, []);
+    assert.equal(small.obm.zoom, 14);
+    assert.ok(small.obm.tiles > 0 && small.obm.tiles <= small.obm.maxTiles);
+    assert.ok(large.obm.tiles <= large.obm.maxTiles);
+    assert.ok(large.obm.zoom <= small.obm.zoom);
+    assert.equal(small.ancillaryActions, 1);
+  });
+
   test('estime la grille et les tuiles du relief avec les seuils du service', () => {
     assert.equal(terrainZoomForRadius(700), 14);
     assert.equal(terrainZoomForRadius(701), 13);

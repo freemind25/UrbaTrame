@@ -5,13 +5,13 @@ paliers plus tard**, sans toucher aux analyses, aux rendus ni au client.
 
 ## Aujourd'hui : accès libre
 
-Toutes les analyses (les 4 « gratuites » et les 31 Pro/Max) sont ouvertes à
+Toutes les analyses (les 5 « gratuites » et les 41 Pro/Max) sont ouvertes à
 tout le monde. Concrètement :
 
 | Élément | Régime sous licence | Accès libre (aujourd'hui) |
 |---|---|---|
-| Analyses accessibles | 4 (voirie, zones fonctionnelles, vert & eau, tissu urbain) | **les 35** |
-| Filigrane d'essai | sur les 4 gratuites | **retiré** |
+| Analyses accessibles | 5 (voirie, zones fonctionnelles, vert & eau, tissu urbain, occupation OBM) | **les 46** |
+| Filigrane d'essai | sur les 5 gratuites | **retiré** |
 | Quota par IP | une génération en vol, puis refroidissement | **aucun** |
 | Code de licence | nécessaire pour Pro/Max | **inutile** |
 | Badge en haut à droite | ESSAI / PRO ✓ / MAX ✓ | **LIBRE** |
@@ -33,7 +33,7 @@ Une seule variable d'environnement :
 
 ```
 FM_ACCESS=open      # défaut : tout ouvert (période d'essai)
-FM_ACCESS=licence   # découpage 4 gratuites / Pro / Max + quota + filigrane
+FM_ACCESS=licence   # découpage 5 gratuites / Pro / Max + quota + filigrane
 ```
 
 Elle est lue **à chaque requête** : le changement prend effet au redémarrage

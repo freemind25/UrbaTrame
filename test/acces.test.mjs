@@ -117,10 +117,10 @@ describe('bascule en régime sous licence (FM_ACCESS=licence)', () => {
     assert.equal(r.body.error, 'LICENCE_REQUIRED');
   });
 
-  test('les quatre analyses gratuites repassent en essai', async () => {
+  test('les cinq analyses gratuites repassent en essai', async () => {
     const r = await post({
       action: 'begin', device: DEVICE, public: true,
-      ids: ['roads', 'landuse', 'gw', 'fabric'], radius: 600, lat: 36.2642, lon: 6.6969
+      ids: ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy'], radius: 600, lat: 36.2642, lon: 6.6969
     });
     assert.equal(r.status, 200);
     assert.equal(r.body.tier, 'free');

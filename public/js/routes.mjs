@@ -29,6 +29,9 @@ export const ERR = {
   INVALID_LOCATION: ['Coordonnées invalides.', 'Invalid coordinates.'],
   SITE_CROSSES_DATELINE: ['Le site traverse l\'antiméridien.', 'Site crosses the dateline.'],
   NO_WINDROSE: ['Rose des vents NASA POWER indisponible.', 'NASA POWER wind rose unavailable.'],
+  OBM_SOURCE_UNAVAILABLE: ['Tuiles OpenBuildingMap momentanément indisponibles.', 'OpenBuildingMap tiles are temporarily unavailable.'],
+  OBM_TILE_LIMIT: ['Emprise OBM trop grande pour le plafond de tuiles.', 'OBM extent exceeds the tile limit.'],
+  INVALID_SHAPE: ['Forme d’emprise invalide.', 'Invalid study shape.'],
   INVALID_ANALYSES: ['Sélection d\'analyses invalide.', 'Invalid analysis selection.']
 };
 export const errText = (code, lang) => (ERR[code] || [code, code])[lang === 'en' ? 1 : 0];
@@ -74,6 +77,9 @@ export class Routes {
   terrain(lat, lon, radius, n, device) { return this.post2d({ action: 'terrain', device, lat, lon, radius, n }, { timeout: 45_000 }); }
   climate(lat, lon, device) { return this.post2d({ action: 'climate', device, lat, lon }, { timeout: 45_000 }); }
   windrose(lat, lon, device) { return this.post2d({ action: 'windrose', device, lat, lon }, { timeout: 45_000 }); }
+  obmOccupancy(lat, lon, radius, shape, device) {
+    return this.post2d({ action: 'obmoccupancy', device, lat, lon, radius, shape }, { timeout: 45_000 });
+  }
   geocode(q) { return this.util({ geocode: q }, 20_000); }
   refcheck(ref) { return this.util({ refcheck: ref }); }
   refcode(code) { return this.util({ refcode: code }); }

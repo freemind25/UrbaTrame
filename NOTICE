@@ -1,5 +1,5 @@
-Freemap
-=======
+UrbaTrame
+=========
 
 Ce logiciel est distribué sous licence MIT (voir LICENSE).
 
@@ -10,6 +10,13 @@ restent sous celles de leurs producteurs :
       © OpenStreetMap contributors — ODbL 1.0
       https://www.openstreetmap.org/copyright
       Mention obligatoire sur toute carte diffusée.
+
+  Empreintes et classes d'occupation facultatives
+      OpenBuildingMap (Oostwegel et al., 2025), GFZ Data Services — ODbL 1.0
+      © OpenStreetMap contributors · citation : doi.org/10.5880/GFZ.LKUT.2025.002
+      Sources du jeu : OpenStreetMap, Google Open Buildings et Microsoft Global ML Building Footprints.
+      La couche publique utilisée fournit les empreintes et les classes d'occupation,
+      pas la hauteur, la surface de plancher ou la provenance par bâtiment.
 
   Altimétrie
       Terrarium (AWS Open Data ; SRTM, USGS, EU-DEM) — domaine public

@@ -5,9 +5,16 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
-### Ajouté — atelier topographique Altiplan intégré à Freemap
+### Ajouté — couche OpenBuildingMap dans UrbaTrame
 
-- L’atelier est une section de Freemap, accessible depuis « Atelier topo » ; aucun dépôt GitHub Altiplan distinct n’est publié.
+- Analyse facultative d’occupation bâtie, séparée des groupes OSM/Overpass : tuiles vectorielles publiques, rendu cartographique catégorisé, catégories inconnues explicites et synthèse de la part classée.
+- Aperçu local du zoom et du nombre estimé de tuiles; aucune prédiction du nombre d’objets ou de la taille téléchargée.
+- Attribution OBM/GFZ et OpenStreetMap dans les cartes et exports, référence ODbL 1.0 et limites documentées. La part classée n’est pas un taux de complétude; les empreintes ne sont pas des parcelles et l’absence de données renvoyées ne prouve pas l’absence de bâtiments.
+- **453 tests hors ligne** et contrôle de syntaxe sans erreur.
+
+### Ajouté — atelier topographique Altiplan intégré à UrbaTrame
+
+- L’atelier est une section d’UrbaTrame, accessible depuis « Atelier topo ».
 - Sélection de site et couches OSM, exports DXF/SVG/PNG, coupe, modèle OBJ/STL, UTM, aperçu 3D et ombres réglables.
 - Routes `/api/atelier/*` sans compte ni quota ; les informations de contact OSM sont filtrées.
 - Commande `npm run atelier:exporter` pour produire ensemble les dix livrables.
