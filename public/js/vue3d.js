@@ -714,12 +714,13 @@
   }
 
   /* Planche complète pour le catalogue : vue oblique au sud, ombres du soleil
-     placé à l'heure demandée (ctx.time, 0-23, heure locale du site). */
+     calculées pour la date (ctx.sunDate) et l'heure demandées (ctx.time). */
   function planche(ctx, o) {
     o = o || {};
     const batiments = (ctx.D && ctx.D.build) || [];
     const heure = Number.isFinite(ctx.time) ? ctx.time : 12;
-    const sun = soleil(instantLocal(heure, ctx.sLat, ctx.sLng), ctx.sLat, ctx.sLng);
+    const dateSoleil = ctx.sunDate || o.sunDate || new Date().toISOString().slice(0, 10);
+    const sun = soleil(instantLocal(heure, ctx.sLat, ctx.sLng, dateSoleil), ctx.sLat, ctx.sLng);
     const W = G.FMEngine ? G.FMEngine.W : 240, H = G.FMEngine ? G.FMEngine.H : 240;
     const D = ctx.D || {};
     const exag = o.echelleH ?? 4;
@@ -746,7 +747,7 @@
       : '';
     return {
       svg: r.svg, soleil: sun, batiments: batiments.length, mesures: mesurés,
-      heuresoleil: heure,
+      heuresoleil: heure, dateSoleil,
       relief: r.sc.terrain ? [r.sc.terrain.mini, r.sc.terrain.maxi] : null,
       legende: [
         { type: 'rect', c: '#D6D0C6', s: '#8C8579', l: ctx.lang === 'en' ? 'ROOF' : 'TOIT' },
@@ -755,7 +756,7 @@
       ],
       note: (ctx.lang === 'en' ? '3D · ' : '3D · ') +
         (sun.hauteur <= 0.02 ? (ctx.lang === 'en' ? 'night ' : 'nuit ') : (ctx.lang === 'en' ? 'sun ' : 'soleil ')) +
-        heure + ' h · ' + mesurés + '/' + batiments.length +
+        heure + ' h · ' + dateSoleil + ' · ' + mesurés + '/' + batiments.length +
         (ctx.lang === 'en' ? ' measured heights' : ' hauteurs mesurées') +
         (exag !== 1 ? ' · H ×' + exag : '') + reliefTxt
     };

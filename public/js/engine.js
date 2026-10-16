@@ -350,9 +350,16 @@
       return '<line x1="' + x + '" y1="' + (legY - 2) + '" x2="' + (x + 11) + '" y2="' + (legY - 2) + '" stroke="' + it.c +
              '" stroke-width="' + (it.w || 1.2) + '"' + (it.da ? ' stroke-dasharray="' + it.da + '"' : '') + '/>' + T(14, 0, legY + 2);
     }).join('');
-    const noteS = note
-      ? '<text x="' + (W - 4) + '" y="' + (H + 25) + '" text-anchor="end" font-size="5.5" fill="#D8D6D0" font-family="ui-monospace,monospace">' + esc(note) + '</text>'
-      : '';
+    const noteLines = Array.isArray(note) ? note : (note ? [note] : []);
+    const noteFontSize = Number.isFinite(opts.noteFontSize) ? opts.noteFontSize : 5.5;
+    const noteS = noteLines.map((line, index) => {
+      const text = String(line);
+      const fit = opts.fitNote && text.length > (opts.fitNoteMinLength || 50);
+      return '<text x="' + (W - 4) + '" y="' + (H + 25 + index * 7) + '" text-anchor="end" font-size="' + noteFontSize +
+        '" fill="#D8D6D0" font-family="ui-monospace,monospace"' +
+        (fit ? ' textLength="' + (W - 8) + '" lengthAdjust="spacingAndGlyphs"' : '') +
+        '>' + esc(text) + '</text>';
+    }).join('');
 
     /* échelle graphique : la largeur du diagramme couvre ~2·curR mètres */
     let scaleS = '';
@@ -407,7 +414,7 @@
       wm = '<g data-fm-watermark="true" pointer-events="none">' + tiles + '</g>';
     }
 
-    const vbH = H + 28;
+    const vbH = H + 28 + Math.max(0, noteLines.length - 1) * 7;
     return '<svg viewBox="0 0 ' + W + ' ' + vbH + '" xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + vbH + '">' +
       '<defs><clipPath id="' + uid + '">' + clipShape + '</clipPath></defs>' +
       '<g clip-path="url(#' + uid + ')">' + inner + '</g>' +

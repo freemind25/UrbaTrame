@@ -11,15 +11,36 @@ Fonctions reprises de <https://osmbuildings.org> après démontage (voir
 | **Analyse « Volumes 3D »** dans le catalogue | liste des analyses → Morphologie → *Volumes 3D* |
 | **Vue interactive plein écran** | bouton `3D` sur la fiche de cette analyse, ou `?vue3d=1` dans l'adresse |
 | Bâtiments extrudés (hauteur réelle, sinon 9 m) | partout |
-| Ombres portées selon l'heure du site | partout (curseur d'heure, 0–23 h) |
+| Ombres portées selon la date et l'heure solaires | partout (sélecteurs de date et d'heure) |
 | Rotation, inclinaison, zoom | vue interactive : glisser, glisser vertical, molette |
 | Fiche d'un bâtiment au clic | vue interactive |
 | Fond de carte raster (OpenStreetMap) | vue interactive : case *Fond de carte* |
 | **Posé sur le terrain réel** (altimétrie) | partout ; case *Relief* dans la vue interactive |
 | **Cours intérieures évidées** | partout (relations OSM, membres `inner`) |
 | Export PNG et SVG | vue interactive (boutons PNG / SVG) |
-| Export SVG/PNG de la planche | comme les 35 autres analyses |
+| Export SVG/PNG de la planche | comme les autres analyses |
 | **Modèle 3D OBJ et STL**, plan DXF | panneau *Exports CAO* → voir `docs/EXPORTS.md` |
+
+## Volumes 3D conceptuels
+
+Dans **Synthèse & scénario → Volumes 3D conceptuels**, UrbaTrame peut générer
+une maquette indicative à partir du scénario de capacité et de paramètres
+explicitement saisis : nombre de volumes, hauteur d'étage, rapport
+largeur/profondeur et écartement entre volumes. Les blocs sont égaux, ont le
+même nombre de niveaux et sont disposés en rangée; l'angle de vue peut être
+ajusté sans représenter le nord.
+
+Le scénario fournit les surfaces de plancher et d'emprise retenues. La maquette
+est un schéma local en mètres, **non géoréférencé**, sans implantation sur une
+carte ou une parcelle. Elle ne crée aucune limite cadastrale, ne déduit pas de
+zonage ou de règle et ne vérifie ni l'insertion réelle ni la conformité
+réglementaire. L'espacement, la hauteur d'étage et les proportions proviennent
+des champs saisis par l'utilisateur.
+
+L'aperçu peut être téléchargé en **SVG**, et la géométrie en **OBJ** ou **STL**.
+Les axes des modèles exportés sont locaux (X/Y), avec Z vers le haut, en mètres;
+l'origine n'est pas une coordonnée géographique. Des volumes qui se touchent
+sans écart sont fusionnés dans les exports pour éviter des faces internes.
 
 ## Comment c'est fait
 
@@ -123,7 +144,7 @@ chaque emprise, la liste de ses `trous` :
 
 Les rendus **2D** du projet, eux, continuent de remplir les cours
 (`normalizeElements` écarte les membres `inner`) : c'est un choix assumé, la
-modification du jeu normalisé changerait le tracé des 44 analyses existantes.
+modification du jeu normalisé changerait le tracé des 45 analyses existantes.
 
 Au passage, le centre qui décide du côté « extérieur » d'un mur n'est plus la
 moyenne des sommets (faussée par le point de fermeture répété, et parfois hors

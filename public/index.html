@@ -7,23 +7,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#153e3d">
 <title>UrbaTrame — analyse des sites urbains</title>
-<meta name="description" content="UrbaTrame : 44 analyses de sites urbains, dont 8 planches Max A3 fondées sur OpenStreetMap, avec exports vectoriels, 3D et relief.">
-<link rel="stylesheet" href="styles.css">
+<meta name="description" content="UrbaTrame : analyses de sites urbains, synthèse quantitative, scénario indicatif, exports vectoriels, 3D et relief fondés sur des données cartographiques.">
+<link rel="stylesheet" href="styles.css?v=header-clean">
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/vue3d.js"></script>
 <script src="js/renderers-core.js"></script>
 <script src="js/renderers-pro.js"></script>
+<script src="js/renderers-obm.js"></script>
 <script src="js/renderers-boards.js"></script>
 </head>
 <body>
 
 <header class="top">
-  <div class="brand">
+    <div class="brand">
     <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
     <span class="brand-copy">
       <span class="logo">UrbaTrame</span>
       <span class="sub" data-fr="Analyse des sites urbains" data-en="Urban site analysis">Analyse des sites urbains</span>
+      <span class="brand-credit">Designed by M.SADI</span>
     </span>
   </div>
   <div class="badge" id="badge">ESSAI</div>
@@ -43,7 +45,7 @@
       <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
       <div class="row">
         <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon">
-        <button id="search" class="primary" data-fr="Chercher" data-en="Search">Chercher</button>
+        <button id="search" class="primary ut-glow" data-fr="Chercher" data-en="Search">Chercher</button>
       </div>
       <div class="row" style="margin-top:8px">
         <button id="sample" data-fr="Exemple (El Khroub, 600 m)" data-en="Sample (El Khroub, 600 m)">Exemple (El Khroub, 600 m)</button>
@@ -70,8 +72,12 @@
         <output id="timeOut">12:00</output>
         <input id="time" type="range" min="4" max="21" step="0.25" value="12">
       </div>
-      <p class="hint" data-fr="L'heure pilote l'héliodon et les ombres portées."
-         data-en="The hour drives the sun path and cast shadows.">L'heure pilote l'héliodon et les ombres portées.</p>
+      <div class="row solar-date-row">
+        <label class="lab2" for="sunDate" data-fr="date solaire" data-en="solar date">date solaire</label>
+        <input id="sunDate" type="date" aria-label="Date solaire">
+      </div>
+      <p class="hint" data-fr="La date et l'heure pilotent l'héliodon et les ombres portées en 2D comme en 3D."
+         data-en="The date and time drive the sun path and cast shadows in both 2D and 3D.">La date et l'heure pilotent l'héliodon et les ombres portées en 2D comme en 3D.</p>
     </section>
 
     <section class="panel">
@@ -106,9 +112,24 @@
   <main>
     <div class="toolbar">
       <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
+      <button id="siteReportBtn" class="report-trigger" data-fr="Synthèse & scénario" data-en="Site summary & scenario">Synthèse & scénario</button>
+      <button id="assistantBtn" class="assistant-trigger" data-fr="Assistant spatial local" data-en="Local spatial helper">Assistant spatial local</button>
+      <button id="workspaceBtn" class="workspace-trigger" data-fr="Projets & modèles" data-en="Projects & templates">Projets & modèles</button>
       <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
             data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
     </div>
+    <details id="dataPreview" class="data-preview" open>
+      <summary>
+        <span data-fr="Aperçu des couches · disponibilité & charge" data-en="Layer preview · availability & workload">Aperçu des couches · disponibilité & charge</span>
+        <span id="dataPreviewBadge" class="data-preview-badge">En attente d’un lieu</span>
+      </summary>
+      <div class="data-preview-body">
+        <p id="dataPreviewLead" class="data-preview-lead" aria-live="polite">Choisissez un lieu et des analyses pour afficher l’aperçu.</p>
+        <div id="dataPreviewStats" class="data-preview-stats"></div>
+        <div id="dataPreviewRows" class="data-preview-rows"></div>
+        <p id="dataPreviewNote" class="data-preview-note"></p>
+      </div>
+    </details>
     <div id="grid" class="grid">
       <p class="empty">Sélectionnez des analyses, puis lancez la génération.</p>
     </div>
@@ -116,36 +137,103 @@
   </main>
 </div>
 
+<section class="site-report" id="siteReport" aria-hidden="true">
+  <div class="site-report-sheet" role="dialog" aria-modal="true" aria-labelledby="siteReportTitle">
+    <header class="site-report-header">
+      <div class="site-report-heading">
+        <span class="report-kicker" data-fr="URBATRAME · LECTURE DU SITE" data-en="URBATRAME · SITE OVERVIEW">URBATRAME · LECTURE DU SITE</span>
+        <h2 id="siteReportTitle" data-fr="Synthèse du site" data-en="Site summary">Synthèse du site</h2>
+        <p id="siteReportSubtitle"></p>
+      </div>
+      <div class="site-report-actions">
+        <button id="siteReportPrint" class="primary" data-fr="Imprimer / PDF" data-en="Print / PDF">Imprimer / PDF</button>
+        <button id="siteReportClose" class="site-report-close" aria-label="Fermer">×</button>
+      </div>
+    </header>
+    <div class="site-report-body" id="siteReportBody"></div>
+  </div>
+</section>
+
+<section class="modal" id="assistantModal" aria-hidden="true">
+  <div class="sheet spatial-sheet" role="dialog" aria-modal="true" aria-labelledby="assistantTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="assistantTitle" data-fr="Assistant spatial local" data-en="Local spatial helper">Assistant spatial local</h2>
+    <p class="lead" data-fr="Décrivez votre question. L’assistant associe vos mots aux analyses déjà disponibles; aucune question, coordonnée ou donnée n’est envoyée à un modèle externe. Vérifiez les propositions avant de lancer les analyses."
+       data-en="Describe your question. This helper maps your words to existing analyses; no question, coordinate or data is sent to an external model. Review suggestions before running analyses.">Décrivez votre question. L’assistant associe vos mots aux analyses déjà disponibles; aucune question, coordonnée ou donnée n’est envoyée à un modèle externe. Vérifiez les propositions avant de lancer les analyses.</p>
+    <label class="assistant-query-label" for="assistantQuery" data-fr="Votre question" data-en="Your question">Votre question</label>
+    <textarea id="assistantQuery" rows="3" maxlength="500" data-fr="Ex. Où sont les équipements et les arrêts de transport ?" data-en="e.g. Where are amenities and transit stops?" placeholder="Ex. Où sont les équipements et les arrêts de transport ?"></textarea>
+    <div class="assistant-examples">
+      <button type="button" data-assistant-query="Où sont les espaces verts et l’eau ?" data-fr="Espaces verts & eau" data-en="Green space & water">Espaces verts & eau</button>
+      <button type="button" data-assistant-query="Analyse l’accès piéton et les transports" data-fr="Accessibilité & transport" data-en="Accessibility & transit">Accessibilité & transport</button>
+      <button type="button" data-assistant-query="Faisabilité avec mon FAR et mon emprise" data-fr="Capacité du projet" data-en="Project capacity">Capacité du projet</button>
+    </div>
+    <button id="assistantAnalyze" class="primary" data-fr="Proposer des analyses" data-en="Suggest analyses">Proposer des analyses</button>
+    <div id="assistantResults" class="assistant-results" aria-live="polite"></div>
+  </div>
+</section>
+
+<section class="modal" id="workspaceModal" aria-hidden="true">
+  <div class="sheet workspace-sheet" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="workspaceTitle" data-fr="Projets & modèles locaux" data-en="Local projects & templates">Projets & modèles locaux</h2>
+    <p class="lead" data-fr="Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site."
+       data-en="Saved in this browser only. Projects retain the place/coordinates, analysis selection and assumptions—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
+    <div class="workspace-save">
+      <label for="workspaceName" data-fr="Nom du projet ou modèle" data-en="Project or template name">Nom du projet ou modèle</label>
+      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet">
+      <div class="workspace-save-actions">
+        <button id="saveWorkspaceProject" class="primary" data-fr="Enregistrer le projet" data-en="Save project">Enregistrer le projet</button>
+        <button id="saveWorkspaceTemplate" data-fr="Enregistrer comme modèle" data-en="Save as template">Enregistrer comme modèle</button>
+      </div>
+    </div>
+    <div class="workspace-file-actions">
+      <button id="exportWorkspaceProject" data-fr="Exporter la configuration JSON" data-en="Export JSON configuration">Exporter la configuration JSON</button>
+      <label for="importWorkspaceFile" class="workspace-file-button" data-fr="Importer un fichier JSON" data-en="Import JSON file">Importer un fichier JSON</label>
+      <input id="importWorkspaceFile" type="file" accept="application/json,.json" hidden>
+    </div>
+    <div class="workspace-lists">
+      <section><h3 data-fr="Projets enregistrés" data-en="Saved projects">Projets enregistrés</h3><div id="workspaceProjects" class="workspace-records"></div></section>
+      <section><h3 data-fr="Modèles réutilisables" data-en="Reusable templates">Modèles réutilisables</h3><div id="workspaceTemplates" class="workspace-records"></div></section>
+    </div>
+    <p class="fine" data-fr="Espace local, sans compte ni synchronisation d’équipe. Supprimer les données du navigateur effacera ces projets et modèles."
+       data-en="Local workspace, with no account or team sync. Clearing browser data removes these projects and templates.">Espace local, sans compte ni synchronisation d’équipe. Supprimer les données du navigateur effacera ces projets et modèles.</p>
+  </div>
+</section>
+
 <div id="loader" class="loader"></div>
 <div id="toast" class="toast"></div>
 
-<section class="modal" id="plans">
-  <div class="sheet">
-    <button class="x" data-close>×</button>
-    <h2 data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
-    <p class="lead" data-fr="4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur."
-       data-en="4 watermarked analyses are always available. The rest require a server-signed licence.">4 analyses filigranées sont toujours disponibles. Les autres demandent une licence signée par le serveur.</p>
+<section class="modal" id="plans" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="plansTitle" data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
+    <p class="lead" data-fr="5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur."
+       data-en="5 free analyses, including OpenBuildingMap building occupancy. The rest require a server-signed licence.">5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur.</p>
     <div id="planBody"></div>
   </div>
 </section>
 
-<section class="modal" id="help">
-  <div class="sheet">
-    <button class="x" data-close>×</button>
-    <h2 data-fr="Comment ça marche" data-en="How it works">Comment ça marche</h2>
+<section class="modal" id="help" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <button class="x" data-close aria-label="Fermer">×</button>
+    <h2 id="helpTitle" data-fr="Comment ça marche" data-en="How it works">Comment ça marche</h2>
     <ol class="help">
       <li data-fr="<b>Lieu</b> : la recherche passe par le serveur (géocodage OpenStreetMap). Vous pouvez aussi saisir « lat,lon »."
           data-en="<b>Place</b>: search goes through the server (OpenStreetMap geocoding). You can also type “lat,lon”."></li>
       <li data-fr="<b>Site</b> : le rayon fixe l'emprise demandée ; certaines analyses ont un plafond (1500 à 3000 m) et sont alors retirées."
           data-en="<b>Site</b>: the radius sets the requested extent; some analyses are capped (1500–3000 m) and get skipped."></li>
-      <li data-fr="<b>Analyses</b> : 4 gratuites + 32 Pro + 8 planches composées Max au format A3 paysage."
-          data-en="<b>Analyses</b>: 4 free + 32 Pro + 8 composed Max boards in A3 landscape format."></li>
-      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), climat NASA POWER, altimétrie Terrarium (SRTM/USGS, AWS Open Data)."
-          data-en="<b>Data</b>: OpenStreetMap (Overpass), NASA POWER climate, Terrarium elevation (SRTM/USGS, AWS Open Data)."></li>
+      <li data-fr="Date solaire : choisissez le jour et l'heure; ils commandent la course du soleil et les ombres des rendus 2D et 3D."
+          data-en="Solar date: choose the day and hour; they drive the sun path and shadows in 2D and 3D views."></li>
+      <li data-fr="<b>Analyses</b> : 5 gratuites + 33 Pro + 8 planches composées Max au format A3 paysage."
+          data-en="<b>Analyses</b>: 5 free + 33 Pro + 8 composed Max boards in A3 landscape format."></li>
+      <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), couche facultative OpenBuildingMap d’occupation bâtie (ODbL 1.0), climat NASA POWER, rose des vents MERRA-2 à 10 m (flux régional, pas local) et altimétrie Terrarium (SRTM/USGS)."
+          data-en="<b>Data</b>: OpenStreetMap (Overpass), optional OpenBuildingMap building-occupancy layer (ODbL 1.0), NASA POWER climate, MERRA-2 wind rose at 10 m (regional, not local flow), and Terrarium elevation (SRTM/USGS)."></li>
       <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
           data-en="<b>Licences</b>: Ed25519 token signed by the server, bound to this device. Demo codes: cs_demo_pro, cs_demo_max, cs_demo_lifetime."></li>
       <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
           data-en="<b>Exports</b>: each card exports as editable SVG or PNG ×3; “Board” prints the grid."></li>
+      <li data-fr="Synthèse & scénario : indicateurs issus des données chargées, puis scénario de capacité calculé uniquement à partir de vos hypothèses. Aucun règlement ni limite cadastrale n’est inventé."
+          data-en="Site summary & scenario: indicators from loaded data, plus a capacity scenario calculated only from your assumptions. No planning rule or cadastral boundary is invented."></li>
     </ol>
     <p class="fine" data-fr="Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques."
        data-en="Results depend on the mapping data available for the selected place. OSM parcel outlines are not cadastral or legal boundaries.">Les résultats dépendent des données cartographiques disponibles pour le lieu choisi. Les parcelles OSM ne sont pas des limites cadastrales ou juridiques.</p>
@@ -155,8 +243,8 @@
 <div id="devPanel" class="dev"></div>
 
 <footer class="foot">
-  <span data-fr="Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org"
-        data-en="Map data © OpenStreetMap (ODbL) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
+  <span data-fr="Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org"
+        data-en="Map data © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, optional occupancy layer) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
 </footer>
 
 <script type="module" src="js/app.js"></script>

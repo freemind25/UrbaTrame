@@ -1,0 +1,2 @@
+c80b9bcdaeb46d8a17a60526093a1f7ca998bc44caf659925984074f3220d3d1  release-files/windows/UrbaTrame-Setup-1.0.0.exe
+28ca43362b2c42bb0e6757e6a81c8fb142b75b8385b3f1fe8ed11c35cb09ca85  release-files/UrbaTrame-Android.apk

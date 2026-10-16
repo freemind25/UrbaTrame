@@ -451,7 +451,7 @@ export function maillageDeScene(sc, o) {
 export function objDeScene(sc, o) {
   o = o || {};
   const M = maillageDeScene(sc, o);
-  const l = ['# UrbaTrame — modele 3D du site',
+  const l = ['# UrbaTrame — ' + sansAccent(o.titre || 'modele 3D du site'),
     '# unites : metres · X est, Y nord, Z altitude (Z vers le haut)',
     '# sol de reference (altitude 0) : ' + M.base.toFixed(2) + ' m',
     '# ' + sansAccent(o.mention || 'donnees © OpenStreetMap (ODbL) · relief Terrarium')];

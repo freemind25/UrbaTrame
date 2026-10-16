@@ -14,11 +14,12 @@
   <header class="topbar">
     <a class="brand" href="/" aria-label="UrbaTrame, accueil">
       <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
-      <span class="brand-word">UrbaTrame<small>Analyse des sites urbains</small></span>
+      <span class="brand-word">UrbaTrame<small>Analyse des sites urbains</small><span class="brand-credit">Designed by M.SADI</span></span>
     </a>
     <nav class="topnav" aria-label="Navigation UrbaTrame">
       <a class="back-link" href="/">Analyses urbaines</a>
       <a class="atelier-current" href="/atelier.html" aria-current="page">Atelier topographique <span>· Altiplan</span></a>
+      <a href="#atlas-administratif">Atlas GADM</a>
       <a href="#sources">Sources &amp; précision</a>
     </nav>
     <button id="helpButton" class="icon-button" type="button" aria-label="Aide" title="Aide">?</button>
@@ -82,7 +83,7 @@
         </fieldset>
         <p class="cadastre-note"><span aria-hidden="true">ⓘ</span> Les parcelles ne sont pas des limites juridiques. Elles ne sortent que si elles existent dans OpenStreetMap.</p>
 
-        <button id="extractButton" class="button-primary button-full" type="button"><span class="button-icon">↧</span><span>Récupérer les données</span><span class="button-arrow">→</span></button>
+        <button id="extractButton" class="button-primary button-full ut-glow" type="button"><span class="button-icon">↧</span><span>Récupérer les données</span><span class="button-arrow">→</span></button>
         <div id="progress" class="progress-line" hidden><span></span><p id="progressText">Lecture des sources…</p></div>
         <div id="message" class="message" role="status" aria-live="polite"></div>
 
@@ -108,6 +109,37 @@
           <div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
         </div>
         <div class="map-bottomline"><span id="mapState"><i></i> Mode aperçu · données réelles préchargées</span><span class="map-bottom-coords" id="mapBottomCoords">36.2642, 6.6969</span></div>
+        <details class="map-notes" id="fieldNotes">
+          <summary><span>Repères &amp; notes locales</span><span class="field-note-count" id="fieldNoteCount">0</span></summary>
+          <div class="field-note-content">
+            <p class="field-note-disclaimer">Notes personnelles sur la carte, enregistrées dans ce navigateur uniquement. Elles ne sont ni envoyées au serveur, ni des objets OSM, ni des parcelles ou limites cadastrales.</p>
+            <div class="field-note-form">
+              <label for="fieldNoteCategory">Type de repère
+                <select id="fieldNoteCategory">
+                  <option value="observation">Observation</option>
+                  <option value="access">Accès</option>
+                  <option value="issue">Point à traiter</option>
+                  <option value="vegetation">Végétation</option>
+                  <option value="verify">À vérifier</option>
+                </select>
+              </label>
+              <label for="fieldNoteTitle">Titre
+                <input id="fieldNoteTitle" type="text" maxlength="80" placeholder="Ex. entrée à vérifier">
+              </label>
+              <label for="fieldNoteText">Note (facultative)
+                <textarea id="fieldNoteText" rows="2" maxlength="1000" placeholder="Contexte, observation ou action à suivre…"></textarea>
+              </label>
+            </div>
+            <div class="field-note-actions">
+              <button id="placeFieldNote" type="button">Placer le repère</button>
+              <button id="cancelFieldNote" type="button" hidden>Annuler</button>
+              <button id="exportFieldNotes" type="button" disabled>Exporter GeoJSON</button>
+              <button id="clearFieldNotes" type="button" disabled>Effacer cette emprise</button>
+            </div>
+            <p class="field-note-status" id="fieldNoteStatus" role="status" aria-live="polite">Aucun repère dans cette emprise.</p>
+            <div id="fieldNoteList" class="field-note-list" aria-live="polite"></div>
+          </div>
+        </details>
       </section>
     </section>
 
@@ -121,6 +153,123 @@
       </div>
     </section>
 
+    <section class="gadm-section" id="atlas-administratif" aria-labelledby="gadm-title">
+      <div class="gadm-heading">
+        <div>
+          <span class="step">04 / ATLAS ADMINISTRATIF · COMPOSANT ALTIPLAN</span>
+          <h2 id="gadm-title">Explorer les frontières et les subdivisions.</h2>
+          <p>Parcourez les limites par pays et par niveau, consultez les attributs, les cartes thématiques et les fichiers GADM disponibles.</p>
+        </div>
+        <a class="gadm-source-link" href="https://gadm.org/" target="_blank" rel="noreferrer">GADM officiel <span aria-hidden="true">↗</span></a>
+      </div>
+
+      <div class="gadm-atlas">
+        <div class="gadm-controls" aria-label="Filtres de l’atlas GADM">
+          <label>Pays
+            <select id="gadm-country" aria-label="Choisir un pays"><option value="DZA">Algérie</option></select>
+          </label>
+          <label>Niveau administratif
+            <select id="gadm-level" aria-label="Choisir un niveau administratif"><option value="0">Niveau 0 · Pays</option></select>
+          </label>
+          <label>Version des téléchargements
+            <select id="gadm-download-version" aria-label="Choisir la version GADM des téléchargements">
+              <option value="4.1">4.1 · version courante</option>
+              <option value="4.0">4.0.4 · archive</option>
+              <option value="3.6">3.6 · archive</option>
+            </select>
+          </label>
+          <div class="gadm-version-note" id="gadm-version-note">Aperçu vectoriel : GADM 4.1</div>
+        </div>
+
+        <div class="gadm-layout">
+          <aside class="gadm-browser" aria-label="Subdivision administrative">
+            <div class="gadm-browser-head">
+              <div><span class="step">UNITÉS ADMINISTRATIVES</span><strong id="gadm-list-title">Algérie · niveau 0</strong></div>
+              <span class="gadm-count" id="gadm-feature-count">—</span>
+            </div>
+            <label class="gadm-search-label" for="gadm-feature-search">Filtrer les unités</label>
+            <input id="gadm-feature-search" class="gadm-feature-search" type="search" placeholder="Nom, code ou type…" autocomplete="off">
+            <div id="gadm-feature-list" class="gadm-feature-list" role="listbox" aria-label="Résultats administratifs">
+              <p class="gadm-list-empty">Chargement des limites GADM…</p>
+            </div>
+            <div class="gadm-hierarchy">
+              <p id="gadm-parent-label">Vue nationale · sélectionnez une unité pour consulter sa fiche.</p>
+              <div>
+                <button id="gadm-back" type="button" disabled>← Niveau supérieur</button>
+                <button id="gadm-descend" type="button" disabled>Explorer le niveau inférieur →</button>
+              </div>
+            </div>
+          </aside>
+
+          <section class="gadm-map-card" aria-label="Carte administrative et cartes thématiques">
+            <div class="gadm-map-toolbar">
+              <div><span class="step">APERÇU CARTOGRAPHIQUE</span><strong id="gadm-map-title">Frontières · GADM 4.1</strong></div>
+              <div class="gadm-map-actions" role="group" aria-label="Contrôles de carte">
+                <button id="gadm-zoom-out" type="button" title="Dézoomer">−</button>
+                <button id="gadm-zoom-fit" type="button" title="Ajuster la carte">Ajuster</button>
+                <button id="gadm-zoom-in" type="button" title="Zoomer">+</button>
+              </div>
+            </div>
+            <div class="gadm-map-theme-control">
+              <label for="gadm-theme">Couche visualisée</label>
+              <select id="gadm-theme">
+                <option value="admin">Limites administratives interactives</option>
+                <option value="elevation">Altitude · m</option>
+                <option value="elevation_mask">Altitude · masque</option>
+                <option value="temperature">Température annuelle moyenne · °C</option>
+                <option value="temperature_mask">Température · masque</option>
+                <option value="precipitation">Précipitations annuelles · mm</option>
+                <option value="precipitation_mask">Précipitations · masque</option>
+                <option value="nightlight">Éclairage nocturne</option>
+                <option value="nightlight_mask">Éclairage nocturne · masque</option>
+              </select>
+            </div>
+            <div class="gadm-map-stage" id="gadm-map-stage">
+              <svg id="gadm-vector-map" viewBox="0 0 900 560" role="img" aria-label="Limites administratives GADM. Cliquez sur une unité pour la sélectionner."></svg>
+              <div id="gadm-theme-panel" class="gadm-theme-panel" hidden>
+                <img id="gadm-theme-image" alt="Carte thématique GADM du pays sélectionné" loading="lazy">
+                <div id="gadm-theme-fallback" class="gadm-theme-fallback" hidden>Cette carte thématique n’est pas disponible pour ce pays.</div>
+              </div>
+              <div id="gadm-map-status" class="gadm-map-status" role="status" aria-live="polite">Chargement des limites officielles…</div>
+            </div>
+            <div class="gadm-map-foot">
+              <span id="gadm-map-caption">Aperçu vectoriel pour consultation ; les téléchargements conservent les géométries officielles complètes.</span>
+              <span><a href="https://gadm.org/metadata.html" target="_blank" rel="noreferrer">Métadonnées ↗</a></span>
+            </div>
+          </section>
+
+          <aside class="gadm-inspector" aria-label="Fiche de l’unité administrative" aria-live="polite">
+            <div class="gadm-inspector-head"><span class="step">FICHE DE L’UNITÉ</span><span class="gadm-inspector-level" id="gadm-selected-level">NIVEAU 0</span></div>
+            <h3 id="gadm-selected-name">Algérie</h3>
+            <p id="gadm-selected-type" class="gadm-selected-type">Pays · GADM 4.1</p>
+            <div id="gadm-selected-meta" class="gadm-selected-meta">
+              <p class="gadm-inspector-empty">Cliquez sur une unité dans la carte ou la liste pour afficher son identifiant et ses métadonnées.</p>
+            </div>
+            <a class="gadm-attribute-link" href="https://gadm.org/metadata.html" target="_blank" rel="noreferrer">Dictionnaire des attributs ↗</a>
+          </aside>
+        </div>
+
+        <div class="gadm-download-area">
+          <div class="gadm-download-head">
+            <div><span class="step">TÉLÉCHARGER LES DONNÉES</span><h3>Fichiers par pays</h3><p id="gadm-download-note">Les GeoPackage et Shapefile incluent plusieurs niveaux ; GeoJSON et KMZ suivent le niveau choisi.</p></div>
+            <a href="https://gadm.org/formats.html" target="_blank" rel="noreferrer">Formats &amp; aide ↗</a>
+          </div>
+          <div id="gadm-downloads" class="gadm-downloads" aria-live="polite"></div>
+        </div>
+
+        <details class="gadm-world-details">
+          <summary>Téléchargements mondiaux et versions archivées</summary>
+          <div class="gadm-world-content">
+            <p>Les archives mondiales sont volumineuses ; pour un projet courant, le fichier par pays est généralement plus rapide à récupérer.</p>
+            <div id="gadm-world-downloads" class="gadm-world-downloads"></div>
+            <p class="gadm-world-links"><a href="https://gadm.org/old_versions.html" target="_blank" rel="noreferrer">Historique officiel des versions ↗</a><span> · </span><a href="https://gadm.org/download_world.html" target="_blank" rel="noreferrer">Téléchargements mondiaux officiels ↗</a></p>
+          </div>
+        </details>
+
+        <p class="gadm-license-note"><strong>Source et limites.</strong> © GADM, Database of Global Administrative Areas. Les données sont utilisées selon l’autorisation commerciale et de redistribution en vigueur. Les cartes thématiques sont des aperçus raster servis par GADM à l’échelle du pays ; elles peuvent ne pas correspondre à la version historique choisie pour les téléchargements. Les limites administratives ne sont pas des limites cadastrales ni une représentation juridique de souveraineté. Des pays peuvent relever de conditions particulières (l’Autriche, par exemple, est signalée sous CC BY-SA 2.0). <a href="https://gadm.org/license.html" target="_blank" rel="noreferrer">Licence GADM ↗</a></p>
+      </div>
+    </section>
+
     <section class="trust-strip" id="sources">
       <div><span class="trust-number">01</span><div><h3>Sources ouvertes</h3><p>OpenStreetMap (ODbL) · relief Terrarium</p></div></div>
       <div><span class="trust-number">02</span><div><h3>Coordonnées vraies</h3><p>Mètres locaux ou projection UTM WGS 84</p></div></div>
@@ -129,12 +278,12 @@
     </section>
   </main>
 
-  <footer class="footer"><span>URBATRAME · ALTIPLAN · ATELIER TOPOGRAPHIQUE</span><span>Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL</span><a href="https://github.com/freemind25/freemap" target="_blank" rel="noreferrer">Dépôt GitHub ↗</a></footer>
+  <footer class="footer"><span>URBATRAME · ALTIPLAN · ATELIER TOPOGRAPHIQUE</span><span>Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL · <a href="https://gadm.org/" target="_blank" rel="noreferrer">GADM</a></span></footer>
 
   <dialog id="helpDialog" class="help-dialog">
     <form method="dialog"><button class="dialog-close" aria-label="Fermer">×</button></form>
     <p class="eyebrow">BIENVENUE DANS L'ATELIER</p><h2>Comment ça marche</h2>
-    <ol><li><b>Choisissez un lieu</b> — recherchez une adresse ou cliquez sur la carte.</li><li><b>Définissez le rayon</b> — déplacez le curseur, puis récupérez les données OSM et le relief.</li><li><b>Configurez les livrables</b> — activez les couches, choisissez le repère, placez l'axe de coupe, puis téléchargez.</li></ol>
+    <ol><li><b>Choisissez un lieu</b> — recherchez une adresse ou cliquez sur la carte.</li><li><b>Définissez le rayon</b> — déplacez le curseur, puis récupérez les données OSM et le relief.</li><li><b>Ajoutez des repères locaux</b> — placez une note sur la carte; elle reste dans ce navigateur et peut être exportée en GeoJSON.</li><li><b>Configurez les livrables</b> — activez les couches, choisissez le repère, placez l'axe de coupe, puis téléchargez.</li></ol>
     <p class="dialog-note">Les sources publiques ont une couverture variable. Des hauteurs de bâtiments ou des arbres peuvent manquer. Les fichiers sont des supports de travail, pas des documents cadastraux ou des relevés certifiés.</p>
   </dialog>
   <script src="/js/atelier/engine.js"></script>

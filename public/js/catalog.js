@@ -1,5 +1,5 @@
 /* Freemap · catalogue des analyses
-   Les 45 entrées reprises du plan fonctionnel décrit dans le rapport.
+   Les 46 entrées reprises du plan fonctionnel décrit dans le rapport.
    `impl:false` ⇒ sur la feuille de route v0.2 (affichée mais non rendue).
    tier : 'free' (essai, filigrané) · 'pro' · 'max'. */
 (function (G) {
@@ -22,6 +22,7 @@
     /* ── usage & vie urbaine ── */
     { id: 'poiheat', nom: 'Chaleur des POI', en: 'POI density heat', sub: 'concentration des services', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
     { id: 'poitype', nom: 'Types de POI', en: 'POI type map', sub: 'catégories de destinations', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
+    { id: 'obmoccupancy', nom: 'Occupation des bâtiments', en: 'Building occupancy', sub: 'empreintes OBM · usages et classes inconnues', enSub: 'OBM footprints · uses and unknown classes', tag: 'OBM', tier: 'free', g: 'usage', impl: true },
     { id: 'vitality', nom: 'Vitalité des rues', en: 'Street vitality', sub: 'activité riveraine par tronçon', tag: 'OSM', tier: 'pro', g: 'usage', impl: true },
     { id: 'nodes', nom: 'Analyse nodale', en: 'Node analysis', sub: 'carrefours et polarités', tag: 'SIG', tier: 'pro', g: 'usage', impl: true },
     { id: 'sitemap', nom: 'Carte annotée', en: 'Annotated site map', sub: 'équipements et distances', tag: 'CARTE', tier: 'pro', g: 'usage', impl: true },
@@ -44,7 +45,7 @@
     { id: 'wireframe', nom: 'Trame de terrain', en: 'Terrain wireframe', sub: 'relief en fil de fer', tag: 'MNT', tier: 'pro', g: 'env', impl: true },
     { id: 'context', nom: 'Contexte urbain', en: 'City context', sub: 'couronnes de distance', tag: 'CARTE', tier: 'pro', g: 'env', impl: true },
     { id: 'location', nom: 'Situation', en: 'Location', sub: 'coordonnées, hémisphère, méridien', tag: 'CARTE', tier: 'pro', g: 'env', impl: true },
-    { id: 'wind', nom: 'Vent dominant', en: 'Wind flow', sub: 'rose des vents NASA POWER', tag: 'CLIM', tier: 'pro', g: 'env', impl: false },
+    { id: 'wind', nom: 'Rose des vents', en: 'Wind rose', sub: 'NASA POWER · flux régional à 10 m', enSub: 'NASA POWER · regional flow at 10 m', tag: 'CLIM', tier: 'pro', g: 'env', impl: true },
 
     /* ── climat ── */
     { id: 'climtemp', nom: 'Températures', en: 'Temperature year', sub: 'max/min mensuelles', tag: 'CLIM', tier: 'pro', g: 'clim', impl: true },

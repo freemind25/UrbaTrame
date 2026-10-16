@@ -41,6 +41,15 @@ describe('catalogue ↔ planificateur', () => {
     const pkg = JSON.parse(fs.readFileSync(ROOT + '/package.json', 'utf8'));
     assert.equal(VERSION, pkg.version);
   });
+
+  test('la rose des vents NASA régionale ne dépend d’aucune couche OSM locale', () => {
+    assert.deepEqual(DEPS.wind, []);
+    const p = plan(['wind'], 3000, 36.2642, 6.6969);
+    assert.deepEqual(p.groups, []);
+    assert.equal(p.climate, false, 'la rose ne télécharge pas inutilement les séries climatiques quotidiennes');
+    assert.equal(p.windrose, true);
+    assert.deepEqual(p.selected, ['wind']);
+  });
 });
 
 describe('requêtes produites', () => {

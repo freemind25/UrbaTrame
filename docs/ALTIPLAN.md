@@ -1,15 +1,22 @@
-# Atelier topographique Altiplan — module de Freemap
+# Atelier topographique Altiplan dans UrbaTrame
 
-**Altiplan est une section intégrée de Freemap**, pas une application ni un dépôt séparé. Elle réutilise le serveur, les sources et la distribution de Freemap. Ouvrez-la depuis le bouton **« Atelier topo »** de Freemap ou directement à `/atelier.html`.
+**Altiplan est une section intégrée à UrbaTrame.** Ouvrez-la depuis le bouton **« Atelier topo »** de la page principale ou directement à `/atelier.html`.
 
 ## Parcours
 
 1. Recherchez un lieu, saisissez ses coordonnées ou déplacez le centre sur la carte.
 2. Choisissez un rayon et les couches OpenStreetMap à récupérer : bâtiments, voirie, occupation du sol, eau, rail, arbres, parcelles OSM et points d’intérêt.
 3. Prévisualisez le plan et réglez les calques, l’axe de coupe ou l’heure solaire.
-4. Téléchargez les livrables directement depuis l’aperçu.
+4. Placez des repères personnels et des notes sur la carte. Ils restent dans ce navigateur et peuvent être exportés en GeoJSON.
+5. Téléchargez les livrables directement depuis l’aperçu.
 
 L’exemple embarqué d’El Khroub permet d’essayer l’atelier sans attendre les services externes. L’atelier ne demande **ni compte ni abonnement et n’applique pas de quota**.
+
+## Repères et notes cartographiques
+
+Ouvrez **« Repères & notes locales »**, choisissez une catégorie, saisissez un titre et placez le point dans l’emprise affichée. Les notes et leurs coordonnées sont stockées dans `localStorage` sur cet appareil; elles ne sont pas synchronisées ni envoyées au serveur. Vous pouvez supprimer un repère, effacer ceux de l’emprise courante ou exporter les points en **GeoJSON**. Ces annotations sont des données personnelles de travail, distinctes d’OpenStreetMap, et ne constituent pas des limites foncières ou cadastrales.
+
+L’atelier comprend aussi un **atlas administratif GADM** : navigation pays → subdivisions, fiches de métadonnées, aperçus thématiques et téléchargements par pays ou pour le monde. Voir [la documentation GADM](GADM.md) pour les formats, versions et limites.
 
 ## Fichiers produits
 
@@ -28,13 +35,14 @@ La commande en ligne a besoin d’un accès Internet pour interroger OpenStreetM
 
 ## API et structure
 
-Les routes réservées à ce module sont publiques et n’utilisent pas le système de licence ou de quota des analyses de Freemap :
+Les routes réservées à ce module sont publiques et n’utilisent pas le système de licence ou de quota des analyses d’UrbaTrame :
 
 | Route | Usage |
 |---|---|
 | `GET /api/atelier/health` | Couches, sources et limites prises en charge |
 | `POST /api/atelier/geocode` | Recherche de lieu |
 | `POST /api/atelier/extract` | Extraction des couches autorisées et du relief |
+| `GET /api/atelier/gadm` | Aperçu GeoJSON de limites administratives, avec validation et filtrage parent |
 
 Implémentation : `public/atelier.html`, `public/js/atelier/`, `server/atelier-api.mjs`, `server/atelier-data.mjs` et `tools/atelier/`. Les sorties CLI par défaut sont écrites dans `exports/` à la racine du projet.
 

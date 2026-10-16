@@ -2,11 +2,12 @@
   "name": "freemap",
   "version": "0.1.0",
   "private": true,
-  "description": "Freemap : analyses de site et atelier topographique Altiplan intégré, avec exports DXF/SVG/PNG, coupes, maquettes OBJ/STL, OpenStreetMap, NASA POWER et relief Terrarium. Aucune dépendance.",
+  "description": "UrbaTrame : analyses de site, couche d’occupation OpenBuildingMap et atelier topographique Altiplan intégré, avec exports DXF/SVG/PNG, coupes, maquettes OBJ/STL, OpenStreetMap, NASA POWER et relief Terrarium. Aucune dépendance.",
   "keywords": [
     "urbanisme",
     "analyse-de-site",
     "openstreetmap",
+    "openbuildingmap",
     "overpass",
     "svg",
     "posters",

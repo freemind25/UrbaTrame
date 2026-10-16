@@ -1,5 +1,5 @@
 /* Routes de l'API — contrat décrit dans docs/API.md.
-     POST /analysis/2d   JSON   check · begin · query · end · activate · terrain · climate
+     POST /analysis/2d   JSON   check · begin · query · end · activate · terrain · climate · windrose
      POST /            form    geocode= · refcheck= · refcode=
      GET  /api/status           état du service + clé publique Ed25519
    Les autres GET servent les fichiers de public/.                              */
@@ -11,7 +11,9 @@ import {
 import { validDevice } from './licence.mjs';
 import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
+import { windrose } from './sources/windrose.mjs';
 import { terrain } from './sources/terrain.mjs';
+import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 
 /* Chaque route est exportée séparément : le serveur Node les compose,
@@ -29,7 +31,7 @@ export function createStatusHandler({ licence }) {
       limits: LIMITS,
       sources: {
         overpass: SOURCES.overpass.length + ' miroirs',
-        nominatim: true, nasa: true, terrain: true
+        nominatim: true, nasa: true, windrose: true, terrain: true, openBuildingMap: true
       },
       codes: licence.knownCodes()
     });
@@ -216,6 +218,43 @@ export function createAnalysisHandler({ licence, quota, runs }) {
       }
     }
 
+    /* ── windrose : climatologie régionale MERRA-2 à 10 m ── */
+    if (action === 'windrose') {
+      try {
+        const w = await windrose(Number(body.lat), Number(body.lon));
+        log('windrose', w.sectors.length + ' secteurs', w.period.start, '→', w.period.end);
+        return send(res, 200, w);
+      } catch (e) {
+        const invalid = e.message === 'INVALID_LOCATION';
+        if (!invalid) log('windrose indisponible', e.message);
+        return send(res, invalid ? 400 : 502, {
+          error: invalid ? 'INVALID_LOCATION' : 'NO_WINDROSE', detail: e.message
+        });
+      }
+    }
+
+    /* ── OpenBuildingMap : couche d'occupation séparée des données OSM ── */
+    if (action === 'obmoccupancy') {
+      const lat = Number(body.lat), lon = Number(body.lon), radius = Number(body.radius);
+      const shape = body.shape || 'circle';
+      if (!['circle', 'square', 'rect'].includes(shape))
+        return send(res, 400, { error: 'INVALID_SHAPE' });
+      try { plan(['obmoccupancy'], radius, lat, lon); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+      try {
+        const t0 = Date.now();
+        const obm = await fetchOpenBuildingMap({ lat, lon, radius, shape });
+        log('OpenBuildingMap', obm.featureCount + ' empreintes', obm.tilesLoaded + '/' + obm.tilesRequested + ' tuiles', (Date.now() - t0) + ' ms');
+        return send(res, 200, obm);
+      } catch (e) {
+        const invalid = ['INVALID_LOCATION', 'SITE_CROSSES_DATELINE', 'OBM_TILE_LIMIT', 'INVALID_SHAPE'].includes(e.message);
+        if (!invalid) log('OpenBuildingMap indisponible', e.message);
+        return send(res, invalid ? 400 : 502, {
+          error: invalid ? e.message : 'OBM_SOURCE_UNAVAILABLE', detail: e.message
+        });
+      }
+    }
+
     return send(res, 200, { error: 'UNKNOWN_ACTION' });
   };
 }
@@ -234,6 +273,7 @@ export function createApi({ licence, quota, runs, publicDir }) {
     if (url.pathname === '/api/atelier/health') return atelier.health(req, res);
     if (url.pathname === '/api/atelier/geocode') return atelier.geocode(req, res);
     if (url.pathname === '/api/atelier/extract') return atelier.extract(req, res);
+    if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (url.pathname === '/api/status') return status(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);

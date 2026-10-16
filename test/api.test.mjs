@@ -13,7 +13,7 @@ import { createApp } from '../server/index.mjs';
 const DEVICE = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const NET = !!process.env.FM_NET;
 
-/* Ce banc éprouve le parcours SOUS LICENCE (4 gratuites, Pro/Max, quota).
+/* Ce banc éprouve le parcours SOUS LICENCE (5 gratuites, Pro/Max, quota).
    L'accès libre — le mode par défaut depuis la période d'essai — a son propre
    banc : test/acces.test.mjs. La variable est lue à chaque requête, donc la
    poser ici suffit. */
@@ -57,7 +57,7 @@ describe('service', () => {
     const j = await r.json();
     assert.equal(j.ok, true);
     assert.match(j.version, /^\d+\.\d+\.\d+$/);
-    assert.deepEqual(j.free, ['roads', 'landuse', 'gw', 'fabric']);
+    assert.deepEqual(j.free, ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy']);
     assert.equal(j.max.length, 8);
     assert.equal(Buffer.from(j.pub, 'base64').length, 32);
     assert.equal(j.trace, r.headers.get('x-em-trace'), 'trace renvoyée en en-tête');
@@ -70,13 +70,18 @@ describe('service', () => {
     const homeHtml = await home.text();
     assert.ok(homeHtml.includes('<title>UrbaTrame — analyse des sites urbains</title>'));
     assert.match(homeHtml, /Analyse des sites urbains/);
+    assert.match(homeHtml, /id="sunDate"/, 'date solaire sélectionnable');
+    assert.match(homeHtml, /js\/renderers-obm\.js/, 'rendu OpenBuildingMap chargé');
     assert.equal((await fetch(base + '/urbatrame-emblem.png')).status, 200);
     assert.equal((await fetch(base + '/urbatrame-favicon.png')).status, 200);
     assert.equal((await fetch(base + '/favicon.svg')).status, 200);
     assert.equal((await fetch(base + '/js/osm.mjs')).status, 200);
     assert.equal((await fetch(base + '/js/osm.mjs')).headers.get('content-type'),
       'text/javascript; charset=utf-8');
+    assert.equal((await fetch(base + '/js/openbuildingmap.mjs')).status, 200);
+    assert.equal((await fetch(base + '/js/renderers-obm.js')).status, 200);
     assert.equal((await fetch(base + '/data/sample-elkhroub.json')).status, 200);
+    assert.equal((await fetch(base + '/data/windrose-elkhroub.json')).status, 200);
     assert.equal((await fetch(base + '/../server/config.mjs')).status, 404);
     assert.equal((await fetch(base + '/js/inexistant.js')).status, 404);
   });
@@ -123,6 +128,19 @@ describe('robustesse des entrées', () => {
     assert.equal((await analyse({ action: 'explode', device: DEVICE })).body.error, 'UNKNOWN_ACTION');
   });
 
+  test('OpenBuildingMap valide l’emprise et la forme sans lancer de requête si invalide', async () => {
+    const radius = await analyse({
+      action: 'obmoccupancy', device: DEVICE, lat: 36.26, lon: 6.69, radius: 100
+    });
+    assert.equal(radius.status, 400);
+    assert.equal(radius.body.error, 'RADIUS_200_3000');
+    const shape = await analyse({
+      action: 'obmoccupancy', device: DEVICE, lat: 36.26, lon: 6.69, radius: 600, shape: 'triangle'
+    });
+    assert.equal(shape.status, 400);
+    assert.equal(shape.body.error, 'INVALID_SHAPE');
+  });
+
   test('analyse inconnue', async () => {
     const r = await analyse({ action: 'begin', device: DEVICE, ids: ['nope'], radius: 600, lat: 36.26, lon: 6.69 });
     assert.equal(r.status, 400);
@@ -136,10 +154,10 @@ describe('robustesse des entrées', () => {
 });
 
 describe('paliers', () => {
-  test('les quatre analyses gratuites passent sans licence', async () => {
+  test('les cinq analyses gratuites passent sans licence', async () => {
     const r = await analyse({
       action: 'begin', device: DEVICE, public: true,
-      ids: ['roads', 'landuse', 'gw', 'fabric'], radius: 600, lat: 36.2642, lon: 6.6969
+      ids: ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy'], radius: 600, lat: 36.2642, lon: 6.6969
     });
     assert.equal(r.status, 200);
     assert.equal(r.body.tier, 'free');
@@ -257,6 +275,12 @@ describe('utilitaires', () => {
   });
 });
 
+test('la rose des vents refuse des coordonnées hors limites avant tout appel externe', async () => {
+  const r = await analyse({ action: 'windrose', device: DEVICE, lat: 91, lon: 6.6969 });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'INVALID_LOCATION');
+});
+
 describe('sources en réseau', { skip: NET ? false : 'FM_NET=1 pour interroger les sources' }, () => {
   test('recherche de lieu (Nominatim)', async () => {
     const r = await post('/', { geocode: 'El Khroub' }, true);
@@ -290,5 +314,15 @@ describe('sources en réseau', { skip: NET ? false : 'FM_NET=1 pour interroger l
     assert.equal(r.status, 200);
     assert.ok(r.body.params.T2M_MAX);
     assert.ok(Object.keys(r.body.params.T2M_MAX).length > 300);
+  });
+
+  test('rose des vents NASA POWER / MERRA-2 à 10 m', async () => {
+    const r = await analyse({ action: 'windrose', device: DEVICE, lat: 36.2642, lon: 6.6969 });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.dataset, 'MERRA-2');
+    assert.equal(r.body.heightM, 10);
+    assert.equal(r.body.period.years, 10);
+    assert.equal(r.body.sectors.length, 16);
+    assert.ok(Math.abs(r.body.sectors.reduce((sum, s) => sum + s.frequencyPct, 0) - 100) < 1);
   });
 });

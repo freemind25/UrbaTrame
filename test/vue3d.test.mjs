@@ -227,6 +227,15 @@ describe('sortie SVG de la vue 3D', () => {
     assert.ok(!p.svg.includes('NaN'));
   });
 
+  test('la date solaire choisie change l’ombre et reste annoncée sur la planche', () => {
+    const ete = V.planche(makeCtx({ time: 12, sunDate: '2026-06-21' }), {});
+    const hiver = V.planche(makeCtx({ time: 12, sunDate: '2026-12-21' }), {});
+    assert.match(ete.note, /2026-06-21/);
+    assert.match(hiver.note, /2026-12-21/);
+    assert.notEqual(ete.soleil.hauteur, hiver.soleil.hauteur);
+    assert.notEqual(ete.svg, hiver.svg);
+  });
+
   test('la planche de nuit annonce la nuit', () => {
     const p = V.planche(makeCtx({ time: 2 }), {});
     assert.ok(/nuit 2 h/.test(p.note), p.note);

@@ -42,6 +42,7 @@ export const SOURCES = {
   ].join(',')).split(',').map(x => x.trim()).filter(Boolean),
   nominatim: 'https://nominatim.openstreetmap.org/search',
   nasa: 'https://power.larc.nasa.gov/api/temporal/daily/point',
+  windrose: 'https://power.larc.nasa.gov/api/application/windrose/point',
   terrain: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/',
             'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/']
 };
@@ -63,5 +64,6 @@ export const TIMEOUTS = {
   overpass: OVERPASS_BUDGET,
   nominatim: 15_000,
   climate: 30_000,
+  windrose: 30_000,
   tile: 20_000
 };

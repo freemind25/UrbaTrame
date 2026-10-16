@@ -5,6 +5,7 @@ import { DATASET_IDS, MAX_RADIUS, MIN_RADIUS, queryFor, withoutContactTags } fro
 import { geocode as searchPlace, overpass as requestOverpass } from './sources/overpass.mjs';
 import { terrain as requestTerrain } from './sources/terrain.mjs';
 import { log, readBody, send } from './http.mjs';
+import { createGadmHandler } from './gadm.mjs';
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -14,6 +15,7 @@ export function createAtelierHandlers(deps = {}) {
   const terrainSource = deps.terrain || requestTerrain;
   const clock = deps.now || Date.now;
   const logger = deps.log || log;
+  const gadm = createGadmHandler({ fetch: deps.gadmFetch, now: clock, log: logger });
   let lastSearch = 0;
   let searchQueue = Promise.resolve();
   const placeCache = new Map();
@@ -44,7 +46,7 @@ export function createAtelierHandlers(deps = {}) {
     return send(res, 200, {
       ok: true, name: 'UrbaTrame', feature: 'atelier-topographique', version: '0.1.0',
       datasets: DATASET_IDS, radius: { min: MIN_RADIUS, max: MAX_RADIUS },
-      sources: ['OpenStreetMap / Overpass', 'Terrarium elevation tiles']
+      sources: ['OpenStreetMap / Overpass', 'Terrarium elevation tiles', 'GADM administrative boundaries']
     });
   }
 
@@ -110,10 +112,11 @@ export function createAtelierHandlers(deps = {}) {
     });
   }
 
-  return { health, geocode, extract };
+  return { health, geocode, extract, gadm };
 }
 
 const handlers = createAtelierHandlers();
 export const handleAtelierHealth = handlers.health;
 export const handleAtelierGeocode = handlers.geocode;
 export const handleAtelierExtract = handlers.extract;
+export const handleAtelierGadm = handlers.gadm;

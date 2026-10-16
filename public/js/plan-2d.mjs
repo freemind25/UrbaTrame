@@ -9,7 +9,7 @@
    Aucune dépendance DOM : utilisable en Node comme en ESM navigateur.
    ───────────────────────────────────────────────────────────────────────── */
 
-export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric'];
+export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy'];
 
 export const MAX_IDS = [
   'mappingboard', 'urbanstations', 'urbangrid', 'axocallout',
@@ -74,8 +74,11 @@ export const DEPS = {
   aspect: ['buildings', 'terrain'],
   wireframe: ['buildings', 'terrain'],
 
-  /* ── Vent (encore sur la feuille de route) ── */
-  wind: ['roads', 'buildings', 'green', 'climate'],
+  /* ── Sources d’occupation hors OSM/Overpass ── */
+  obmoccupancy: [],
+
+  /* ── Rose NASA POWER régionale à 10 m (aucune couche OSM requise) ── */
+  wind: [],
 
   /* ── Planches composées Max ──
      Rendus A3 distincts dans renderers-boards.js ; ces dépendances déclarent
@@ -96,7 +99,7 @@ export const LIMITS = Object.fromEntries(Object.keys(DEPS).map(id => [id,
   ['nodes', 'vitality', 'poiheat', 'poitype', 'voronoi', 'sitemap', 'urbanstations',
    'urbangrid', 'soundmap', 'walkroutes', 'axocallout', 'zoningplan', 'radialnet']
     .includes(id) ? 1500 :
-  ['landuse', 'transit', 'typology', 'isogrid', 'wind', 'massing', 'contour', 'aspect',
+  ['landuse', 'transit', 'typology', 'isogrid', 'massing', 'contour', 'aspect',
    'wireframe', 'insetboard', 'viewcones', 'climtemp', 'climprecip', 'climover',
    'climday', 'climsolar'].includes(id) ? 2000 : 3000]));
 
@@ -252,7 +255,8 @@ export function plan(ids, radius, lat, lon) {
   return {
     selected, skipped, groups, bbox,
     climate: deps.has('climate'),
-    terrain: deps.has('terrain')
+    terrain: deps.has('terrain'),
+    windrose: selected.includes('wind')
   };
 }
 
