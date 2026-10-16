@@ -109,6 +109,37 @@
           <div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
         </div>
         <div class="map-bottomline"><span id="mapState"><i></i> Mode aperçu · données réelles préchargées</span><span class="map-bottom-coords" id="mapBottomCoords">36.2642, 6.6969</span></div>
+        <details class="map-notes" id="fieldNotes">
+          <summary><span>Repères &amp; notes locales</span><span class="field-note-count" id="fieldNoteCount">0</span></summary>
+          <div class="field-note-content">
+            <p class="field-note-disclaimer">Notes personnelles sur la carte, enregistrées dans ce navigateur uniquement. Elles ne sont ni envoyées au serveur, ni des objets OSM, ni des parcelles ou limites cadastrales.</p>
+            <div class="field-note-form">
+              <label for="fieldNoteCategory">Type de repère
+                <select id="fieldNoteCategory">
+                  <option value="observation">Observation</option>
+                  <option value="access">Accès</option>
+                  <option value="issue">Point à traiter</option>
+                  <option value="vegetation">Végétation</option>
+                  <option value="verify">À vérifier</option>
+                </select>
+              </label>
+              <label for="fieldNoteTitle">Titre
+                <input id="fieldNoteTitle" type="text" maxlength="80" placeholder="Ex. entrée à vérifier">
+              </label>
+              <label for="fieldNoteText">Note (facultative)
+                <textarea id="fieldNoteText" rows="2" maxlength="1000" placeholder="Contexte, observation ou action à suivre…"></textarea>
+              </label>
+            </div>
+            <div class="field-note-actions">
+              <button id="placeFieldNote" type="button">Placer le repère</button>
+              <button id="cancelFieldNote" type="button" hidden>Annuler</button>
+              <button id="exportFieldNotes" type="button" disabled>Exporter GeoJSON</button>
+              <button id="clearFieldNotes" type="button" disabled>Effacer cette emprise</button>
+            </div>
+            <p class="field-note-status" id="fieldNoteStatus" role="status" aria-live="polite">Aucun repère dans cette emprise.</p>
+            <div id="fieldNoteList" class="field-note-list" aria-live="polite"></div>
+          </div>
+        </details>
       </section>
     </section>
 
@@ -247,12 +278,12 @@
     </section>
   </main>
 
-  <footer class="footer"><span>URBATRAME · ALTIPLAN · ATELIER TOPOGRAPHIQUE</span><span>Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL · <a href="https://gadm.org/" target="_blank" rel="noreferrer">GADM</a></span><a href="https://github.com/freemind25/freemap" target="_blank" rel="noreferrer">Dépôt GitHub ↗</a></footer>
+  <footer class="footer"><span>URBATRAME · ALTIPLAN · ATELIER TOPOGRAPHIQUE</span><span>Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL · <a href="https://gadm.org/" target="_blank" rel="noreferrer">GADM</a></span></footer>
 
   <dialog id="helpDialog" class="help-dialog">
     <form method="dialog"><button class="dialog-close" aria-label="Fermer">×</button></form>
     <p class="eyebrow">BIENVENUE DANS L'ATELIER</p><h2>Comment ça marche</h2>
-    <ol><li><b>Choisissez un lieu</b> — recherchez une adresse ou cliquez sur la carte.</li><li><b>Définissez le rayon</b> — déplacez le curseur, puis récupérez les données OSM et le relief.</li><li><b>Configurez les livrables</b> — activez les couches, choisissez le repère, placez l'axe de coupe, puis téléchargez.</li></ol>
+    <ol><li><b>Choisissez un lieu</b> — recherchez une adresse ou cliquez sur la carte.</li><li><b>Définissez le rayon</b> — déplacez le curseur, puis récupérez les données OSM et le relief.</li><li><b>Ajoutez des repères locaux</b> — placez une note sur la carte; elle reste dans ce navigateur et peut être exportée en GeoJSON.</li><li><b>Configurez les livrables</b> — activez les couches, choisissez le repère, placez l'axe de coupe, puis téléchargez.</li></ol>
     <p class="dialog-note">Les sources publiques ont une couverture variable. Des hauteurs de bâtiments ou des arbres peuvent manquer. Les fichiers sont des supports de travail, pas des documents cadastraux ou des relevés certifiés.</p>
   </dialog>
   <script src="/js/atelier/engine.js"></script>

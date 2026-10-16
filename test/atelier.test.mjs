@@ -31,6 +31,16 @@ describe('UrbaTrame · section Altiplan', () => {
     assert.throws(() => validateSite(36, 6, 5000), /RADIUS_OUT_OF_RANGE/);
   });
 
+  test('la page Altiplan expose des notes locales, exportables et sans publication automatique', () => {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const html = fs.readFileSync(path.join(root, 'public/atelier.html'), 'utf8');
+    assert.match(html, /id="fieldNotes"/);
+    assert.match(html, /id="placeFieldNote"/);
+    assert.match(html, /id="exportFieldNotes"/);
+    assert.match(html, /ne sont ni envoyées au serveur/);
+    assert.equal(html.includes('Dépôt GitHub'), false);
+  });
+
   test('Overpass ne reçoit que les couches autorisées, arbres et parcelles comprises', () => {
     const q = queryFor({ lat: 36.2642, lon: 6.6969, radius: 600, include: ['buildings', 'trees', 'parcels'] });
     assert.match(q, /way\["building"\]/);

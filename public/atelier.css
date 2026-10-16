@@ -40,3 +40,40 @@ button.ut-glow:hover::after{opacity:.3;animation:ut-glow-sweep .75s ease-out bot
 button.ut-glow:focus-visible{outline:3px solid #75a993;outline-offset:3px}
 @keyframes ut-glow-sweep{to{background-position:0 0,130% 0}}
 @media(prefers-reduced-motion:reduce){button.ut-glow,button.ut-glow::before,button.ut-glow::after{animation:none!important;transition:none!important}.button-primary.ut-glow:hover{transform:none}}
+
+/* Repères et notes locales sur la carte, inspirés des workflows d’annotation GIS. */
+textarea{font:inherit}
+textarea:focus-visible{outline:3px solid #75a993;outline-offset:2px}
+.map.drawing-note .map-tip{color:#286b91;border-color:rgba(40,107,145,.32)}
+.map-notes{border-top:1px solid #eef0eb;background:#fbfcfa}
+.map-notes>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;padding:11px 14px;color:#45554a;font-size:9px;font-weight:750}
+.map-notes>summary::-webkit-details-marker{display:none}
+.map-notes>summary::after{content:"+";color:#4f7d64;font-size:13px;margin-left:4px}
+.map-notes[open]>summary::after{content:"−"}
+.field-note-count{margin-left:auto;min-width:22px;border-radius:20px;background:#e9f0eb;color:#3d7759;padding:3px 7px;text-align:center;font-size:8px;font-weight:800;font-variant-numeric:tabular-nums}
+.field-note-content{padding:0 13px 12px}
+.field-note-disclaimer{margin:0 0 9px;color:#7e887f;font-size:8px;line-height:1.5}
+.field-note-form{display:grid;grid-template-columns:minmax(130px,.55fr) minmax(160px,1fr);gap:7px 9px}
+.field-note-form label{display:grid;gap:4px;color:#6d796f;font-size:8px;font-weight:700}
+.field-note-form label:last-child{grid-column:1/-1}
+.field-note-form select,.field-note-form input,.field-note-form textarea{width:100%;min-width:0;border:1px solid #e0e5df;border-radius:5px;background:#fff;color:#344138;padding:7px 8px;font-size:9px;font-weight:400}
+.field-note-form textarea{min-height:52px;resize:vertical;line-height:1.4}
+.field-note-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.field-note-actions button,.field-note-remove{border:1px solid #dfe5dd;border-radius:5px;background:#fff;color:#526157;padding:6px 8px;font-size:8px;font-weight:650}
+.field-note-actions #placeFieldNote{border-color:#286b91;background:#286b91;color:#fff}
+.field-note-actions button:hover:not(:disabled),.field-note-remove:hover{border-color:#9ebaa7;background:#f0f6f1;color:#185b42}
+.field-note-actions #placeFieldNote:hover:not(:disabled){background:#215b79;color:#fff}
+.field-note-actions button:disabled{opacity:.45;cursor:not-allowed}
+.field-note-status{min-height:12px;margin:7px 0;color:#758177;font-size:8px;line-height:1.4}
+.field-note-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:215px;overflow:auto}
+.field-note-item{min-width:0;border:1px solid #e7ebe5;border-left:2px solid var(--note-color,#6f8d78);border-radius:6px;background:#fff;padding:7px 8px}
+.field-note-item-top{display:flex;align-items:center;gap:6px;min-width:0}
+.field-note-number{width:17px;height:17px;flex:0 0 17px;border-radius:50%;display:grid;place-items:center;background:var(--note-color,#6f8d78);color:#fff;font-size:8px;font-weight:800}
+.field-note-title{min-width:0;flex:1;color:#35433a;font-size:9px;overflow-wrap:anywhere}
+.field-note-category{flex:0 0 auto;border-radius:12px;background:color-mix(in srgb,var(--note-color,#6f8d78) 12%,white);color:var(--note-color,#6f8d78);padding:2px 5px;font-size:7px;font-weight:750}
+.field-note-meta{margin:5px 0 0;color:#849087;font-size:7px;font-variant-numeric:tabular-nums}
+.field-note-text{margin:5px 0 0;color:#536057;font-size:8px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.field-note-remove{margin-top:5px;padding:4px 6px;font-size:7px}
+.field-note-empty{grid-column:1/-1;margin:0;border:1px dashed #e0e5df;border-radius:5px;padding:8px;color:#8a948c;font-size:8px}
+@media(max-width:760px){.field-note-list{grid-template-columns:1fr}}
+@media(max-width:600px){.map-notes>summary{padding:10px 9px}.field-note-content{padding:0 9px 10px}.field-note-form{grid-template-columns:1fr 1fr}.field-note-form label:last-child{grid-column:1/-1}.field-note-actions button{font-size:7px;padding:6px}.field-note-list{max-height:260px}}

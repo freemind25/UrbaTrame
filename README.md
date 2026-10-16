@@ -31,9 +31,10 @@ Le rapport de site propose aussi un **générateur de volumes 3D conceptuels** :
 
 - un **plan topographique** avec courbes de niveau et couches cartographiques sélectionnées ;
 - une **coupe de terrain** entre deux points ;
-- une **maquette 3D** du terrain et des éléments cartographiés.
+- une **maquette 3D** du terrain et des éléments cartographiés;
+- des **repères et notes personnels** placés sur la carte, conservés dans le navigateur et exportables en GeoJSON.
 
-L’atelier est accessible sans compte ni quota. Un exemple d’El Khroub est intégré pour découvrir l’interface sans attendre les services cartographiques externes.
+L’atelier est accessible sans compte ni quota. Les notes restent locales à ce navigateur; elles ne sont ni synchronisées ni envoyées au serveur. Un exemple d’El Khroub est intégré pour découvrir l’interface sans attendre les services cartographiques externes.
 
 L’**atlas administratif GADM**, ajouté dans l’Atelier Altiplan, permet de parcourir les pays et leurs subdivisions, de sélectionner les limites et leurs métadonnées, de consulter les aperçus thématiques GADM (altitude, température, précipitations et éclairage nocturne), puis de télécharger les données par pays ou pour le monde. Les téléchargements proposent les versions 4.1, 4.0.4 et 3.6 selon les formats officiels disponibles.
 

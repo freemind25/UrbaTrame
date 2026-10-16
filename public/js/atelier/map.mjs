@@ -37,7 +37,8 @@ export function createMap(root, options = {}) {
   const scaleLabel = root.querySelector('#mapScale');
   const state = { lat: options.lat || 36.2642, lon: options.lon || 6.6969, zoom: options.zoom || 15,
     radius: options.radius || 600, shape: options.shape === 'square' ? 'square' : 'circle',
-    boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [], drawMode: null, data: null };
+    boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [],
+    drawMode: null, data: null, annotations: [] };
   const cache = new Map();
   let dimensions = { w: 0, h: 0 };
   let drawPending = false, drag = null, suppressClick = false;
@@ -100,6 +101,16 @@ export function createMap(root, options = {}) {
         parts.push('<g fill="#fff" stroke="#a64f2d" stroke-width="1.5" vector-effect="non-scaling-stroke">' +
           projected.map(p => `<circle cx="${fmt(p[0])}" cy="${fmt(p[1])}" r="3.5"/>`).join('') + '</g>');
       }
+    }
+    const noteColors = { observation: '#286b91', access: '#438455', issue: '#b94e3f', vegetation: '#688c49', verify: '#b77b2e' };
+    for (const [index, note] of (state.annotations || []).slice(0, 500).entries()) {
+      const p = localPixel(note.lat, note.lon, origin, state.zoom);
+      if (!p.every(Number.isFinite)) continue;
+      const color = noteColors[note.category] || noteColors.observation;
+      const label = String(index + 1);
+      parts.push(`<g transform="translate(${fmt(p[0])} ${fmt(p[1])})" pointer-events="none">` +
+        `<path d="M0 13 C-2 9 -10 2 -10 -4 A10 10 0 1 1 10 -4 C10 2 2 9 0 13Z" fill="${color}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` +
+        `<circle cx="0" cy="-4" r="6.2" fill="#fff"/><text x="0" y="-1.8" text-anchor="middle" font-size="7" font-weight="700" fill="${color}" font-family="system-ui,sans-serif">${label}</text></g>`);
     }
     parts.push(`<line x1="${w / 2 - 12}" y1="${h / 2}" x2="${w / 2 + 12}" y2="${h / 2}" stroke="#14543f" stroke-width="1"/><line x1="${w / 2}" y1="${h / 2 - 12}" x2="${w / 2}" y2="${h / 2 + 12}" stroke="#14543f" stroke-width="1"/>`);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -182,6 +193,10 @@ export function createMap(root, options = {}) {
       schedule();
       return;
     }
+    if (state.drawMode === 'note') {
+      options.onNotePoint?.(p.lat, p.lon);
+      return;
+    }
     centerAt(p.lat, p.lon, true);
   });
   root.addEventListener('wheel', e => {
@@ -199,12 +214,20 @@ export function createMap(root, options = {}) {
     setShape(shape) { state.shape = shape === 'square' ? 'square' : 'circle'; schedule(); },
     setBoundary(points) { state.boundary = Array.isArray(points) ? points.map(p => [...p]) : []; schedule(); },
     getBoundary() { return state.boundary.map(p => [...p]); },
-    setDrawMode(mode) { state.drawMode = mode === 'boundary' ? 'boundary' : null; schedule(); },
+    setDrawMode(mode) { state.drawMode = ['boundary', 'note'].includes(mode) ? mode : null; schedule(); },
+    setAnnotations(items) {
+      state.annotations = Array.isArray(items) ? items.slice(0, 500).map(item => ({
+        lat: Number(item?.lat), lon: Number(item?.lon),
+        category: typeof item?.category === 'string' ? item.category : 'observation'
+      })).filter(item => Number.isFinite(item.lat) && Math.abs(item.lat) <= 85 &&
+        Number.isFinite(item.lon) && Math.abs(item.lon) <= 180) : [];
+      schedule();
+    },
     undoBoundary() { state.boundary.pop(); options.onBoundaryChange?.(this.getBoundary()); schedule(); },
     clearBoundary() { state.boundary = []; options.onBoundaryChange?.([]); schedule(); },
     setData(data) { state.data = data; schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
-    getState() { return { ...state, boundary: this.getBoundary() }; },
+    getState() { return { ...state, boundary: this.getBoundary(), annotations: state.annotations.map(item => ({ ...item })) }; },
     destroy() { observer.disconnect(); root.replaceChildren(); }
   };
 }

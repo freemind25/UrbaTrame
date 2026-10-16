@@ -3,6 +3,7 @@ import { areaForShape, insideShape, normalizeBoundary, toLocal } from './geometr
 import { normaliser } from './osm-data.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { initGadmAtlas } from './gadm.mjs';
+import { FIELD_NOTE_CATEGORIES, MAX_FIELD_NOTES, createFieldNote, fieldNotesGeoJSON, fieldNotesInExtent, normalizeFieldNotes } from './annotations.mjs';
 
 const $ = selector => document.querySelector(selector);
 const $all = selector => [...document.querySelectorAll(selector)];
@@ -13,12 +14,33 @@ let site = { ...initial };
 let data = { roads: [], build: [], green: [], pois: [], trees: [], treeRows: [], parcels: [], landuse: [], rail: [], waterways: [], raw: [] };
 let busy = false;
 let boundaryDrawing = false;
+let notePlacing = false;
+let noteDraft = null;
 let dataSignature = null;
 let loadedInclude = new Set();
+const FIELD_NOTES_KEY = 'urbatrame:atelier-notes:v1';
+function readFieldNotes() {
+  try { return normalizeFieldNotes(JSON.parse(localStorage.getItem(FIELD_NOTES_KEY) || '[]')); }
+  catch { return []; }
+}
+function writeFieldNotes() {
+  try { localStorage.setItem(FIELD_NOTES_KEY, JSON.stringify(fieldNotes)); return true; }
+  catch { return false; }
+}
+let fieldNotes = readFieldNotes();
+let fieldNoteRenderTimer = null;
+function scheduleFieldNoteRender() {
+  if (fieldNoteRenderTimer) return;
+  fieldNoteRenderTimer = setTimeout(() => {
+    fieldNoteRenderTimer = null;
+    renderFieldNotes();
+  }, 120);
+}
 
 const map = createMap($('#map'), {
   lat: site.lat, lon: site.lon, zoom: 15, radius: site.radius, shape: site.shape, boundary: site.boundary,
   onCenter(lat, lon) {
+    if (notePlacing) cancelFieldNotePlacement();
     site.lat = lat; site.lon = lon;
     $('#latitude').value = lat.toFixed(6); $('#longitude').value = lon.toFixed(6);
     if (!boundaryDrawing && site.boundary.length >= 3 && !boundaryFits(site.boundary)) {
@@ -30,11 +52,13 @@ const map = createMap($('#map'), {
     if (site.name === 'El Khroub, Constantine') site.name = 'Emprise personnalisée';
     updatePlaceName();
     updateFreshness();
+    scheduleFieldNoteRender();
   },
   onBoundaryChange(points) {
     site.boundary = points;
     updateBoundaryStatus();
-  }
+  },
+  onNotePoint(lat, lon) { placeFieldNote(lat, lon); }
 });
 
 function coordinates(lat = site.lat, lon = site.lon) {
@@ -57,14 +81,19 @@ function updateBoundaryStatus() {
   $('#finishBoundary').disabled = !boundaryDrawing || count < 3;
   $('#undoBoundary').disabled = !boundaryDrawing || count === 0;
   $('#clearBoundary').disabled = count === 0;
+  $('#placeFieldNote').disabled = notePlacing || boundaryDrawing;
+  $('#cancelFieldNote').hidden = !notePlacing;
   $('#boundaryStatus').textContent = boundaryDrawing
     ? `${count} point${count === 1 ? '' : 's'} · ajoutez au moins 3 points`
     : count >= 3 ? `Limite utilisateur · ${count} sommets` : 'Optionnelle';
   $('#map').classList.toggle('drawing-boundary', boundaryDrawing);
+  $('#map').classList.toggle('drawing-note', notePlacing);
   const tip = $('#mapTip');
   if (tip) tip.textContent = boundaryDrawing
     ? 'Cliquez pour ajouter des sommets, puis « Terminer »'
-    : 'Cliquez pour placer le centre · glissez pour explorer';
+    : notePlacing
+      ? 'Cliquez dans l’emprise pour placer le repère · Échap pour annuler'
+      : 'Cliquez pour placer le centre · glissez pour explorer';
 }
 function updateFreshness(label = '') {
   const sameSite = dataSignature && Math.abs(dataSignature.lat - site.lat) < 1e-8 &&
@@ -80,6 +109,134 @@ function updateFreshness(label = '') {
   }
   return fresh;
 }
+function fieldNotesForSite() {
+  return fieldNotesInExtent(fieldNotes, {
+    lat: site.lat, lon: site.lon, radius: site.radius, shape: site.shape
+  });
+}
+function renderFieldNotes() {
+  const host = $('#fieldNoteList');
+  if (!host) return;
+  const current = fieldNotesForSite();
+  map.setAnnotations(current);
+  $('#fieldNoteCount').textContent = current.length.toLocaleString('fr-FR');
+  $('#exportFieldNotes').disabled = current.length === 0;
+  $('#clearFieldNotes').disabled = current.length === 0;
+  if (!notePlacing) {
+    $('#fieldNoteStatus').textContent = current.length
+      ? `${current.length.toLocaleString('fr-FR')} repère(s) dans cette emprise · conservés dans ce navigateur.`
+      : 'Aucun repère dans cette emprise.';
+  }
+  host.replaceChildren();
+  if (!current.length) {
+    const empty = document.createElement('p'); empty.className = 'field-note-empty';
+    empty.textContent = 'Les repères que vous placez apparaîtront ici.';
+    host.append(empty);
+    return;
+  }
+  for (const [index, note] of current.entries()) {
+    const category = FIELD_NOTE_CATEGORIES.find(item => item.id === note.category) || FIELD_NOTE_CATEGORIES[0];
+    const card = document.createElement('article'); card.className = 'field-note-item';
+    card.style.setProperty('--note-color', category.color);
+    const top = document.createElement('div'); top.className = 'field-note-item-top';
+    const number = document.createElement('span'); number.className = 'field-note-number';
+    number.style.setProperty('--note-color', category.color); number.textContent = String(index + 1);
+    const heading = document.createElement('strong'); heading.className = 'field-note-title'; heading.textContent = note.title;
+    const tag = document.createElement('span'); tag.className = 'field-note-category';
+    tag.style.setProperty('--note-color', category.color); tag.textContent = category.label;
+    top.append(number, heading, tag);
+    const meta = document.createElement('p'); meta.className = 'field-note-meta';
+    const date = new Date(note.createdAt);
+    meta.textContent = `${coordinates(note.lat, note.lon)} · ${date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`;
+    card.append(top, meta);
+    if (note.text) {
+      const body = document.createElement('p'); body.className = 'field-note-text'; body.textContent = note.text;
+      card.append(body);
+    }
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'field-note-remove';
+    remove.textContent = 'Supprimer'; remove.setAttribute('aria-label', `Supprimer le repère « ${note.title} »`);
+    remove.addEventListener('click', () => {
+      fieldNotes = fieldNotes.filter(item => item.id !== note.id);
+      const saved = writeFieldNotes();
+      renderFieldNotes();
+      if (!saved) $('#fieldNoteStatus').textContent = 'Repère retiré de cette session; le stockage local est indisponible.';
+    });
+    card.append(remove);
+    host.append(card);
+  }
+}
+function cancelFieldNotePlacement() {
+  notePlacing = false; noteDraft = null;
+  map.setDrawMode(null);
+  updateBoundaryStatus();
+  renderFieldNotes();
+}
+function beginFieldNotePlacement() {
+  if (boundaryDrawing) {
+    $('#fieldNoteStatus').textContent = 'Terminez ou effacez d’abord le tracé de la limite du projet.';
+    return;
+  }
+  const title = $('#fieldNoteTitle').value.trim();
+  if (!title) {
+    $('#fieldNoteStatus').textContent = 'Donnez un titre au repère avant de le placer.';
+    $('#fieldNoteTitle').focus(); return;
+  }
+  if (fieldNotes.length >= MAX_FIELD_NOTES) {
+    $('#fieldNoteStatus').textContent = `Limite de ${MAX_FIELD_NOTES} repères locaux atteinte; supprimez ou exportez des notes avant d’en ajouter.`;
+    return;
+  }
+  noteDraft = {
+    title, text: $('#fieldNoteText').value.trim(), category: $('#fieldNoteCategory').value,
+    siteName: site.name
+  };
+  notePlacing = true;
+  $('#fieldNotes').open = true;
+  map.setDrawMode('note');
+  updateBoundaryStatus();
+  $('#fieldNoteStatus').textContent = 'Cliquez dans l’emprise affichée pour placer le repère. Rien n’est envoyé au serveur.';
+}
+function placeFieldNote(lat, lon) {
+  if (!notePlacing || !noteDraft) return;
+  const [x, y] = toLocal([lat, lon], { lat: site.lat, lon: site.lon });
+  if (!insideShape(x, y, site.radius, site.shape)) {
+    $('#fieldNoteStatus').textContent = 'Placez le repère à l’intérieur de l’emprise circulaire ou carrée.';
+    return;
+  }
+  const note = createFieldNote({ ...noteDraft, lat, lon });
+  if (!note) {
+    $('#fieldNoteStatus').textContent = 'Le repère n’a pas pu être validé.';
+    return;
+  }
+  fieldNotes = normalizeFieldNotes([note, ...fieldNotes]);
+  const saved = writeFieldNotes();
+  notePlacing = false; noteDraft = null;
+  map.setDrawMode(null);
+  $('#fieldNoteTitle').value = '';
+  $('#fieldNoteText').value = '';
+  updateBoundaryStatus();
+  renderFieldNotes();
+  $('#fieldNoteStatus').textContent = saved
+    ? 'Repère enregistré dans ce navigateur uniquement.'
+    : 'Repère ajouté pour cette session; le stockage local est indisponible.';
+  $('#message').textContent = 'Repère local placé sur la carte; il est distinct des objets OSM et de la limite du projet.';
+}
+function downloadFieldNotes() {
+  const current = fieldNotesForSite();
+  if (!current.length) return;
+  const blob = new Blob([JSON.stringify(fieldNotesGeoJSON(current), null, 2)], { type: 'application/geo+json;charset=utf-8' });
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = 'urbatrame-reperes.geojson';
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function clearFieldNotesForSite() {
+  const currentIds = new Set(fieldNotesForSite().map(note => note.id));
+  if (!currentIds.size || !confirm(`Effacer les ${currentIds.size} repère(s) de cette emprise ?`)) return;
+  fieldNotes = fieldNotes.filter(note => !currentIds.has(note.id));
+  const saved = writeFieldNotes();
+  renderFieldNotes();
+  if (!saved) $('#fieldNoteStatus').textContent = 'Repères effacés de cette session; le stockage local est indisponible.';
+}
 function boundaryFits(points) {
   return points.every(([lat, lon]) => {
     const [x, y] = toLocal([lat, lon], { lat: site.lat, lon: site.lon });
@@ -87,6 +244,7 @@ function boundaryFits(points) {
   });
 }
 function updateRadius() {
+  if (notePlacing) cancelFieldNotePlacement();
   site.radius = Number($('#radius').value);
   site.shape = $('#baseShape').value === 'square' ? 'square' : 'circle';
   $('#radiusValue').value = site.radius;
@@ -102,6 +260,7 @@ function updateRadius() {
   map.setShape(site.shape);
   map.setRadius(site.radius);
   updateFreshness();
+  renderFieldNotes();
 }
 function setData(d, terrain, label = '', include = demoLayers) {
   data = d;
@@ -120,6 +279,7 @@ function setData(d, terrain, label = '', include = demoLayers) {
   updateFreshness(`${label || 'Données prêtes'} · ${count.toLocaleString('fr-FR')} objets OpenStreetMap`);
 }
 function updateSite(lat, lon, name = 'Emprise personnalisée', fit = true) {
+  if (notePlacing) cancelFieldNotePlacement();
   site.lat = Number(lat); site.lon = Number(lon); site.name = name;
   $('#latitude').value = site.lat.toFixed(6); $('#longitude').value = site.lon.toFixed(6);
   if (site.boundary.length >= 3 && !boundaryFits(site.boundary)) {
@@ -131,6 +291,7 @@ function updateSite(lat, lon, name = 'Emprise personnalisée', fit = true) {
   map.setCenter(site.lat, site.lon, false);
   if (fit) map.setRadius(site.radius);
   updateFreshness();
+  renderFieldNotes();
 }
 function setBusy(value, text = '') {
   busy = value;
@@ -168,6 +329,7 @@ async function loadDemo() {
 $('#radius').addEventListener('input', updateRadius);
 $('#baseShape').addEventListener('change', updateRadius);
 $('#drawBoundary').addEventListener('click', () => {
+  if (notePlacing) cancelFieldNotePlacement();
   boundaryDrawing = true;
   map.clearBoundary();
   map.setDrawMode('boundary');
@@ -196,7 +358,15 @@ $('#finishBoundary').addEventListener('click', () => {
 });
 $('#undoBoundary').addEventListener('click', () => { map.undoBoundary(); updateBoundaryStatus(); });
 $('#clearBoundary').addEventListener('click', () => {
+  if (notePlacing) cancelFieldNotePlacement();
   boundaryDrawing = false; map.setDrawMode(null); map.clearBoundary(); updateBoundaryStatus();
+});
+$('#placeFieldNote').addEventListener('click', beginFieldNotePlacement);
+$('#cancelFieldNote').addEventListener('click', cancelFieldNotePlacement);
+$('#exportFieldNotes').addEventListener('click', downloadFieldNotes);
+$('#clearFieldNotes').addEventListener('click', clearFieldNotesForSite);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && notePlacing) cancelFieldNotePlacement();
 });
 $('#homeMap').addEventListener('click', () => { map.setCenter(site.lat, site.lon, false); map.setRadius(site.radius); });
 $('#zoomIn').addEventListener('click', () => map.zoomBy(1));
@@ -310,5 +480,9 @@ fetch('/api/atelier/health').then(r => r.ok ? $('#connectionDot').classList.remo
 updateCoordinates(); updateRadius(); updatePlaceName();
 await loadDemo();
 updateBoundaryStatus();
+renderFieldNotes();
 void initGadmAtlas();
-window.addEventListener('beforeunload', () => map.destroy(), { once: true });
+window.addEventListener('beforeunload', () => {
+  if (fieldNoteRenderTimer) clearTimeout(fieldNoteRenderTimer);
+  map.destroy();
+}, { once: true });
