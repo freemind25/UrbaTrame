@@ -47,7 +47,7 @@ export const SOURCES = {
             'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/']
 };
 
-export const UA = PRODUCT + '/0.1.0 (https://github.com/freemind25/freemap ; freemind25@tutamail.com)';
+export const UA = PRODUCT + '/0.1.0 (https://github.com/freemind25/UrbaTrame ; freemind25@tutamail.com)';
 
 /* Quota : une génération en vol par IP, puis temps de refroidissement. */
 export const COOLDOWN_MS = 20_000;

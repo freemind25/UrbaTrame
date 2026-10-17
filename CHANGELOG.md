@@ -261,5 +261,5 @@ Dix défauts trouvés pendant la mise au point — détail dans
 - L'enregistrement des licences vit en mémoire : un redémarrage invalide les
   jetons de session (les titres signés, eux, restent valables).
 
-[0.1.1]: https://github.com/freemind25/freemap/releases/tag/v0.1.1
-[0.1.0]: https://github.com/freemind25/freemap/releases/tag/v0.1.0
+[0.1.1]: https://github.com/freemind25/UrbaTrame/releases/tag/v0.1.1
+[0.1.0]: https://github.com/freemind25/UrbaTrame/releases/tag/v0.1.0
