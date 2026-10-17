@@ -45,11 +45,15 @@ jobs:
   sources:
     name: Bancs d'essai en réseau
     runs-on: ubuntu-latest
-    continue-on-error: true          # dépend de services tiers
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '20'
       - name: Overpass, Nominatim, NASA POWER, Terrarium
+        id: network
         run: npm run test:net
+        continue-on-error: true      # services publics intermittents
+      - name: Signaler une indisponibilité de source externe
+        if: steps.network.outcome == 'failure'
+        run: echo "::warning::Un test réseau a échoué; voir l'étape précédente. Les vérifications hors ligne restent bloquantes."

@@ -6,6 +6,8 @@
    - un miroir en panne ne doit pas condamner l'analyse ;
    - le dernier miroir qui a répondu est réessayé en premier ;
    - une réponse 200 + remark d'erreur est un échec, pas un plan vide ;
+   - une réponse vide tente les miroirs suivants, sans invalider un résultat
+     réellement vide si aucun n'a de données ;
    - le budget total est respecté : on rend la main avant la coupure de la
      plateforme (60 s sur Vercel) au lieu d'être interrompu en plein vol. */
 import { test, describe, before, after } from 'node:test';
@@ -82,6 +84,24 @@ describe('repli entre miroirs Overpass', () => {
     const empty = await open({ elements: [] });
     const d = await overpass(QUERY, { endpoints: [empty.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
     assert.deepEqual(d.elements, []);
+  });
+
+  test('un miroir vide est essayé puis les données du suivant sont préférées', async () => {
+    const empty = await open({ elements: [] });
+    const good = await open({ elements: [{ id: 73 }] });
+    const d = await overpass(QUERY, { endpoints: [empty.url, good.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
+    assert.equal(d.elements[0].id, 73);
+    assert.equal(empty.seen.requests, 1);
+    assert.equal(good.seen.requests, 1);
+  });
+
+  test('si tous les miroirs sont vides, la réponse vide reste légitime', async () => {
+    const a = await open({ elements: [] });
+    const b = await open({ elements: [] });
+    const d = await overpass(QUERY, { endpoints: [a.url, b.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
+    assert.deepEqual(d.elements, []);
+    assert.equal(a.seen.requests, 1);
+    assert.equal(b.seen.requests, 1);
   });
 
   test('tous les miroirs en panne → MAP_SOURCE_UNAVAILABLE, jamais un plan vide', async () => {
