@@ -2,7 +2,7 @@
   "name": "freemap",
   "version": "0.1.0",
   "private": true,
-  "description": "UrbaTrame : analyses de site, couche d’occupation OpenBuildingMap et atelier topographique Altiplan intégré, avec exports DXF/SVG/PNG, coupes, maquettes OBJ/STL, OpenStreetMap, NASA POWER et relief Terrarium. Aucune dépendance.",
+  "description": "UrbaTrame : analyses de site, couche d’occupation OpenBuildingMap et atelier Altiplan intégré, imports SIG locaux GeoPackage/GeoTIFF/GeoJSON/Shapefile, exports DXF/SVG/PNG, maquettes OBJ/STL, OpenStreetMap et NASA POWER.",
   "keywords": [
     "urbanisme",
     "analyse-de-site",
@@ -51,6 +51,8 @@
     "url": "https://github.com/freemind25/UrbaTrame/issues"
   },
   "homepage": "https://github.com/freemind25/UrbaTrame#readme",
-  "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "geotiff": "3.0.5",
+    "sql.js": "1.15.0"
+  }
 }

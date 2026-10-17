@@ -36,6 +36,28 @@
           "value": "public, max-age=300"
         }
       ]
+    },
+    {
+      "source": "/vendor/sql.js/sql-wasm-browser.wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
+      "source": "/vendor/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
     }
   ],
   "cleanUrls": false,
