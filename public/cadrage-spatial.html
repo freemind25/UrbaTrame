@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="description" content="Cadrage spatial UrbaTrame : repérage du pays au quartier, périmètre d’étude de 3 km maximum, couches cartographiques, annotations et exports.">
+  <title>UrbaTrame — Cadrage spatial</title>
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/cadrage-spatial.css">
+  <script type="module" src="/js/spatial-framing.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="UrbaTrame, accueil">
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+      <span class="brand-copy">
+        <span class="brand-name">UrbaTrame</span>
+        <span class="brand-subtitle">Analyse des sites urbains</span>
+        <span class="brand-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a href="/atelier-analyse.html">Atelier d’analyse</a>
+      <a href="/atelier-cartographique.html">Couches locales</a>
+      <a class="current" href="/cadrage-spatial.html" aria-current="page">Cadrage spatial</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-kicker">URBATRAME <span>·</span> REPÉRAGE <span>·</span> PLAN DE SITUATION</div>
+      <div class="hero-title-row">
+        <div>
+          <h1 id="page-title">Cadrage spatial</h1>
+          <p class="lede">Repérez progressivement votre site, dessinez un périmètre de travail et composez une carte claire pour le projet.</p>
+        </div>
+        <a class="help-link" href="/cadrage-spatial-notice.html" target="_blank" rel="noopener">Notice d’utilisation</a>
+      </div>
+      <div class="privacy-grid">
+        <p><strong>Local par défaut.</strong> Les cadrages et annotations sont enregistrés dans ce navigateur. La page ne lance aucune recherche ni extraction au chargement.</p>
+        <p><strong>Actions externes explicites.</strong> Une recherche envoie le texte saisi au service de géocodage; le chargement GADM ou OpenStreetMap/relief ne démarre qu’après votre clic. Les couches locales et annotations ne sont pas envoyées.</p>
+        <p><strong>Limite d’analyse.</strong> Les cartes de repérage des niveaux 1–2 sont schématiques. Tout périmètre d’analyse des niveaux 3–4 est limité à 3 000 m du centre; aucune limite cadastrale ou juridique n’est créée.</p>
+      </div>
+    </section>
+
+    <section class="level-strip" aria-labelledby="level-title">
+      <div class="level-heading">
+        <div><span class="step">01 / CHOISIR L’ÉCHELLE DE REPÉRAGE</span><h2 id="level-title">Du territoire au quartier</h2></div>
+        <span id="limitBadge" class="limit-badge">Repérage schématique · niveaux 1–2</span>
+      </div>
+      <div class="level-cards" role="radiogroup" aria-label="Niveau du cadrage">
+        <label class="level-card"><input type="radio" name="level" value="wilaya-country" checked><span class="level-number">01</span><span><strong>Wilaya / pays</strong><small>Repérer la wilaya dans le pays</small></span></label>
+        <label class="level-card"><input type="radio" name="level" value="city-wilaya"><span class="level-number">02</span><span><strong>Ville / wilaya</strong><small>Repérer la ville dans la wilaya</small></span></label>
+        <label class="level-card"><input type="radio" name="level" value="neighborhood-city"><span class="level-number">03</span><span><strong>Quartier / ville</strong><small>Délimiter un périmètre d’étude</small></span></label>
+        <label class="level-card"><input type="radio" name="level" value="neighborhood-environment"><span class="level-number">04</span><span><strong>Quartier / environnement</strong><small>Lire les abords proches</small></span></label>
+      </div>
+      <p id="levelExplanation" class="level-explanation" aria-live="polite"></p>
+    </section>
+
+    <section class="workbench" aria-label="Espace de cadrage spatial">
+      <aside class="sidebar">
+        <details class="panel" open>
+          <summary><span class="step">02 / LOCALISER</span><strong>Lieu et centre de la carte</strong></summary>
+          <div class="panel-body">
+            <form id="searchForm" class="search-form">
+              <label class="field-label" for="placeSearch">Wilaya, ville, quartier ou adresse
+                <span class="search-row"><input id="placeSearch" type="search" minlength="2" maxlength="180" placeholder="Ex. Alger, Bab El Oued" autocomplete="off"><button class="button-primary" type="submit">Rechercher</button></span>
+              </label>
+            </form>
+            <p class="privacy-small"><strong>Recherche non automatique.</strong> Elle ne part qu’après validation. Le texte est transmis via UrbaTrame à Nominatim / OpenStreetMap pour obtenir des résultats de localisation.</p>
+            <div id="searchStatus" class="status" role="status" aria-live="polite">Aucune recherche effectuée.</div>
+            <div id="searchResults" class="search-results" aria-live="polite"></div>
+            <div class="coordinate-grid">
+              <label for="centerLat">Latitude (WGS 84)<input id="centerLat" type="number" min="-85" max="85" step="any" value="36.7538"></label>
+              <label for="centerLon">Longitude (WGS 84)<input id="centerLon" type="number" min="-180" max="180" step="any" value="3.0588"></label>
+            </div>
+            <label class="field-label" for="centerName">Nom du lieu / du centre
+              <input id="centerName" type="text" maxlength="180" value="Alger, Algérie">
+            </label>
+            <button id="applyCenter" class="button-secondary full" type="button">Appliquer ces coordonnées</button>
+            <p id="centerStatus" class="fine-status">Centre initial indicatif : Alger. Vérifiez et ajustez-le au besoin.</p>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><span class="step">03 / REPÉRER</span><strong>Limites administratives</strong></summary>
+          <div class="panel-body">
+            <p class="privacy-small">Le bouton interroge GADM 4.1 pour l’Algérie. Les géométries et noms sont indicatifs; GADM ne représente pas les limites cadastrales ni une délimitation juridique.</p>
+            <label class="field-label" for="countryCode">Pays
+              <select id="countryCode"><option value="DZA" selected>Algérie (DZA)</option></select>
+            </label>
+            <button id="loadAdmin" class="button-primary full" type="button">Charger les limites GADM</button>
+            <div id="adminStatus" class="status" role="status" aria-live="polite">Aucune limite externe chargée.</div>
+            <label class="field-label" for="wilayaSelect">Wilaya
+              <select id="wilayaSelect" disabled><option value="">Chargez d’abord les limites</option></select>
+            </label>
+            <label class="field-label" for="communeSelect">Ville / unité disponible dans GADM
+              <select id="communeSelect" disabled><option value="">Sélectionnez une wilaya</option></select>
+            </label>
+            <button id="centerOnUnit" class="button-secondary full" type="button" disabled>Centrer sur l’unité sélectionnée</button>
+            <p class="fine-status">Le centroïde calculé sert uniquement à centrer l’affichage; il ne certifie ni adresse ni centre officiel.</p>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><span class="step">04 / DÉFINIR LE PÉRIMÈTRE</span><strong>Forme et contrôle des 3 000 m</strong></summary>
+          <div class="panel-body">
+            <p class="limit-explainer">Au niveau 3–4, aucun point du périmètre ne peut se trouver à plus de <strong>3 000 m</strong> du centre indiqué. Cette limite s’applique au cercle, au rectangle et au polygone. Les niveaux 1–2 restent des cartes schématiques de repérage.</p>
+            <div class="tool-grid" role="group" aria-label="Outil de dessin du périmètre">
+              <button class="tool-button" type="button" data-draw="polygon" aria-pressed="false">＋ Polygone</button>
+              <button class="tool-button" type="button" data-draw="rectangle" aria-pressed="false">＋ Rectangle</button>
+              <button class="tool-button" type="button" data-draw="circle" aria-pressed="false">＋ Cercle</button>
+            </div>
+            <div class="button-row">
+              <button id="finishShape" class="button-primary" type="button" disabled>Terminer le polygone</button>
+              <button id="cancelShape" class="button-secondary" type="button" disabled>Annuler</button>
+            </div>
+            <div class="button-row">
+              <button id="editShape" class="button-secondary" type="button" disabled>Modifier les sommets</button>
+              <button id="clearShape" class="button-secondary" type="button" disabled>Supprimer la forme</button>
+            </div>
+            <label class="field-label" for="circleRadius">Rayon si forme circulaire (m)
+              <span class="range-row"><input id="circleRadius" type="range" min="50" max="3000" step="10" value="500"><output id="circleRadiusOut">500 m</output></span>
+            </label>
+            <div id="perimeterStatus" class="perimeter-status" role="status" aria-live="polite">Aucun périmètre d’analyse dessiné.</div>
+            <div id="perimeterMetrics" class="metric-grid"></div>
+            <label class="field-label" for="importBoundary">Importer une couche locale (GeoJSON / GeoPackage)
+              <input id="importBoundary" type="file" accept=".geojson,.json,.gpkg,application/geo+json,application/json,application/geopackage+sqlite3">
+            </label>
+            <label class="field-label" for="boundaryFeatureSelect">Contour à utiliser comme périmètre
+              <select id="boundaryFeatureSelect" disabled><option value="">Aucun contour polygonal importé</option></select>
+            </label>
+            <button id="useBoundary" class="button-secondary full" type="button" disabled>Utiliser ce contour (contrôle des 3 000 m)</button>
+            <p class="privacy-small">Le fichier est lu dans ce navigateur et n’est pas téléversé. Vérifiez son CRS (WGS 84 / EPSG:4326) et sa source avant de l’utiliser comme hypothèse de travail. Importer une géométrie ne la transforme pas en limite juridique.</p>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><span class="step">05 / COUCHES</span><strong>Données et légende</strong></summary>
+          <div class="panel-body">
+            <p class="privacy-small">Les couches OSM/relief ne sont demandées qu’au clic. UrbaTrame transmet le centre, le rayon (≤ 3 000 m) et les thèmes cochés; ni les annotations ni les fichiers locaux ne sont transmis.</p>
+            <div class="data-choice-grid">
+              <label><input type="checkbox" name="remoteLayer" value="buildings" checked>Bâtiments</label>
+              <label><input type="checkbox" name="remoteLayer" value="roads" checked>Routes</label>
+              <label><input type="checkbox" name="remoteLayer" value="landuse" checked>Espaces / usages</label>
+              <label><input type="checkbox" name="remoteLayer" value="water" checked>Eau</label>
+              <label><input type="checkbox" name="remoteLayer" value="rail" checked>Rail</label>
+              <label><input type="checkbox" name="remoteLayer" value="pois" checked>Équipements</label>
+              <label><input type="checkbox" name="remoteLayer" value="places" checked>Centralités / lieux</label>
+              <label><input type="checkbox" name="remoteLayer" value="barriers">Barrières / murs</label>
+              <label><input type="checkbox" name="remoteLayer" value="trees">Arbres</label>
+              <label><input type="checkbox" id="loadRelief">Relief (si disponible)</label>
+            </div>
+            <button id="loadOsm" class="button-primary full" type="button">Charger les données OSM / relief</button>
+            <div id="osmStatus" class="status" role="status" aria-live="polite">Aucune requête OSM ou relief effectuée.</div>
+            <div id="layerControls" class="layer-controls" aria-label="Couches affichées"></div>
+            <p class="fine-status">Attribution OSM : © OpenStreetMap contributors · ODbL. Un résultat incomplet ou une couche indisponible est signalé; la disponibilité varie selon la cartographie locale.</p>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><span class="step">06 / ANNOTER</span><strong>Accès, équipements et observations</strong></summary>
+          <div class="panel-body">
+            <label class="field-label" for="annotationType">Type d’annotation
+              <select id="annotationType">
+                <option value="point">Point</option><option value="line">Ligne</option><option value="arrow">Flèche</option><option value="zone">Zone</option><option value="text">Texte</option>
+              </select>
+            </label>
+            <label class="field-label" for="annotationCategory">Catégorie
+              <select id="annotationCategory">
+                <option value="observation">Observation</option><option value="access">Accès</option><option value="equipment">Équipement</option><option value="centrality">Centralité</option><option value="barrier">Coupure / barrière</option><option value="green">Espace vert</option><option value="custom">Autre</option>
+              </select>
+            </label>
+            <label class="field-label" for="annotationText">Étiquette / note courte
+              <input id="annotationText" type="text" maxlength="160" placeholder="Ex. accès principal">
+            </label>
+            <label class="field-label" for="annotationColor">Couleur de l’annotation
+              <input id="annotationColor" type="color" value="#b24d3b">
+            </label>
+            <div class="button-row"><button id="startAnnotation" class="button-secondary" type="button">Placer sur la carte</button><button id="finishAnnotation" class="button-primary" type="button" disabled>Terminer</button></div>
+            <p class="privacy-small">Cliquez sur la carte pour placer un point/texte; deux clics pour une ligne/flèche; trois clics ou plus puis « Terminer » pour une zone.</p>
+            <div id="annotationList" class="annotation-list"></div>
+            <div class="button-row"><button id="updateAnnotation" class="button-primary" type="button" disabled>Modifier texte / style</button></div>
+            <div class="button-row"><button id="moveAnnotation" class="button-secondary" type="button" disabled>Déplacer l’annotation choisie</button><button id="deleteAnnotation" class="button-secondary" type="button" disabled>Supprimer</button></div>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><span class="step">07 / COMPOSER ET EXPORTER</span><strong>Mise en page</strong></summary>
+          <div class="panel-body">
+            <label class="field-label" for="projectName">Projet / intitulé du cadrage<input id="projectName" type="text" maxlength="100" value="Nouveau cadrage"></label>
+            <label class="field-label" for="mapTitle">Titre à imprimer<input id="mapTitle" type="text" maxlength="180"></label>
+            <div class="coordinate-grid">
+              <label for="pageSize">Format<select id="pageSize"><option>A4</option><option>A3</option><option>A2</option></select></label>
+              <label for="orientation">Orientation<select id="orientation"><option value="landscape">Paysage</option><option value="portrait">Portrait</option></select></label>
+            </div>
+            <div class="coordinate-grid">
+              <label for="mapScale">Échelle numérique (1 :)<input id="mapScale" type="number" min="500" max="200000" step="500" value="8000"></label>
+              <label for="viewRadius">Rayon visible (m)<input id="viewRadius" type="number" min="100" max="3000" step="50" value="1000"></label>
+            </div>
+            <p id="scaleStatus" class="fine-status">L’échelle et le rayon visible sont synchronisés; l’échelle à l’impression dépend de l’ajustement du papier par le lecteur PDF.</p>
+            <label class="field-label" for="mapComments">Commentaire / méthode<textarea id="mapComments" rows="3" maxlength="500" placeholder="Hypothèses, date terrain, remarques…"></textarea></label>
+            <label class="field-label" for="sourceReference">Source / licence / référence locale<input id="sourceReference" type="text" maxlength="240" placeholder="Auteur, licence, date ou référence du contour local"></label>
+            <div class="button-row export-buttons">
+              <button id="exportSvg" class="button-secondary" type="button">SVG</button><button id="exportPng" class="button-secondary" type="button">PNG</button><button id="exportJpeg" class="button-secondary" type="button">JPEG</button><button id="printMap" class="button-primary" type="button">Imprimer / PDF</button>
+            </div>
+            <p class="fine-status">PDF : utilisez « Enregistrer au format PDF » dans la fenêtre d’impression. Le SVG reste éditable; A4, A3 et A2 disponibles.</p>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><span class="step">08 / SAUVEGARDER</span><strong>Cadrages du projet</strong></summary>
+          <div class="panel-body">
+            <label class="field-label" for="savedFramings">Cadrages enregistrés dans ce navigateur<select id="savedFramings"><option value="">Aucun cadrage enregistré</option></select></label>
+            <div class="button-row"><button id="saveFraming" class="button-primary" type="button">Enregistrer / mettre à jour</button><button id="deleteFraming" class="button-secondary" type="button" disabled>Supprimer</button></div>
+            <div class="button-row"><button id="exportProject" class="button-secondary" type="button">Exporter le projet JSON</button><label class="file-button" for="importProject">Importer JSON<input id="importProject" type="file" accept=".json,application/json"></label></div>
+            <div id="saveStatus" class="status" role="status" aria-live="polite">Les enregistrements restent sur cet appareil.</div>
+          </div>
+        </details>
+      </aside>
+
+      <section class="map-column" aria-label="Prévisualisation cartographique">
+        <div class="map-toolbar">
+          <div><span class="step">APERÇU DU CADRAGE</span><h2 id="previewTitle">Situation de la wilaya de à sélectionner par rapport au territoire national</h2></div>
+          <div class="preview-actions"><button id="fitMap" class="button-secondary" type="button">Recentrer</button><button id="resetMap" class="button-secondary" type="button">Réinitialiser la vue</button></div>
+        </div>
+        <div id="mapAlert" class="map-alert" role="status" aria-live="polite">Carte de repérage schématique. Chargez les limites GADM à l’aide du bouton dédié ou dessinez un périmètre d’analyse au niveau 3–4.</div>
+        <div class="map-frame">
+          <svg id="mapCanvas" viewBox="0 0 1100 720" role="img" aria-labelledby="mapSvgTitle mapSvgDesc" xmlns="http://www.w3.org/2000/svg">
+            <title id="mapSvgTitle">Aperçu du cadrage spatial UrbaTrame</title>
+            <desc id="mapSvgDesc">Carte interactive de repérage et de dessin. Aucune donnée externe n’a encore été chargée.</desc>
+          </svg>
+          <div class="map-tools" aria-label="Outils de carte"><span>Utilisez le clic-glissé pour dessiner un rectangle ou un cercle; cliquez pour les sommets d’un polygone.</span><button id="cancelTool" type="button" hidden>Quitter l’outil</button></div>
+        </div>
+        <div class="map-meta-grid">
+          <div><span class="meta-label">Centre (WGS 84)</span><strong id="mapCoordinates">36.753800, 3.058800</strong></div>
+          <div><span class="meta-label">Référence de coordonnées</span><strong>EPSG:4326 · WGS 84</strong></div>
+          <div><span class="meta-label">Date de préparation</span><strong id="mapDate">—</strong></div>
+          <div><span class="meta-label">Sources</span><strong id="mapSources">GADM 4.1 · OSM selon disponibilité</strong></div>
+        </div>
+        <div class="legend-wrap"><div><span class="step">LÉGENDE AUTOMATIQUE</span><h3>Couches visibles</h3></div><div id="mapLegend" class="map-legend"></div></div>
+        <div class="map-footnote"><strong>À lire avant utilisation.</strong> Niveaux 1–2 : repérage schématique basé sur limites administratives disponibles. Niveaux 3–4 : analyse limitée à 3 000 m du centre; vérifiez la géométrie et les sources. Les limites GADM/OSM ne valent pas délimitation cadastrale, juridique ou réglementaire.</div>
+      </section>
+    </section>
+  </main>
+
+  <div id="printLayout" class="print-layout" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="busy" class="busy" aria-hidden="true"><span class="spinner"></span><span id="busyText">Chargement…</span></div>
+</body>
+</html>

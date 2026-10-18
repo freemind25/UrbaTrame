@@ -183,6 +183,34 @@ Corps `application/x-www-form-urlencoded`.
 | `refcheck=MTN-XXXXX` | `{ ok, ref, percent }` |
 | `refcode=code` | `{ ok, ref, plan, tier, expiresAt, count }` |
 
+## Routes cartographiques de l’atelier et du Cadrage spatial
+
+Ces routes publiques sont distinctes de `/analysis/2d` et ne nécessitent ni `device` ni licence. Les appels de géocodage, de GADM et d’extraction du Cadrage spatial sont déclenchés par une action explicite de l’utilisateur.
+
+### `POST /api/atelier/geocode`
+
+Corps JSON `{ "q": "lieu recherché" }`. La route transmet la recherche au service Nominatim, applique un cache et une limitation de débit, puis renvoie `{ ok, results: [{ name, lat, lon, type }] }`. Le service est sollicité uniquement à la soumission du formulaire.
+
+### `GET /api/atelier/gadm`
+
+Paramètres `country`, `level`, `version` (4.1 par défaut), et optionnellement `parent` / `parentLevel`. Renvoie un aperçu GeoJSON généralisé et mis en cache. Les limites administratives GADM ne sont pas des limites cadastrales/juridiques.
+
+### `POST /api/atelier/cadrage-extract`
+
+Corps JSON :
+
+| Champ | Type | Règle |
+|---|---|---|
+| `lat`, `lon` | nombre | centre WGS 84 valide |
+| `radius` | nombre | 200 à **3 000 m maximum** |
+| `include` | tableau | `buildings`, `roads`, `landuse`, `water`, `rail`, `trees`, `pois`, `barriers`, `places` |
+| `terrain` | booléen | optionnel; le relief est demandé seulement si `true` |
+| `terrainN` | entier | optionnel; 12–40, valeur par défaut 24 |
+
+Le serveur compose les sélecteurs Overpass; le client ne fournit pas de requête libre. Réponse : `{ ok, lat, lon, radius, maxRadius: 3000, include, elements, terrain, warnings, source, extractedAt }`. Une réponse supérieure à 12 000 éléments, 240 000 positions ou 12 Mo est refusée avec `CADRAGE_DATA_LIMIT` (413).
+
+**Séparation de la limite Altiplan :** `/api/atelier/extract` continue à utiliser `MAX_RADIUS = 3989` m. Cette route historique n’est pas utilisée par le nouveau module; `/api/atelier/cadrage-extract` valide son propre plafond de 3 000 m. Les deux réglages ne se modifient pas mutuellement.
+
 ## Codes d'erreur
 
 | Code | HTTP | Sens |

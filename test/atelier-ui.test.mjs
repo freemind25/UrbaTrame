@@ -35,6 +35,24 @@ describe('UrbaTrame · contrôles d’interface de l’atelier cartographique', 
     assert.doesNotMatch(html, /pas encore de fond externe/i, 'aucune mention obsolète de l’absence de fond externe');
   });
 
+  test('l’ordre des couches et le tableau de bord sont intégrés au même Atelier cartographique', () => {
+    for (const id of ['dashboardKpis', 'dashboardField', 'dashboardChart', 'dashboardMeta']) assert.match(html, new RegExp(`id="${id}"`));
+    assert.match(html, /Ordre d’affichage : du haut de la liste/);
+    assert.match(js, /from '\.\/dashboard\.mjs'/);
+    assert.match(js, /from '\.\/layer-stack\.mjs'/);
+    assert.match(js, /Déplacer « \$\{layer\.name\} » au-dessus/);
+    assert.match(js, /calcul local dans le navigateur/);
+    assert.match(js, /filterState\.textContent/);
+    const renderMap = js.slice(js.indexOf('function renderMap()'), js.indexOf('\nfunction moveLayerInStack'));
+    assert.match(renderMap, /const renderEntries = visibleLayers\.map/);
+    assert.match(renderMap, /for \(const \{ layer, items \} of renderEntries\) \{\s*if \(layer\.kind === 'raster'\) \{\s*appendRasterLayer\(layer, project\);\s*continue;/);
+    assert.ok(renderMap.indexOf('appendRasterLayer(layer, project)') < renderMap.indexOf('appendGeometry('), 'les rasters et vecteurs sont peints dans le même ordre de pile');
+    assert.doesNotMatch(renderMap, /for \(const layer of rasterLayers\) appendRasterLayer/, 'aucune séparation des rasters avant les vecteurs');
+    const css = fs.readFileSync(path.join(ROOT, 'public/atelier-cartographique.css'), 'utf8');
+    assert.match(css, /\.dashboard-panel/);
+    assert.match(css, /\.layer-order-controls/);
+  });
+
   test('l’IA est inactive par défaut et la clé n’est pas préremplie ni persistée', () => {
     assert.match(html, /<option value="">Choisir — IA inactive<\/option>/);
     assert.match(html, /id="aiApiKey" type="password" maxlength="500" autocomplete="new-password" spellcheck="false"/);

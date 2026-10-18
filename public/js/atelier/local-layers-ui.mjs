@@ -5,6 +5,8 @@ import {
   exportVisibleGeoJSON
 } from './local-layers.mjs';
 import { summarizeFeatures } from './local-analysis.mjs';
+import { buildDashboardSummary } from './dashboard.mjs';
+import { layersTopFirst, moveLayerStack } from './layer-stack.mjs';
 import { parseShapefileBundle, detectShapefileCrs } from './shapefile.mjs';
 import { extractShapefileZip } from './zip-reader.mjs';
 import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './project.mjs';
@@ -545,7 +547,11 @@ function renderMap() {
   svg.replaceChildren();
   const visibleLayers = state.layers.filter(layer => layer.visible);
   const rasterLayers = visibleLayers.filter(layer => layer.kind === 'raster');
-  const entries = visibleLayers.filter(layer => layer.kind !== 'raster').map(layer => ({ layer, items: visibleFeatures(layer) }));
+  const renderEntries = visibleLayers.map(layer => ({
+    layer,
+    items: layer.kind === 'raster' ? [] : visibleFeatures(layer)
+  }));
+  const entries = renderEntries.filter(entry => entry.layer.kind !== 'raster');
   const allFeatures = entries.flatMap(entry => entry.items.map(item => item.feature));
   const rasterExtentPoints = rasterLayers.flatMap(layer => (layer.raster?.cornersWgs84 || []).map(coordinates => ({ geometry: { type: 'Point', coordinates } })));
   const project = buildProjector([...allFeatures, ...rasterExtentPoints]);
@@ -559,11 +565,15 @@ function renderMap() {
     return;
   }
   appendExternalBasemap(project);
-  for (const layer of rasterLayers) appendRasterLayer(layer, project);
   let rendered = 0;
   let truncated = false;
   const budget = { count: 0, truncated: false, labels: 0 };
-  for (const { layer, items } of entries) {
+  for (const { layer, items } of renderEntries) {
+    if (layer.kind === 'raster') {
+      appendRasterLayer(layer, project);
+      continue;
+    }
+    if (truncated) continue;
     for (const { feature, index } of items) {
       if (!feature.geometry) continue;
       if (rendered >= MAX_RENDERED_FEATURES) { truncated = true; break; }
@@ -571,7 +581,6 @@ function renderMap() {
       rendered++;
       if (budget.truncated) { truncated = true; break; }
     }
-    if (truncated) break;
   }
   if (state.pendingCoordinates.length) {
     const points = state.pendingCoordinates.map(project);
@@ -588,6 +597,16 @@ function renderMap() {
   updateActions();
 }
 
+function moveLayerInStack(layerId, direction) {
+  const reordered = moveLayerStack(state.layers, layerId, direction);
+  const changed = reordered.some((layer, index) => layer.id !== state.layers[index]?.id);
+  if (!changed) return;
+  state.layers = reordered;
+  renderLayerList(); renderMap(); renderAttributes();
+  const layer = state.layers.find(item => item.id === layerId);
+  status(`Couche « ${layer?.name || 'sélectionnée'} » déplacée ${direction === 'up' ? 'au-dessus' : 'en dessous'} dans la pile.`, 'success');
+}
+
 function renderLayerList() {
   layerList.replaceChildren();
   $('#layerCount').textContent = String(state.layers.length);
@@ -598,12 +617,24 @@ function renderLayerList() {
     empty.textContent = 'Ajoutez un GeoJSON, CSV/TSV, Shapefile, GeoPackage ou GeoTIFF pour commencer.';
     layerList.append(empty);
   }
-  for (const layer of state.layers) {
+  const topFirst = layersTopFirst(state.layers);
+  for (let displayIndex = 0; displayIndex < topFirst.length; displayIndex++) {
+    const layer = topFirst[displayIndex];
     const card = document.createElement('article');
     card.className = 'layer-card';
     card.dataset.selected = String(layer.id === state.selectedLayerId);
     const main = document.createElement('div');
     main.className = 'layer-main';
+    const orderControls = document.createElement('span'); orderControls.className = 'layer-order-controls';
+    const moveUp = document.createElement('button'); moveUp.type = 'button'; moveUp.textContent = '↑';
+    moveUp.disabled = displayIndex === 0; moveUp.title = 'Déplacer au-dessus';
+    moveUp.setAttribute('aria-label', `Déplacer « ${layer.name} » au-dessus`);
+    moveUp.addEventListener('click', () => moveLayerInStack(layer.id, 'up'));
+    const moveDown = document.createElement('button'); moveDown.type = 'button'; moveDown.textContent = '↓';
+    moveDown.disabled = displayIndex === topFirst.length - 1; moveDown.title = 'Déplacer en dessous';
+    moveDown.setAttribute('aria-label', `Déplacer « ${layer.name} » en dessous`);
+    moveDown.addEventListener('click', () => moveLayerInStack(layer.id, 'down'));
+    orderControls.append(moveUp, moveDown);
     const visible = document.createElement('input');
     visible.type = 'checkbox'; visible.className = 'layer-visible';
     visible.checked = layer.visible; visible.setAttribute('aria-label', `Afficher ${layer.name}`);
@@ -635,7 +666,7 @@ function renderLayerList() {
       state.selectedFeature = null; renderAll();
       status(`Couche retirée · ${layer.name}`, 'success');
     });
-    main.append(visible, choose, styleControl, remove);
+    main.append(orderControls, visible, choose, styleControl, remove);
     const meta = document.createElement('p');
     meta.className = 'layer-meta';
     const imported = new Date(layer.importedAt).toLocaleString('fr-FR');
@@ -692,6 +723,90 @@ function renderLayerTools() {
     $('#analysisResults').textContent = `GeoTIFF local · ${layer.raster.width} × ${layer.raster.height} pixels · ${layer.raster.validPixels.toLocaleString('fr-FR')} pixels valides · min ${band.min.toFixed(3)} / max ${band.max.toFixed(3)} · NoData ${layer.raster.noData ?? 'absent'}. Aperçu colorisé indicatif; les valeurs restent inchangées et aucune analyse raster n’est exécutée.`;
   }
   updateEditControls();
+  renderDashboard();
+}
+
+function dashboardKpi(label, value, note = '') {
+  const article = document.createElement('article'); article.className = 'dashboard-kpi';
+  const strong = document.createElement('strong'); strong.textContent = String(value);
+  const caption = document.createElement('span'); caption.textContent = label;
+  article.append(strong, caption);
+  if (note) article.title = note;
+  return article;
+}
+
+function renderDashboardChart(summary, field) {
+  const host = $('#dashboardChart'); host.replaceChildren();
+  if (!field) {
+    const empty = document.createElement('p'); empty.className = 'dashboard-empty';
+    empty.textContent = 'Choisissez un attribut pour comparer le nombre d’entités par catégorie.'; host.append(empty); return;
+  }
+  if (!summary.categories.length) {
+    const empty = document.createElement('p'); empty.className = 'dashboard-empty';
+    empty.textContent = `Aucune valeur disponible dans « ${field} » après le filtre appliqué.`; host.append(empty); return;
+  }
+  const width = 760, rowHeight = 27, height = 22 + summary.categories.length * rowHeight;
+  const labelWidth = 200, chartWidth = 470, maxCount = Math.max(1, ...summary.categories.map(item => item.count));
+  const chart = document.createElementNS(SVG_NS, 'svg');
+  chart.setAttribute('viewBox', `0 0 ${width} ${height}`); chart.setAttribute('role', 'img');
+  chart.setAttribute('aria-label', `Nombre d’entités par valeur de ${field}`);
+  const title = document.createElementNS(SVG_NS, 'title'); title.textContent = `Répartition par ${field}`; chart.append(title);
+  summary.categories.forEach((item, index) => {
+    const y = 16 + index * rowHeight;
+    const label = document.createElementNS(SVG_NS, 'text'); label.setAttribute('x', '8'); label.setAttribute('y', String(y + 10)); label.setAttribute('class', 'bar-label');
+    label.textContent = item.label.length > 32 ? `${item.label.slice(0, 29)}…` : item.label;
+    const labelTitle = document.createElementNS(SVG_NS, 'title'); labelTitle.textContent = item.label; label.append(labelTitle); chart.append(label);
+    const backdrop = document.createElementNS(SVG_NS, 'rect'); backdrop.setAttribute('x', String(labelWidth)); backdrop.setAttribute('y', String(y)); backdrop.setAttribute('width', String(chartWidth)); backdrop.setAttribute('height', '13'); backdrop.setAttribute('rx', '4'); backdrop.setAttribute('class', 'bar-bg'); chart.append(backdrop);
+    const bar = document.createElementNS(SVG_NS, 'rect'); bar.setAttribute('x', String(labelWidth)); bar.setAttribute('y', String(y)); bar.setAttribute('width', String(Math.max(2, chartWidth * item.count / maxCount))); bar.setAttribute('height', '13'); bar.setAttribute('rx', '4'); bar.setAttribute('class', 'bar-value'); chart.append(bar);
+    const count = document.createElementNS(SVG_NS, 'text'); count.setAttribute('x', String(labelWidth + chartWidth + 12)); count.setAttribute('y', String(y + 10)); count.setAttribute('class', 'bar-count'); count.textContent = item.count.toLocaleString('fr-FR'); chart.append(count);
+  });
+  host.append(chart);
+}
+
+function renderDashboard() {
+  const root = $('#dashboardKpis'), fieldSelect = $('#dashboardField');
+  const layer = selectedLayer(); root.replaceChildren();
+  const filterState = $('#dashboardFilterState'), meta = $('#dashboardMeta');
+  if (!layer) {
+    fieldSelect.replaceChildren(new Option('Choisir une couche', '')); fieldSelect.disabled = true;
+    const empty = document.createElement('p'); empty.className = 'dashboard-empty'; empty.textContent = 'Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.'; root.append(empty);
+    filterState.textContent = 'Aucun filtre appliqué'; meta.textContent = 'Calcul local dans le navigateur; aucun appel à un service externe.';
+    renderDashboardChart({ categories: [] }, ''); return;
+  }
+  if (layer.kind === 'raster') {
+    fieldSelect.replaceChildren(new Option('Aucune statistique par attribut pour le raster', '')); fieldSelect.disabled = true;
+    const band = layer.raster.bands[0];
+    root.append(
+      dashboardKpi('Dimensions', `${layer.raster.width.toLocaleString('fr-FR')} × ${layer.raster.height.toLocaleString('fr-FR')}`),
+      dashboardKpi('Pixels valides', layer.raster.validPixels.toLocaleString('fr-FR')),
+      dashboardKpi('Minimum bande 1', band.min.toLocaleString('fr-FR', { maximumFractionDigits: 3 })),
+      dashboardKpi('Maximum bande 1', band.max.toLocaleString('fr-FR', { maximumFractionDigits: 3 }))
+    );
+    filterState.textContent = 'Aucun filtre vectoriel';
+    meta.textContent = 'Résumé des métadonnées seulement : aucune agrégation ou analyse pixel par pixel n’est exécutée.';
+    renderDashboardChart({ categories: [] }, ''); return;
+  }
+  const fields = [...new Set(layer.geojson.features.flatMap(feature => Object.keys(feature.properties || {})))].slice(0, 80);
+  const currentField = fieldSelect.value;
+  fillFieldSelect(fieldSelect, fields, 'Choisir un attribut', currentField);
+  fieldSelect.disabled = !fields.length;
+  const features = visibleFeatures(layer).map(item => item.feature);
+  const summary = buildDashboardSummary(features, fieldSelect.value);
+  root.append(
+    dashboardKpi('Entités après filtre', summary.featureCount.toLocaleString('fr-FR')),
+    dashboardKpi('Points', summary.pointCount.toLocaleString('fr-FR')),
+    dashboardKpi('Lignes', summary.lineCount.toLocaleString('fr-FR')),
+    dashboardKpi('Polygones', summary.polygonCount.toLocaleString('fr-FR')),
+    dashboardKpi('Longueurs / contours', formatLength(summary.lengthMeters), 'Longueurs géodésiques; pour les polygones, longueur du contour.'),
+    dashboardKpi('Surface cumulée', formatArea(summary.areaSqMeters), 'Approximation plane locale; chevauchements non dissous.')
+  );
+  const total = layer.geojson.features.length;
+  const hiddenNote = layer.visible ? '' : ' · couche masquée sur la carte';
+  filterState.textContent = layer.filter?.field
+    ? `Filtre : ${layer.filter.field} contient « ${layer.filter.value} » · ${features.length.toLocaleString('fr-FR')}/${total.toLocaleString('fr-FR')}${hiddenNote}`
+    : `${features.length.toLocaleString('fr-FR')} entité(s) · aucun filtre${hiddenNote}`;
+  meta.textContent = `Couche « ${layer.name} » · EPSG:4326 · calcul local dans le navigateur. Les résultats reflètent le filtre de la couche; ils ne sont pas transmis et ne constituent pas une mesure réglementaire.`;
+  renderDashboardChart(summary, fieldSelect.value);
 }
 
 function formatLength(metres) {
@@ -989,6 +1104,8 @@ $('#moveSelectedVertex').addEventListener('click', moveSelectedVertex);
 $('#insertSelectedVertex').addEventListener('click', insertSelectedVertex);
 $('#deleteSelectedVertex').addEventListener('click', deleteSelectedVertex);
 $('#deleteSelectedFeature').addEventListener('click', deleteSelectedFeature);
+
+$('#dashboardField').addEventListener('change', renderDashboard);
 
 $('#applyFilter').addEventListener('click', () => {
   const layer = selectedLayer();

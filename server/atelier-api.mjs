@@ -1,7 +1,10 @@
 /* API du module Altiplan intégré à Freemap.
    Ces routes publiques servent uniquement le relevé topographique; elles ne
    passent ni par le système de licence ni par les quotas des analyses Freemap. */
-import { DATASET_IDS, MAX_RADIUS, MIN_RADIUS, queryFor, withoutContactTags } from './atelier-data.mjs';
+import {
+  CADRAGE_DATASET_IDS, DATASET_IDS, MAX_CADRAGE_RADIUS, MAX_RADIUS, MIN_RADIUS,
+  queryFor, queryForCadrage, withoutContactTags
+} from './atelier-data.mjs';
 import { geocode as searchPlace, overpass as requestOverpass } from './sources/overpass.mjs';
 import { terrain as requestTerrain } from './sources/terrain.mjs';
 import { log, readBody, send } from './http.mjs';
@@ -75,17 +78,28 @@ export function createAtelierHandlers(deps = {}) {
     }
   }
 
-  async function extract(req, res) {
+  async function extract(req, res, { cadrage = false } = {}) {
     if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST_ONLY' });
     const body = await readJSON(req, res);
     if (body === null) return;
     const lat = Number(body.lat), lon = Number(body.lon), radius = Number(body.radius);
+    const availableIds = cadrage ? CADRAGE_DATASET_IDS : DATASET_IDS;
+    const requested = Array.isArray(body.include) ? body.include : availableIds;
+    const include = [...new Set(requested.filter(id => availableIds.includes(id)))];
     let query;
-    try { query = queryFor({ lat, lon, radius, include: body.include ?? DATASET_IDS }); }
-    catch (error) { return send(res, 400, { ok: false, error: error.message }); }
+    try {
+      if (cadrage && radius > MAX_CADRAGE_RADIUS)
+        throw new Error('CADRAGE_RADIUS_OUT_OF_RANGE');
+      query = cadrage
+        ? queryForCadrage({ lat, lon, radius, include })
+        : queryFor({ lat, lon, radius, include });
+    } catch (error) {
+      return send(res, 400, {
+        ok: false, error: error.message,
+        ...(cadrage ? { maxRadius: MAX_CADRAGE_RADIUS } : {})
+      });
+    }
 
-    const include = [...new Set((Array.isArray(body.include) ? body.include : DATASET_IDS)
-      .filter(id => DATASET_IDS.includes(id)))];
     const n = Math.min(40, Math.max(12, Number(body.terrainN) || 24));
     const t0 = clock();
     const [osm, ground] = await Promise.allSettled([
@@ -93,7 +107,7 @@ export function createAtelierHandlers(deps = {}) {
       body.terrain === false ? Promise.resolve(null) : terrainSource(lat, lon, radius, n)
     ]);
     if (osm.status === 'rejected') {
-      logger('atelier extract failed', osm.reason?.message || 'OVERPASS');
+      logger(cadrage ? 'cadrage extract failed' : 'atelier extract failed', osm.reason?.message || 'OVERPASS');
       return send(res, 502, { ok: false, error: 'MAP_DATA_UNAVAILABLE', detail: String(osm.reason?.message || '') });
     }
 
@@ -101,9 +115,30 @@ export function createAtelierHandlers(deps = {}) {
     const topo = ground.status === 'fulfilled' ? ground.value : null;
     if (!topo && body.terrain !== false) {
       warnings.push('RELIEF_UNAVAILABLE');
-      logger('atelier terrain unavailable', ground.reason?.message || 'TERRAIN');
+      logger(cadrage ? 'cadrage terrain unavailable' : 'atelier terrain unavailable', ground.reason?.message || 'TERRAIN');
     }
     const elements = withoutContactTags(osm.value.elements);
+    if (cadrage) {
+      const positionCount = elements.reduce((sum, element) => sum +
+        (Array.isArray(element?.geometry) ? element.geometry.length : 0) +
+        (Array.isArray(element?.members) ? element.members.reduce((nMembers, member) =>
+          nMembers + (Array.isArray(member?.geometry) ? member.geometry.length : 0), 0) : 0), 0);
+      const payload = {
+        ok: true, lat, lon, radius, maxRadius: MAX_CADRAGE_RADIUS, include, elements, terrain: topo, warnings,
+        source: { osm: 'OpenStreetMap contributors (ODbL)', elevation: topo ? 'Terrarium / public elevation tiles' : null },
+        extractedAt: new Date(clock()).toISOString()
+      };
+      if (elements.length > 12000 || positionCount > 240000 || Buffer.byteLength(JSON.stringify(payload), 'utf8') > 12_000_000) {
+        logger('cadrage extract exceeds local-render limit', elements.length, 'elements', positionCount, 'positions');
+        return send(res, 413, {
+          ok: false, error: 'CADRAGE_DATA_LIMIT',
+          message: 'La zone contient trop d’objets pour un cadrage fluide. Réduisez le rayon ou désactivez des couches, puis réessayez.',
+          maxElements: 12000, maxPositions: 240000
+        });
+      }
+      logger('cadrage extract', elements.length, 'OSM elements,', topo ? `${topo.n}×${topo.n} terrain` : 'no terrain', `${clock() - t0} ms`);
+      return send(res, 200, payload);
+    }
     logger('atelier extract', elements.length, 'OSM elements,', topo ? `${topo.n}×${topo.n} terrain` : 'no terrain', `${clock() - t0} ms`);
     return send(res, 200, {
       ok: true, lat, lon, radius, include, elements, terrain: topo, warnings,
@@ -112,11 +147,13 @@ export function createAtelierHandlers(deps = {}) {
     });
   }
 
-  return { health, geocode, extract, gadm };
+  const extractCadrage = (req, res) => extract(req, res, { cadrage: true });
+  return { health, geocode, extract, extractCadrage, gadm };
 }
 
 const handlers = createAtelierHandlers();
 export const handleAtelierHealth = handlers.health;
 export const handleAtelierGeocode = handlers.geocode;
 export const handleAtelierExtract = handlers.extract;
+export const handleAtelierCadrageExtract = handlers.extractCadrage;
 export const handleAtelierGadm = handlers.gadm;

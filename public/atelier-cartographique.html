@@ -25,6 +25,7 @@
       <a href="/atelier.html">Atelier topo · Altiplan</a>
       <a href="/atelier-analyse.html">Atelier d’analyse</a>
       <a class="current" href="/atelier-cartographique.html" aria-current="page">Couches locales</a>
+      <a href="/cadrage-spatial.html">Cadrage spatial</a>
     </nav>
   </header>
 
@@ -32,7 +33,7 @@
     <section class="hero" aria-labelledby="page-title">
       <p class="eyebrow">URBATRAME <span>·</span> DONNÉES LOCALES <span>·</span> PHASE 1</p>
       <h1 id="page-title">Atelier cartographique</h1>
-      <p class="lede">Importez des couches vectorielles ou des rasters géoréférencés, superposez-les, examinez leurs attributs et préparez un plan. Les fichiers locaux ne sont jamais téléversés; les services externes restent inactifs jusqu’à votre activation explicite.</p>
+      <p class="lede">Importez des couches vectorielles ou des rasters géoréférencés, réorganisez-les, examinez leurs attributs et consultez les indicateurs descriptifs de la couche choisie avant de préparer un plan. Les fichiers locaux ne sont jamais téléversés; les services externes restent inactifs jusqu’à votre activation explicite.</p>
       <div class="notice-row">
         <p class="privacy-note"><strong>Traitement local par défaut.</strong> Fichiers non téléversés. Une source distante n’est contactée qu’après activation; elle reçoit l’URL et/ou l’emprise, jamais vos couches locales.</p>
         <p class="limits-note">Limites : 15 Mo/fichier (lot Shapefile 30 Mo), 20 000 entités et 100 000 positions/couche; 12 couches, 60 000 entités et 300 000 positions/atelier. GeoTIFF : 1 million de pixels/fichier, 4 millions au total; raster nord en haut, 1 bande ou RGB/RGBA. Conversion vers WGS 84 : EPSG:4326, EPSG:3857, UTM WGS 84. Fonds externes facultatifs.</p>
@@ -106,6 +107,7 @@
             <div><span class="step">02 / AFFICHAGE</span><h2 id="layers-title">Couches</h2></div>
             <span id="layerCount" class="count-pill">0</span>
           </div>
+          <p class="layer-stack-help">Ordre d’affichage : du haut de la liste (au-dessus) vers le bas. Utilisez les flèches pour réorganiser la pile; le nouvel import arrive au-dessus.</p>
           <div id="layerList" class="layer-list">
             <p class="empty-layers">Ajoutez un GeoJSON, GeoPackage, GeoTIFF, CSV/TSV ou Shapefile pour commencer.</p>
           </div>
@@ -316,6 +318,23 @@
             <span id="mapAttribution" class="map-attribution"></span>
             <span id="renderWarning" class="render-warning" hidden></span>
           </div>
+        </section>
+
+        <section class="dashboard-panel" aria-labelledby="dashboard-title">
+          <div class="dashboard-heading">
+            <div><span class="step">WIDGET LOCAL · INDICATEURS</span><h2 id="dashboard-title">Tableau de bord de la couche</h2></div>
+            <span class="local-badge">calcul dans le navigateur</span>
+          </div>
+          <p class="dashboard-note">Les indicateurs suivent la couche sélectionnée et son filtre. Ils décrivent les entités chargées; ils ne déduisent ni accessibilité, ni zonage, ni norme d’urbanisme.</p>
+          <div id="dashboardKpis" class="dashboard-kpis" aria-live="polite"><p class="dashboard-empty">Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.</p></div>
+          <div class="dashboard-chart-head">
+            <label for="dashboardField">Répartition des entités par attribut
+              <select id="dashboardField" disabled><option value="">Choisir une catégorie</option></select>
+            </label>
+            <span id="dashboardFilterState" class="dashboard-filter-state">Aucun filtre appliqué</span>
+          </div>
+          <div id="dashboardChart" class="dashboard-chart" role="img" aria-label="Répartition des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
+          <p id="dashboardMeta" class="dashboard-meta" role="status">Aucune donnée n’a été envoyée à un service externe.</p>
         </section>
 
         <section class="table-panel" aria-labelledby="table-title">
