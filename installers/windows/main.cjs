@@ -1,6 +1,6 @@
 const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 
-const APP_URL = process.env.URBATRAME_URL || 'https://freemap-5j3b1xjtp-freemind25-2831s-projects.vercel.app';
+const APP_URL = process.env.URBATRAME_URL || 'https://freemap-rose.vercel.app';
 const APP_ORIGIN = new URL(APP_URL).origin;
 let mainWindow;
 
