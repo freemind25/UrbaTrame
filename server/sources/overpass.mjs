@@ -11,9 +11,9 @@ export function fetchT(url, opt = {}, budget = 60_000) {
     .finally(() => clearTimeout(t));
 }
 
-/* Dernier point d'accès qui a répondu : on le remet en tête la fois suivante.
-   Les pannes des instances publiques durent des heures : inutile de repayer
-   l'échec à chaque requête. */
+/* Dernier point d'accès qui a fourni des éléments : on le remet en tête la
+   fois suivante. Un miroir qui ne fournit qu'un tableau vide ne devient pas
+   prioritaire, car une autre instance peut avoir une réponse plus complète. */
 let prefer = null;
 
 export function orderedEndpoints(list = SOURCES.overpass) {
@@ -30,6 +30,7 @@ export async function overpass(query, opt = {}) {
   const reserve = opt.reserve ?? 3_000;         // temps gardé pour répondre proprement
   const started = Date.now();
   let last;
+  let empty = null;
 
   for (let i = 0; i < list.length; i++) {
     const endpoint = list[i];
@@ -66,6 +67,18 @@ export async function overpass(query, opt = {}) {
       if (!d.elements.length && d.remark &&
           /runtime error|timed out|out of memory|rate_limited|parse error/i.test(d.remark))
         throw new Error('OVERPASS_REMARK: ' + d.remark);
+
+      /* Un 200 vide peut être légitime, mais aussi provenir d'un miroir en
+         retard. On essaie les suivants avant de conclure qu'il n'y a rien;
+         si aucun ne fournit d'éléments, on conserve la première réponse vide
+         au lieu de transformer ce résultat valable en erreur. */
+      if (!d.elements.length) {
+        if (!empty) empty = { endpoint, data: d };
+        log('overpass ' + new URL(endpoint).host + ' · 0 éléments' +
+            (i + 1 < list.length ? ' (essai du miroir suivant)' : ''));
+        continue;
+      }
+
       prefer = endpoint;
       log('overpass ' + new URL(endpoint).host + ' · ' + d.elements.length +
           ' éléments en ' + (Math.round((Date.now() - started) / 100) / 10) + ' s');
@@ -76,6 +89,11 @@ export async function overpass(query, opt = {}) {
           ' (' + (Math.round((Date.now() - started) / 100) / 10) + ' s, essai de ' +
           Math.round(slice / 100) / 10 + ' s)');
     }
+  }
+  if (empty) {
+    log('overpass ' + new URL(empty.endpoint).host +
+        ' · aucun miroir n’a fourni d’éléments; réponse vide conservée');
+    return empty.data;
   }
   throw last || new Error('MAP_SOURCE_UNAVAILABLE');
 }

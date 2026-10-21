@@ -15,6 +15,8 @@ import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
 import { analyzeSpatialQuestion } from './local-assistant.mjs';
+import { verifyIssuedLicenseToken } from './licence-client.mjs';
+import { studentAuthReady } from './student-auth-ui.mjs';
 import {
   createWorkspaceProject, createWorkspaceTemplate, makeWorkspaceId,
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
@@ -40,8 +42,12 @@ const S = {
   device: deviceId(),
   session: store.get('session', null),
   ent: store.get('ent', null),
+  licenseToken: store.get('licenseToken', null),
   tier: 'free',
   access: 'licence',   /* 'open' = période d'essai ouverte, annoncée par /api/status */
+  licenseFileActivation: false,
+  studentAuthRequired: false,
+  studentUser: null,
   pub: null,
   D: { roads: [], build: [], green: [], pois: [], rail: [], coast: [] },
   terrain: null,
@@ -111,16 +117,31 @@ const b64uToBytes = s => {
   return Uint8Array.from(atob(s), c => c.charCodeAt(0));
 };
 let PUB_KEY = null;
+let ISSUER_PUBLIC_KEY = null;
 async function loadPublicKey() {
+  let status = null;
   try {
-    const d = await (await fetch('/api/status')).json();
-    S.pub = d.pub;
+    status = await (await fetch('/api/status')).json();
+    S.pub = status.pub;
+    S.licenseFileActivation = status.licenses?.signedFileActivation === true;
     /* Mode d'accès : `open` = toutes les analyses ouvertes (période d'essai). */
-    if (d.access === 'open' || d.access === 'licence') S.access = d.access;
-    PUB_KEY = await crypto.subtle.importKey(
-      'raw', b64uToBytes(d.pub), { name: 'Ed25519' }, false, ['verify']);
-    log(`clé publique Ed25519 chargée (${d.pub.slice(0, 12)}…)`);
-  } catch (e) { log('clé publique indisponible : ' + e.message); }
+    if (status.access === 'open' || status.access === 'licence') S.access = status.access;
+    if (status.pub) {
+      PUB_KEY = await crypto.subtle.importKey(
+        'raw', b64uToBytes(status.pub), { name: 'Ed25519' }, false, ['verify']);
+      log(`clé de session Ed25519 chargée (${status.pub.slice(0, 12)}…)`);
+    }
+    if (status.licenses?.publicKey) store.set('licensePubB64', status.licenses.publicKey);
+  } catch (e) { log('statut du serveur indisponible : ' + e.message); }
+
+  const issuerB64 = status?.licenses?.publicKey || store.get('licensePubB64', '');
+  if (issuerB64) {
+    try {
+      ISSUER_PUBLIC_KEY = await crypto.subtle.importKey(
+        'raw', b64uToBytes(issuerB64), { name: 'Ed25519' }, false, ['verify']);
+      log('clé publique de licence signée chargée');
+    } catch (e) { log('clé publique de licence indisponible : ' + e.message); }
+  }
 }
 /* Vérifie le jeton signé : signature + version + niveau + appareil + expiration. */
 async function verifyEnt(raw) {
@@ -132,14 +153,31 @@ async function verifyEnt(raw) {
     if (!ok) return null;
     const p = JSON.parse(new TextDecoder().decode(b64uToBytes(body)));
     if (!p || p.v !== 1 || (p.t !== 'pro' && p.t !== 'max')) return null;
-    if (p.d !== S.device || p.x <= Date.now()) return null;
+    if (p.d !== S.device || (p.x && p.x <= Date.now())) return null;
     return p;
   } catch { return null; }
 }
+async function verifyLicenseFileToken(raw) {
+  return verifyIssuedLicenseToken(raw, ISSUER_PUBLIC_KEY);
+}
 async function refreshEntitlement() {
+  if (S.studentAuthRequired) {
+    const tier = S.studentUser ? 'max' : 'free';
+    const changed = tier !== S.tier;
+    S.tier = tier;
+    const badge = $('#badge');
+    if (badge) {
+      badge.textContent = S.studentUser ? 'MAX ✓' : T('CONNEXION', 'SIGN IN');
+      badge.className = 'badge ' + (S.studentUser ? 'max' : '');
+    }
+    if (changed) { renderCatalog(); renderCards(); }
+    return tier;
+  }
   const ent = await verifyEnt(S.ent);
+  const signedLicense = ent ? null : await verifyLicenseFileToken(S.licenseToken);
   let tier = 'free', exp = null;
-  if (ent) { tier = ent.t; exp = ent.x; }
+  if (ent) { tier = ent.t; exp = ent.x || null; }
+  else if (signedLicense) { tier = signedLicense.tier; exp = signedLicense.expiresAt; }
   else if (S.ent) { store.set('ent', null); S.ent = null; }
   const changed = tier !== S.tier;
   S.tier = tier;
@@ -1057,8 +1095,8 @@ async function generate() {
   const freeRun = p.selected.every(id => FREE_IDS.includes(id));
   /* En accès libre, l'échec du serveur n'est jamais bloquant : on se rabat
      toujours sur les miroirs publics interrogés par le navigateur. */
-  const softTrial = freeRun || isOpenAccess();
-  let run = null, useServer = isOpenAccess() || !freeRun;
+  const softTrial = !S.studentAuthRequired && (freeRun || isOpenAccess());
+  let run = null, useServer = S.studentAuthRequired || isOpenAccess() || !freeRun;
 
   try {
     /* 1 · ouverture de session (le serveur rejoue le plan de son côté) */
@@ -1070,6 +1108,11 @@ async function generate() {
       useServer = isOpenAccess() || !freeRun;
     } catch (e) {
       const code = e.error || e.message;
+      if (S.studentAuthRequired) {
+        if (code === 'STUDENT_AUTH_REQUIRED') window.location.reload();
+        toast(T('La session étudiante doit être renouvelée.', 'Please renew your student session.'), false);
+        throw e;
+      }
       if (!softTrial) {
         if (code === 'LICENCE_REQUIRED') { openPlans(); throw new Error('licence refusée par le serveur'); }
         if (code === 'GENERATION_IN_PROGRESS' || code === 'RATE_LIMITED') {
@@ -1095,10 +1138,15 @@ async function generate() {
           els = r.elements;
           log(`groupe ${g.id} · ${els.length} éléments (serveur)`);
         } catch (e) {
+          if (S.studentAuthRequired) {
+            if (e.error === 'STUDENT_AUTH_REQUIRED') window.location.reload();
+            throw e;
+          }
           log(`groupe ${g.id} · serveur en échec (${e.error || e.message}) → Overpass public`);
         }
       }
       if (!els) {
+        if (S.studentAuthRequired) throw new Error('STUDENT_AUTH_REQUIRED');
         const d = await S.routes.overpassDirect(g.query, 60_000);
         els = d.elements;
         if (d._cache) S.cacheInfo = T('données en cache', 'cached data');
@@ -1339,7 +1387,8 @@ function currentWorkspaceName() {
 function currentWorkspaceFields(name) {
   return {
     name, selectedIds: [...S.sel], shape: S.shape, radius: S.site.R,
-    time: S.time, sunDate: S.sunDate, scenario: store.get('siteScenario', {})
+    time: S.time, sunDate: S.sunDate, scenario: store.get('siteScenario', {}),
+    appearance: { palettes: S.pal, names: S.names, noText: [...S.noText] }
   };
 }
 function saveWorkspaceProject() {
@@ -1402,6 +1451,12 @@ function setWorkspaceControls(record) {
   S.shape = record.shape; S.site.R = record.radius; S.time = record.time; S.sunDate = record.sunDate; S.poly = null;
   store.set('sel', [...S.sel]); store.set('shape', S.shape); store.set('time', S.time); store.set('sunDate', S.sunDate);
   store.set('siteScenario', record.scenario || {});
+  if (record.appearance) {
+    S.pal = { ...record.appearance.palettes };
+    S.names = { ...record.appearance.names };
+    S.noText = new Set(record.appearance.noText);
+    store.set('pal', S.pal); store.set('names', S.names); store.set('noText', [...S.noText]);
+  }
   $('#radius').value = S.site.R; $('#radiusOut').textContent = S.site.R + ' m';
   $('#shape').value = S.shape; $('#time').value = S.time; $('#sunDate').value = S.sunDate;
   $('#timeOut').textContent = `${String(Math.floor(S.time)).padStart(2, '0')}:${String(Math.round((S.time % 1) * 60)).padStart(2, '0')}`;
@@ -1461,84 +1516,137 @@ function openAssistant() {
   openModal('assistantModal'); $('#assistantQuery').focus();
 }
 
+function licenceActivationPanel() {
+  return `
+    <section class="license-activation">
+      <h3>${T('Activer avec un fichier de licence', 'Activate with a licence file')}</h3>
+      <p>${T('Sélectionnez le fichier .utlic émis pour vous. Il contient un titre signé Pro ou Max; il ne contient aucune donnée de votre projet.', 'Select the .utlic file issued to you. It contains a signed Pro or Max entitlement; it contains no project data.')}</p>
+      <label>${T('Fichier de licence UrbaTrame (.utlic)', 'UrbaTrame licence file (.utlic)')}
+        <input id="licenseFile" type="file" accept=".utlic,application/json"></label>
+      <button id="licenseImport">${T('Importer et activer', 'Import and activate')}</button>
+      <div class="row" style="margin-top:12px">
+        <button id="restoreBtn" data-fr="Restaurer la licence enregistrée" data-en="Restore stored licence">${T('Restaurer la licence enregistrée', 'Restore stored licence')}</button>
+      </div>
+      <details class="legacy-license">
+        <summary>${T('J’ai un ancien code de licence', 'I have a legacy licence code')}</summary>
+        <div class="activate">
+          <label>${T('Code de licence', 'Licence code')}<input id="licCode" type="text" placeholder="UT-…" autocomplete="off"></label>
+          <button id="licGo">${T('Activer le code', 'Activate code')}</button>
+        </div>
+      </details>
+    </section>`;
+}
+
+function wireLicenceActivation(host) {
+  host.querySelector('#licenseImport')?.addEventListener('click', async () => {
+    if (!ISSUER_PUBLIC_KEY) {
+      toast(errText('LICENSE_ISSUER_UNCONFIGURED', S.lang), false);
+      return;
+    }
+    const file = host.querySelector('#licenseFile')?.files?.[0];
+    if (!file) { toast(T('Choisissez d’abord un fichier .utlic.', 'Choose a .utlic file first.'), false); return; }
+    if (file.size > 16_384) { toast(T('Fichier trop volumineux.', 'File is too large.'), false); return; }
+    try {
+      const doc = JSON.parse(await file.text());
+      if (doc?.format !== 'UrbaTrame-License' || doc?.version !== 1 ||
+          typeof doc?.token !== 'string' || doc.token.length > 12_000)
+        throw new Error('INVALID_LICENSE_FILE');
+      await activateLicenseToken(doc.token);
+    } catch (error) {
+      toast(errText(error.error || error.message || 'INVALID_LICENSE_FILE', S.lang), false);
+    }
+  });
+  host.querySelector('#licGo')?.addEventListener('click', () => activate(host.querySelector('#licCode').value.trim()));
+  host.querySelector('#restoreBtn')?.addEventListener('click', restore);
+}
+
 function openPlans() {
   const p = $('#planBody');
-  if (isOpenAccess()) {
-    p.innerHTML = `
-    <div class="plans-open">
-      <h3>${T('Accès libre', 'Open access')}</h3>
-      <p>${T(
-        'Pendant la période d\'essai, <strong>toutes les analyses sont ouvertes</strong> : ni licence, ni filigrane, ni limite de génération.',
-        'During the trial period, <strong>every analysis is open</strong>: no licence, no watermark, no generation limit.')}</p>
-      <p class="fine">${T(
-        'Les abonnements Pro et Max seront proposés plus tard. Cette page les présentera à ce moment-là.',
-        'Pro and Max subscriptions will come later. This page will show them then.')}</p>
-    </div>`;
+  if (S.studentAuthRequired) {
+    p.innerHTML = `<div class="plans-open"><h3>${T('Accès universitaire', 'University access')}</h3><p>${S.studentUser
+      ? T('Votre adresse universitaire est vérifiée. Vous disposez automatiquement de Max, y compris toutes les fonctions Pro.', 'Your university address is verified. Max is included automatically, together with all Pro features.')
+      : T('Connectez-vous avec une adresse ajoutée à la liste autorisée pour recevoir automatiquement Max, qui inclut Pro.', 'Sign in with an address on the approved list to receive Max automatically; Max includes Pro.')}</p></div>`;
+    openModal('plans');
     return;
   }
-  p.innerHTML = `
+  const openNotice = isOpenAccess() ? `
+    <div class="plans-open">
+      <h3>${T('Accès libre', 'Open access')}</h3>
+      <p>${T('Toutes les analyses sont ouvertes actuellement. Un fichier Pro/Max peut être activé et conservé, mais les droits ne seront appliqués que lorsque le serveur sera configuré en mode licence.', 'Every analysis is currently open. A Pro/Max file can be activated and stored, but the tier will only be enforced when the server is configured for licence mode.')}</p>
+    </div>` : '';
+  const tiers = isOpenAccess() ? '' : `
     <div class="plans">
       <section class="plan">
-        <h3>Pro</h3><div class="per">${T('Pass 30 jours', '30-day pass')}</div><strong>7,99 €</strong>
-        <ul><li>${T('Toutes les analyses 2D', 'All 2D analyses')}</li>
-        <li>${T('Sans filigrane', 'No watermark')}</li>
-        <li>${T('Exports SVG & PNG', 'SVG & PNG exports')}</li></ul>
-        <button class="buy" data-buy="pro">${T('Choisir Pro', 'Choose Pro')}</button>
+        <h3>Pro</h3><div class="per">${T('Les 5 analyses gratuites + les 33 analyses Pro', 'The 5 free analyses + 33 Pro analyses')}</div>
+        <ul><li>${T('Morphologie, usages et mobilité', 'Morphology, land use and mobility')}</li>
+        <li>${T('Relief et climat', 'Terrain and climate')}</li>
+        <li>${T('Accès sans filigrane', 'No watermark')}</li></ul>
       </section>
       <section class="plan max">
-        <h3>Max <span class="badge-s">${T('le plus choisi', 'most chosen')}</span></h3>
-        <div class="per">${T('Pass 30 jours', '30-day pass')}</div><strong>12,99 €</strong>
-        <ul><li>${T('Tout Pro', 'Everything in Pro')}</li>
-        <li>${T('Planches composées', 'Composed boards')}</li>
-        <li>${T('Volume, terrain, climat', 'Massing, terrain, climate')}</li></ul>
-        <button class="buy" data-buy="max">${T('Choisir Max', 'Choose Max')}</button>
-      </section>
-      <section class="plan">
-        <h3>${T('À vie', 'Lifetime')}</h3><div class="per">${T('Max, pour toujours', 'Max, forever')}</div><strong>49,00 €</strong>
-        <ul><li>${T('Tout Max', 'Everything in Max')}</li>
-        <li>${T('Sans expiration', 'No expiry')}</li>
-        <li>${T('Restauration par code', 'Restore by code')}</li></ul>
-        <button class="buy" data-buy="lifetime">${T('Prendre à vie', 'Go Lifetime')}</button>
+        <h3>Max</h3><div class="per">${T('Tout Pro + les 8 planches Max', 'Everything in Pro + the 8 Max boards')}</div>
+        <ul><li>${T('Planches de contexte et d’insertion', 'Context and site-insertion boards')}</li>
+        <li>${T('Données urbaines · nœuds et trame', 'Urban data · nodes and grid')}</li>
+        <li>${T('Cônes de vue et accès radial', 'View cones and radial access')}</li></ul>
       </section>
     </div>
-    <div class="activate">
-      <label>${T('Vous avez un code de licence ?', 'Have a licence code?')}
-        <input id="licCode" type="text" placeholder="cs_…" value=""></label>
-      <button id="licGo">${T('Activer', 'Activate')}</button>
-    </div>
-    <p class="fine">${T('Clone d\'étude : aucun paiement réel. Pour éprouver le parcours d\'achat, activez un des codes de démonstration ci-dessous.',
-      'Study clone: no real payment. To exercise the purchase flow, activate one of the demo codes below.')}</p>
-    <div class="row" style="margin-top:12px">
-      <button id="restoreBtn" data-fr="Restaurer la licence enregistrée" data-en="Restore stored licence">Restaurer la licence enregistrée</button>
-    </div>
-    <p class="fine mono">cs_demo_pro · cs_demo_max · cs_demo_lifetime</p>`;
-  p.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
-    const map = { pro: 'cs_demo_pro', max: 'cs_demo_max', lifetime: 'cs_demo_lifetime' };
-    $('#licCode').value = map[b.dataset.buy];
-    toast(T('Code de démonstration inséré — validez pour activer.', 'Demo code filled — confirm to activate.'));
-  }));
-  p.querySelector('#licGo').addEventListener('click', () => activate($('#licCode').value.trim()));
-  p.querySelector('#restoreBtn').addEventListener('click', restore);
+    <p class="fine">${T('Cette activation ne traite aucun paiement. Les tarifs et conditions commerciales restent à définir.', 'This activation does not process payments. Pricing and commercial terms remain to be set.')}</p>`;
+  p.innerHTML = openNotice + tiers + licenceActivationPanel();
+  wireLicenceActivation(p);
   openModal('plans');
 }
+
+function saveActivation(d, { code = null, licenseToken = null } = {}) {
+  S.session = { account: d.account, token: d.token };
+  store.set('session', S.session);
+  if (code) {
+    store.set('rcode', code);
+    store.set('licenseToken', null);
+    S.licenseToken = null;
+  }
+  if (licenseToken) {
+    S.licenseToken = licenseToken;
+    store.set('licenseToken', licenseToken);
+    store.set('rcode', null);
+  }
+  if (d.ent) { S.ent = d.ent; store.set('ent', d.ent); }
+}
+
 async function activate(code) {
   if (!code) return;
   try {
     const d = await S.routes.activate(code, S.device);
     if (d.error) { toast(errText(d.error, S.lang), false); return; }
-    S.session = { account: d.account, token: d.token };
-    store.set('session', S.session);
-    store.set('rcode', code);
-    if (d.ent) { S.ent = d.ent; store.set('ent', d.ent); }
+    saveActivation(d, { code });
     await refreshEntitlement();
     closeModal('plans');
     toast(T('Licence activée', 'Licence activated'));
-    log(`licence ${S.tier.toUpperCase()} activée (appareil ${S.device.slice(0, 8)}…)`);
+    log(`licence ${S.tier.toUpperCase()} activée`);
   } catch (e) { toast(errText(e.error || e.message, S.lang), false); }
 }
+
+async function activateLicenseToken(token) {
+  if (!token) return;
+  if (!ISSUER_PUBLIC_KEY) { toast(errText('LICENSE_ISSUER_UNCONFIGURED', S.lang), false); return; }
+  const claims = await verifyLicenseFileToken(token);
+  if (!claims) { toast(errText('INVALID_LICENSE', S.lang), false); return; }
+  S.licenseToken = token;
+  S.session = { account: 'license_' + claims.licenseId, token };
+  S.ent = null;
+  store.set('licenseToken', token);
+  store.set('session', S.session);
+  store.set('ent', null);
+  store.set('rcode', null);
+  await refreshEntitlement();
+  closeModal('plans');
+  toast(T('Licence signée activée', 'Signed licence activated'));
+  log(`licence ${claims.tier.toUpperCase()} activée · ${claims.licenseId}`);
+}
+
 async function restore() {
+  const licenseToken = S.licenseToken || store.get('licenseToken', null);
+  if (licenseToken) { await activateLicenseToken(licenseToken); return; }
   const code = store.get('rcode', null);
-  if (!code) { toast(T('Aucun code enregistré sur cet appareil', 'No stored code on this device'), false); return; }
+  if (!code) { toast(T('Aucune licence enregistrée sur cet appareil', 'No stored licence on this device'), false); return; }
   await activate(code);
 }
 
@@ -1694,24 +1802,42 @@ async function init() {
   $('#timeOut').textContent = String(Math.floor(S.time)).padStart(2, '0') + ':' + String(Math.round((S.time % 1) * 60)).padStart(2, '0');
 
   await loadPublicKey();
-  /* licence : relecture au démarrage puis vérification serveur */
-  if (S.session) {
+  const studentAuth = await studentAuthReady;
+  S.studentAuthRequired = studentAuth.required === true;
+  S.studentUser = studentAuth.authenticated ? studentAuth.user : null;
+  if (S.studentAuthRequired) S.access = 'licence';
+
+  /* Les sessions/licences historiques ne remplacent pas l'authentification
+     universitaire; elles sont ignorées dans le régime étudiant. */
+  if (!S.studentAuthRequired && S.session) {
     try {
       const d = await S.routes.check(S.device, S.session);
       if (d.ent) { S.ent = d.ent; store.set('ent', d.ent); }
-      else if (d.error) { S.session = null; store.set('session', null); store.set('ent', null); S.ent = null; }
+      else if (d.error) {
+        const signedLicense = await verifyLicenseFileToken(S.licenseToken);
+        if (signedLicense) {
+          S.session = { account: 'license_' + signedLicense.licenseId, token: S.licenseToken };
+          store.set('session', S.session);
+          store.set('ent', null); S.ent = null;
+        } else {
+          S.session = null; store.set('session', null); store.set('ent', null); S.ent = null;
+        }
+      }
     } catch (e) { log('vérification serveur indisponible : ' + (e.message || e)); }
   }
   await refreshEntitlement();
 
-  if (qp.get('vue3d') === '1') setTimeout(() => vue3D(), 400);
-  if (qp.get('upgrade')) openPlans();
-  if (qp.get('sample') === '1') setTimeout(loadSample, 300);
-  if (qp.get('q')) {
+  const mayUseApp = !S.studentAuthRequired || Boolean(S.studentUser);
+  if (mayUseApp && qp.get('vue3d') === '1') setTimeout(() => vue3D(), 400);
+  if (mayUseApp && qp.get('upgrade')) openPlans();
+  if (mayUseApp && qp.get('sample') === '1') setTimeout(loadSample, 300);
+  if (mayUseApp && qp.get('q')) {
     $('#q').value = qp.get('q');
     setTimeout(doSearch, 400);
   }
-  log(isOpenAccess()
+  if (S.studentAuthRequired)
+    log(S.studentUser ? `session étudiante active · palier MAX (Pro inclus)` : 'authentification universitaire requise');
+  else log(isOpenAccess()
     ? `prêt · ${T('accès libre — toutes les analyses, sans filigrane', 'open access — every analysis, no watermark')}`
     : `prêt · ${T('essai gratuit = 5 analyses filigranées', 'free trial = 5 watermarked analyses')}`);
 }

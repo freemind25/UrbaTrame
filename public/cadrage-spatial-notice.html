@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#153e3d">
+  <title>UrbaTrame — Notice du Cadrage spatial</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#203c3b;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.top{padding:16px max(18px,calc((100% - 940px)/2));background:#fff;border-bottom:1px solid #d9e2dc}.brand{color:#173e39;text-decoration:none;font-weight:850;letter-spacing:.03em}.brand span{display:block;margin-top:4px;color:#6a7972;font-size:.75rem;font-weight:500;letter-spacing:0}.brand small{display:block;margin-top:4px;color:#87928c;font-size:.65rem}.sheet{max-width:940px;margin:24px auto;padding:clamp(18px,4vw,38px);border:1px solid #d9e2dc;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(24,55,50,.06)}.kicker{font-size:.7rem;letter-spacing:.13em;font-weight:800;color:#78867e}h1{margin:.5rem 0;color:#193d39;font-size:clamp(1.8rem,4vw,2.5rem)}h2{margin:1.5rem 0 .5rem;font-size:1.15rem;color:#245249}p,li{line-height:1.62;color:#566963;font-size:.92rem}ol{padding-left:1.3rem}li{margin:.45rem 0}.callout{padding:12px 15px;border-left:4px solid #d9913b;border-radius:0 9px 9px 0;background:#fff7eb}.button{display:inline-block;margin-top:12px;padding:10px 14px;border-radius:8px;background:#1d6159;color:#fff;text-decoration:none;font-weight:800;font-size:.85rem}.fine{font-size:.78rem;color:#75817b}
+  </style>
+</head>
+<body>
+  <header class="top"><a class="brand" href="/">UrbaTrame<span>Analyse des sites urbains</span><small>Designed by M.SADI</small></a></header>
+  <main class="sheet">
+    <div class="kicker">NOTICE COURTE · CADRAGE SPATIAL</div>
+    <h1>Préparer un cadrage de site</h1>
+    <p>Le module aide à situer un projet puis à composer un plan de repérage. La qualité de la carte dépend des données disponibles et des choix de l’utilisateur.</p>
+    <ol>
+      <li><strong>Choisissez un niveau.</strong> 1) wilaya dans le pays; 2) ville dans la wilaya; 3) quartier dans la ville; 4) quartier et environnement proche.</li>
+      <li><strong>Localisez le site.</strong> Saisissez une adresse ou un lieu et cliquez sur « Rechercher ». Une recherche envoie le texte saisi au service Nominatim / OpenStreetMap. Vous pouvez aussi entrer directement latitude et longitude WGS 84.</li>
+      <li><strong>Chargez les limites si vous en avez besoin.</strong> Le clic sur « Charger les limites GADM » demande les géométries administratives à la source GADM. Les niveaux 1–2 sont des cartes schématiques de repérage, pas des périmètres d’analyse.</li>
+      <li><strong>Aux niveaux 3–4, dessinez un cercle, un rectangle ou un polygone.</strong> Chaque point du contour doit rester à 3 000 m maximum du centre. Faites glisser pour le cercle/rectangle; cliquez pour les sommets du polygone puis « Terminer ». Vous pouvez corriger les sommets ou importer un contour local GeoJSON/GeoPackage. Un contour invalide ou absent bloque la sauvegarde détaillée.</li>
+      <li><strong>Activez les couches souhaitées.</strong> Cochez les thèmes puis cliquez explicitement sur « Charger les données OSM / relief ». La requête transmet le centre, le rayon (au plus 3 000 m) et les thèmes choisis. Les fichiers et annotations locaux ne sont pas envoyés.</li>
+      <li><strong>Ajoutez vos annotations</strong> : points, lignes, flèches, zones ou textes. Choisissez une annotation dans la liste pour la déplacer ou la supprimer. Vérifiez les dates, sources, légende et coordonnées.</li>
+      <li><strong>Composez le plan.</strong> Saisissez un titre, choisissez A4/A3/A2, portrait/paysage, échelle et commentaires. Exportez SVG/PNG/JPEG ou ouvrez l’impression puis choisissez « Enregistrer au format PDF ».</li>
+      <li><strong>Enregistrez les cadrages.</strong> Ils sont stockés dans le navigateur de cet appareil. Exportez le projet JSON pour en garder une copie ou le transférer. Les données OSM et GADM chargées ne sont pas conservées dans le navigateur; rechargez-les seulement après vérification.</li>
+    </ol>
+    <p class="callout"><strong>Important.</strong> GADM et OpenStreetMap ne remplacent pas un bornage, un document cadastral ou une limite juridique. UrbaTrame ne fabrique pas de limites cadastrales ou réglementaires. Vérifiez les géométries et l’attribution avant toute utilisation ou publication.</p>
+    <p class="fine">Attribution OSM : © OpenStreetMap contributors · ODbL. Les règles d’accès, licences et disponibilités des fournisseurs de données s’appliquent.</p>
+    <a class="button" href="/cadrage-spatial.html">Ouvrir le Cadrage spatial</a>
+  </main>
+</body>
+</html>

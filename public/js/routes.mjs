@@ -16,7 +16,14 @@ const PUBLIC_OPS = [
 
 export const ERR = {
   INVALID_DEVICE: ['Appareil non identifié.', 'Unknown device.'],
+  STUDENT_AUTH_REQUIRED: ['Connexion universitaire requise.', 'University sign-in required.'],
+  STUDENT_AUTH_UNAVAILABLE: ['Service d’authentification momentanément indisponible.', 'Authentication service temporarily unavailable.'],
+  INVALID_OR_EXPIRED_CODE: ['Code incorrect ou expiré.', 'The code is incorrect or expired.'],
   INVALID_CODE: ['Code de licence inconnu.', 'Invalid licence code.'],
+  INVALID_LICENSE: ['Fichier de licence invalide ou non authentique.', 'Invalid or unauthenticated licence file.'],
+  LICENSE_ISSUER_UNCONFIGURED: ['Les licences Pro/Max ne sont pas encore configurées sur le serveur.', 'Pro/Max licences are not configured on the server yet.'],
+  LICENSE_NOT_YET_VALID: ['Cette licence n’est pas encore valide.', 'This licence is not valid yet.'],
+  INVALID_LICENSE_FILE: ['Fichier .utlic invalide. Sélectionnez un fichier émis par UrbaTrame.', 'Invalid .utlic file. Select a file issued by UrbaTrame.'],
   DEVICE_IN_USE: ['Licence active sur un autre appareil.', 'Licence active on another device.'],
   DEVICE_REVOKED: ['Licence déplacée vers un autre appareil.', 'Licence moved to another device.'],
   EXPIRED: ['Le pass a expiré.', 'The pass has ended.'],
@@ -74,6 +81,7 @@ export class Routes {
 
   check(device, session) { return this.post2d({ action: 'check', device, ...(session || {}) }); }
   activate(code, device) { return this.post2d({ action: 'activate', code, device, public: true }); }
+  activateLicense(license, device) { return this.post2d({ action: 'activateLicense', license, device, public: true }); }
   terrain(lat, lon, radius, n, device) { return this.post2d({ action: 'terrain', device, lat, lon, radius, n }, { timeout: 45_000 }); }
   climate(lat, lon, device) { return this.post2d({ action: 'climate', device, lat, lon }, { timeout: 45_000 }); }
   windrose(lat, lon, device) { return this.post2d({ action: 'windrose', device, lat, lon }, { timeout: 45_000 }); }

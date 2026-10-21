@@ -4,7 +4,8 @@
    osmbuildings.org (voir maptonap/osmbuildings : RAPPORT.md) :
 
      • position du soleil (azimut, hauteur) à partir d'une heure locale ;
-     • caméra : cap (rotation), inclinaison, distance — projection perspective ;
+     • caméra : cap, inclinaison et distance — perspective libre, axonométrie,
+       perspective architecturale à un ou deux points de fuite ;
      • bâtiments extrudés : murs + toits, colorés selon l'ensoleillement ;
      • ombres portées projetées au sol ;
      • fond de carte raster (tuiles carrées plaquées en perspective) ;
@@ -71,16 +72,26 @@
   function camera(o) {
     const W = o.largeur || 480, H = o.hauteur || 480;
     const R = o.rayon || 600;                       // rayon du site, en mètres
-    const cap = (o.cap || 0) * D2R;                 // direction visée
-    /* Inclinaison : 0 = vue verticale (zénith), 90 = rasante — même convention
-       que le site d'origine (`tilt`). L'angle interne est compté depuis
-       l'horizontale : inc = 90 − inclinaison. */
-    const pente = Math.max(0, Math.min(89, o.inclinaison ?? 50));
+    const modes = new Set(['perspective', 'axonometric', 'two-point', 'one-point']);
+    const projection = modes.has(o.projection) ? o.projection : 'perspective';
+    const requestedCap = Number(o.cap);
+    const capDeg = projection === 'one-point' ? 0
+      : projection === 'two-point' || projection === 'axonometric' ? 45
+        : Number.isFinite(requestedCap) ? requestedCap : 0;
+    /* Inclinaison : 0 = vue verticale (zénith), 90 = rasante. L'axonométrie
+       emploie l'angle isométrique exact, mesuré depuis la verticale. */
+    const requestedTilt = Number(o.inclinaison ?? 50);
+    const pente = projection === 'axonometric' ? 54.735610317245346
+      : Math.max(0, Math.min(89, Number.isFinite(requestedTilt) ? requestedTilt : 50));
+    const cap = capDeg * D2R;
     const incl = (90 - pente) * D2R;
     const fov = (o.champ || 45) * D2R;
+    const orthographic = projection === 'axonometric';
+    const verticalsCorrected = projection === 'one-point' || projection === 'two-point';
 
     const focal = (Math.min(W, H) / 2) / Math.tan(fov / 2);
     const distance = R / Math.tan(fov / 2) * (o.recul || 1.08);
+    const pixelsPerMetre = focal / distance;
 
     /* Repère local : cible au centre du site. */
     const lat0 = o.lat, lon0 = o.lon, cosLat = Math.cos(lat0 * D2R);
@@ -98,40 +109,41 @@
 
     const proche = Math.max(1, distance * 0.02);
 
+    /* Coordonnées locales → repère caméra. En perspective architecturale, le
+       plan horizontal garde sa perspective mais Z est reporté verticalement à
+       échelle constante : les arêtes verticales restent parallèles. */
+    function projLocal(x, y, z) {
+      const altitude = Number.isFinite(Number(z)) ? Number(z) : 0;
+      const dx = x - oeil[0], dy = y - oeil[1];
+      const dz = verticalsCorrected ? -oeil[2] : altitude - oeil[2];
+      const px = dx * r[0] + dy * r[1] + dz * r[2];
+      const py = dx * u2[0] + dy * u2[1] + dz * u2[2];
+      const pz = dx * f[0] + dy * f[1] + dz * f[2];
+      return verticalsCorrected
+        ? [px, py + altitude * pixelsPerMetre * pz / focal, pz]
+        : [px, py, pz];
+    }
+
+    function ecran(p) {
+      if (p[2] <= proche) return null;
+      if (orthographic)
+        return [W / 2 + pixelsPerMetre * p[0], H / 2 - pixelsPerMetre * p[1], p[2]];
+      return [W / 2 + focal * p[0] / p[2], H / 2 - focal * p[1] / p[2], p[2]];
+    }
+
     /* lat/lon/altitude → coordonnées locales, puis écran + profondeur.
        Renvoie null quand le point est derrière la caméra. */
     function proj(lat, lon, alt) {
       const x = (lon - lon0) * 111320 * cosLat;
       const y = (lat - lat0) * 111320;
-      const z = alt || 0;
-      const dx = x - oeil[0], dy = y - oeil[1], dz = z - oeil[2];
-      const px = dx * r[0] + dy * r[1] + dz * r[2];
-      const py = dx * u2[0] + dy * u2[1] + dz * u2[2];
-      const pz = dx * f[0] + dy * f[1] + dz * f[2];
-      if (pz <= proche) return null;
-      return [W / 2 + focal * px / pz, H / 2 - focal * py / pz, pz];
-    }
-
-    /* Même transformation, mais en coordonnées locales (pour les tests et le
-       découpage des faces). Renvoie [px, py, pz] dans le repère caméra. */
-    function projLocal(x, y, z) {
-      const dx = x - oeil[0], dy = y - oeil[1], dz = (z || 0) - oeil[2];
-      return [
-        dx * r[0] + dy * r[1] + dz * r[2],
-        dx * u2[0] + dy * u2[1] + dz * u2[2],
-        dx * f[0] + dy * f[1] + dz * f[2]
-      ];
-    }
-
-    function ecran(p) {
-      if (p[2] <= proche) return null;
-      return [W / 2 + focal * p[0] / p[2], H / 2 - focal * p[1] / p[2], p[2]];
+      return ecran(projLocal(x, y, alt));
     }
 
     return {
       proj, projLocal, ecran, oeil, cible, f, r, u: u2,
       focal, distance, proche, W, H, lat0, lon0, cosLat,
-      rayon: R, cap: o.cap || 0, inclinaison: o.inclinaison ?? 45,
+      rayon: R, cap: capDeg, inclinaison: pente, projection,
+      orthographic, verticalsCorrected,
       toLocal: (lat, lon) => [(lon - lon0) * 111320 * cosLat, (lat - lat0) * 111320]
     };
   }
@@ -584,6 +596,7 @@
      Deux directions opposées suffisent à la définir. Renvoie [x1,y1,x2,y2] ou
      null quand la caméra vise le sol à la verticale (aucun horizon visible). */
   function horizon(cam) {
+    if (cam.orthographic) return null;
     const { r, u, f, focal, W, H } = cam;
     const projDir = (d) => {
       const py = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
@@ -663,7 +676,7 @@
     const cam = camera({
       lat: o.lat, lon: o.lon, rayon: o.rayon, cap: o.cap ?? 0,
       inclinaison: o.inclinaison ?? 50, largeur: o.largeur, hauteur: o.hauteur,
-      recul: o.recul, champ: o.champ
+      recul: o.recul, champ: o.champ, projection: o.projection
     });
     const sun = o.soleil || { hauteur: 1, azimut: 180, vecteur: [0, 0, 1] };
     const sc = scene(batiments, cam, {

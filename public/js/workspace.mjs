@@ -1,6 +1,6 @@
 /* Persistance locale de projets et modèles de travail UrbaTrame.
-   Le fichier décrit la configuration (site, analyses, hypothèses), pas les
-   données OSM ni les résultats rendus. Aucun compte ou synchronisation serveur. */
+   Le fichier décrit la configuration (site, analyses, hypothèses, apparence),
+   pas les données OSM ni les résultats rendus. Aucun compte ou synchronisation serveur. */
 import { DEPS } from './plan-2d.mjs';
 
 const VALID_IDS = new Set(Object.keys(DEPS));
@@ -27,6 +27,24 @@ function cleanScenario(value) {
   }
   return out;
 }
+function cleanAppearance(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const palettes = {}, names = {};
+  const rawPalettes = source.palettes && typeof source.palettes === 'object' && !Array.isArray(source.palettes)
+    ? source.palettes : {};
+  const rawNames = source.names && typeof source.names === 'object' && !Array.isArray(source.names)
+    ? source.names : {};
+  for (const id of VALID_IDS) {
+    const palette = rawPalettes[id];
+    if (Number.isInteger(palette) && palette >= 0 && palette < 6) palettes[id] = palette;
+    const name = rawNames[id];
+    if (typeof name === 'string') {
+      const text = name.trim().slice(0, 60);
+      if (text) names[id] = text;
+    }
+  }
+  return { palettes, names, noText: cleanIds(source.noText) };
+}
 function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
@@ -52,7 +70,8 @@ function validCommon(raw) {
     time,
     sunDate,
     selectedIds: cleanIds(raw.selectedIds),
-    scenario: cleanScenario(raw.scenario)
+    scenario: cleanScenario(raw.scenario),
+    ...(Object.hasOwn(raw, 'appearance') ? { appearance: cleanAppearance(raw.appearance) } : {})
   };
 }
 
@@ -60,13 +79,14 @@ export function makeWorkspaceId() {
   return globalThis.crypto?.randomUUID?.() || `ut-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function createWorkspaceProject({ name, site, selectedIds, shape = 'circle', radius = 600, time = 12, sunDate, scenario = {}, id, createdAt, updatedAt } = {}) {
+export function createWorkspaceProject({ name, site, selectedIds, shape = 'circle', radius = 600, time = 12, sunDate, scenario = {}, appearance, id, createdAt, updatedAt } = {}) {
   const lat = Number(site?.lat), lon = Number(site?.lon);
   if (!Number.isFinite(lat) || Math.abs(lat) > 85 || !Number.isFinite(lon) || Math.abs(lon) > 180) return null;
   const common = validCommon({
     version: 1, id: id || makeWorkspaceId(), name, createdAt: createdAt ?? Date.now(),
     updatedAt: updatedAt ?? Date.now(), shape, radius, time, sunDate,
-    selectedIds, scenario
+    selectedIds, scenario,
+    ...(appearance !== undefined ? { appearance } : {})
   });
   if (!common) return null;
   return {
@@ -78,11 +98,12 @@ export function createWorkspaceProject({ name, site, selectedIds, shape = 'circl
   };
 }
 
-export function createWorkspaceTemplate({ name, selectedIds, shape = 'circle', radius = 600, time = 12, sunDate, scenario = {}, id, createdAt, updatedAt } = {}) {
+export function createWorkspaceTemplate({ name, selectedIds, shape = 'circle', radius = 600, time = 12, sunDate, scenario = {}, appearance, id, createdAt, updatedAt } = {}) {
   const common = validCommon({
     version: 1, id: id || makeWorkspaceId(), name, createdAt: createdAt ?? Date.now(),
     updatedAt: updatedAt ?? Date.now(), shape, radius, time, sunDate,
-    selectedIds, scenario
+    selectedIds, scenario,
+    ...(appearance !== undefined ? { appearance } : {})
   });
   return common ? { type: 'urbatrame-template', version: 1, ...common } : null;
 }

@@ -15,10 +15,11 @@ import { windrose } from './sources/windrose.mjs';
 import { terrain } from './sources/terrain.mjs';
 import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
+import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
 
 /* Chaque route est exportée séparément : le serveur Node les compose,
    les fonctions Vercel en exposent une chacune. */
-export function createStatusHandler({ licence }) {
+export function createStatusHandler({ licence, studentAuth = null }) {
   return async function status(_req, res) {
     return send(res, 200, {
       ok: true,
@@ -26,14 +27,21 @@ export function createStatusHandler({ licence }) {
       trace: TRACE,
       pub: licence.pubB64,
       access: accessMode(),
+      auth: {
+        required: Boolean(studentAuth?.required),
+        ready: studentAuth?.ready !== false
+      },
       free: FREE_IDS,
       max: MAX_IDS,
       limits: LIMITS,
+      licenses: {
+        signedFileActivation: Boolean(licence.issuerReady),
+        publicKey: licence.licensePubB64 || ''
+      },
       sources: {
         overpass: SOURCES.overpass.length + ' miroirs',
         nominatim: true, nasa: true, windrose: true, terrain: true, openBuildingMap: true
-      },
-      codes: licence.knownCodes()
+      }
     });
   };
 }
@@ -72,7 +80,7 @@ export function createUtilityHandler({ licence }) {
 }
 
 export function createAnalysisHandler({ licence, quota, runs }) {
-  return async function analysis(req, res, ip) {
+  return async function analysis(req, res, ip, studentUser = null) {
     let body;
     try { body = JSON.parse((await readBody(req)).toString('utf8') || '{}'); }
     catch { return send(res, 400, { error: 'BAD_JSON' }); }
@@ -86,7 +94,13 @@ export function createAnalysisHandler({ licence, quota, runs }) {
 
     if (action === 'activate') {
       const r = licence.activate(body.code, device);
-      log('activate', String(body.code), '→', r.error || r.tier);
+      log('activate', r.error || r.tier);
+      return send(res, r.status || 200, { ...r, pub: licence.pubB64 });
+    }
+
+    if (action === 'activateLicense') {
+      const r = licence.activateLicense(body.license, device);
+      log('activate signed license', r.licenseId || r.error || 'rejected');
       return send(res, r.status || 200, { ...r, pub: licence.pubB64 });
     }
 
@@ -96,6 +110,32 @@ export function createAnalysisHandler({ licence, quota, runs }) {
       let p;
       try { p = plan(ids, Number(body.radius), Number(body.lat), Number(body.lon)); }
       catch (e) { return send(res, 400, { error: e.message }); }
+
+      /* Toute adresse active de la liste reçoit automatiquement Max, lequel
+         inclut Pro. L'identité est déjà vérifiée par le cookie serveur; aucun
+         code ou fichier .utlic individuel n'est demandé aux étudiants. */
+      if (studentUser) {
+        /* Quota par compte (et non par IP) : les étudiants partagent souvent
+           le NAT du campus; un quota IP les bloquerait mutuellement. */
+        const g = quota.gate(studentUser.id || ip);
+        if (g.error) {
+          log('quota étudiant', String(studentUser.id || 'account').slice(0, 8), g.error);
+          return send(res, g.status, g, 'application/json; charset=utf-8',
+            { 'Retry-After': String(g.retryAfter || 5) });
+        }
+        const slot = g.st;
+        quota.hold(slot, device);
+        const run = runs.open({
+          groups: p.groups.map(group => ({ id: group.id, query: group.query, keys: group.keys })),
+          tier: 'max', device, ip, slot,
+          radius: body.radius, lat: body.lat, lon: body.lon
+        });
+        log('begin étudiant', run.slice(0, 8), 'max', p.selected.length + ' analyse(s)');
+        return send(res, 200, {
+          ok: true, run, tier: 'max', access: 'student',
+          groups: p.groups.map(group => ({ id: group.id, fr: group.fr, en: group.en }))
+        });
+      }
 
       /* Accès libre (période d'essai) : toutes les analyses, sans licence,
          sans quota, sans filigrane. Voir docs/ACCES.md. */
@@ -177,7 +217,7 @@ export function createAnalysisHandler({ licence, quota, runs }) {
        Comme le reste : la requête est composée par le planificateur, jamais
        transmise par le client. Hors accès libre, elle exige une licence. */
     if (action === 'buildings') {
-      if (!isOpenAccess()) {
+      if (!studentUser && !isOpenAccess()) {
         const s = licence.check(body);
         if (s.error) return send(res, s.status, s);
       }
@@ -259,25 +299,44 @@ export function createAnalysisHandler({ licence, quota, runs }) {
   };
 }
 
-export function createApi({ licence, quota, runs, publicDir }) {
-  const status = createStatusHandler({ licence });
+export function createApi({ licence, quota, runs, publicDir, studentAuth = null }) {
+  const status = createStatusHandler({ licence, studentAuth });
   const utility = createUtilityHandler({ licence });
   const analysis = createAnalysisHandler({ licence, quota, runs });
   const atelier = createAtelierHandlers();
+  const authHandlers = createStudentAuthHandlers(studentAuth);
+  const protectedPaths = new Set([
+    '/api/util', '/analysis/2d',
+    '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
+    '/api/atelier/cadrage-extract', '/api/atelier/gadm'
+  ]);
 
   return async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
     const ip = clientIp(req);
     if (req.method === 'OPTIONS') return send(res, 200, '');
 
+    if (url.pathname === '/api/status') return status(req, res);
+    if (url.pathname === '/api/auth/request-otp') return authHandlers.requestOtp(req, res, ip);
+    if (url.pathname === '/api/auth/verify-otp') return authHandlers.verifyOtp(req, res);
+    if (url.pathname === '/api/auth/session') return authHandlers.session(req, res);
+    if (url.pathname === '/api/auth/logout') return authHandlers.logout(req, res);
+
+    let studentUser = null;
+    if ((protectedPaths.has(url.pathname) || (url.pathname === '/' && req.method === 'POST')) && studentAuth?.required) {
+      const access = await requireStudentSession(req, res, studentAuth);
+      if (!access.ok) return;
+      studentUser = access.user;
+    }
+
     if (url.pathname === '/api/atelier/health') return atelier.health(req, res);
     if (url.pathname === '/api/atelier/geocode') return atelier.geocode(req, res);
     if (url.pathname === '/api/atelier/extract') return atelier.extract(req, res);
+    if (url.pathname === '/api/atelier/cadrage-extract') return atelier.extractCadrage(req, res);
     if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
-    if (url.pathname === '/api/status') return status(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
-    if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip);
+    if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip, studentUser);
     if (req.method === 'GET') return serveStatic(req, res, url.pathname, publicDir);
 
     send(res, 405, 'POST only', 'text/plain');

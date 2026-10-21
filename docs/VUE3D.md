@@ -13,6 +13,7 @@ Fonctions reprises de <https://osmbuildings.org> après démontage (voir
 | Bâtiments extrudés (hauteur réelle, sinon 9 m) | partout |
 | Ombres portées selon la date et l'heure solaires | partout (sélecteurs de date et d'heure) |
 | Rotation, inclinaison, zoom | vue interactive : glisser, glisser vertical, molette |
+| **Quatre projections** : perspective libre, axonométrie isométrique, perspective architecturale à un point ou deux points | sélecteur *Projection* dans la vue interactive; le mode choisi est conservé dans l’export SVG/PNG de la vue |
 | Fiche d'un bâtiment au clic | vue interactive |
 | Fond de carte raster (OpenStreetMap) | vue interactive : case *Fond de carte* |
 | **Posé sur le terrain réel** (altimétrie) | partout ; case *Relief* dans la vue interactive |
@@ -61,9 +62,13 @@ Aucune dépendance : le moteur est écrit à la main, comme le reste du projet
 - **Soleil** : éphéméride abrégée — longitude moyenne, anomalie, écliptique,
   déclinaison, ascension droite, temps sidéral — puis vecteur est/nord/haut.
   Heure locale du site assimilée à l'heure solaire (pas de base de fuseaux).
-- **Caméra** : perspective (focale = demi-diagonale / tan(champ/2)), cap,
-  inclinaison, distance. Découpage contre le plan proche : sans lui, un
-  polygone passant derrière la caméra se replie à l'écran.
+- **Caméra** : perspective libre (focale = demi-diagonale / tan(champ/2)),
+  axonométrie orthographique isométrique, ou perspectives architecturales à un
+  ou deux points de fuite. Dans ces deux dernières, le plan horizontal garde la
+  perspective tandis que les verticales restent parallèles. Le glisser, les
+  curseurs ou les flèches reviennent au mode « perspective libre »; un nouveau
+  preset peut être choisi à tout moment. Découpage contre le plan proche : sans
+  lui, un polygone passant derrière la caméra se replie à l'écran.
 - **Inclinaison** : 0 = vue verticale, 90 = rasante (convention du site) ;
   la planche du catalogue est à 50°.
 - **Ombres** : même convention que l'analyse « soleil » du projet — longueur =

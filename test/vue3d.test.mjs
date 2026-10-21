@@ -108,6 +108,44 @@ describe('caméra', () => {
   });
 });
 
+describe('modes de projection 3D', () => {
+  test('l’axonométrie est parallèle et utilise un angle isométrique', () => {
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, largeur: 400, hauteur: 400, projection: 'axonometric' });
+    assert.equal(cam.projection, 'axonometric');
+    assert.equal(cam.orthographic, true);
+    assert.equal(cam.cap, 45);
+    assert.ok(Math.abs(cam.inclinaison - 54.7356103) < 1e-5);
+    const sol = cam.proj(LAT, LON, 0), haut = cam.proj(LAT, LON, 30);
+    assert.ok(sol && haut);
+    assert.ok(Math.abs(sol[0] - haut[0]) < 1e-8, 'la verticale ne dérive pas horizontalement');
+    assert.ok(haut[1] < sol[1], 'la hauteur monte à l’écran');
+  });
+
+  test('les perspectives à un et deux points gardent les verticales parallèles', () => {
+    for (const [projection, cap] of [['one-point', 0], ['two-point', 45]]) {
+      const cam = V.camera({
+        lat: LAT, lon: LON, rayon: 600, largeur: 400, hauteur: 400,
+        projection, cap: projection === 'one-point' ? 120 : 0, inclinaison: 48
+      });
+      assert.equal(cam.projection, projection);
+      assert.equal(cam.cap, cap, 'cap prédéfini pour ' + projection);
+      assert.equal(cam.verticalsCorrected, true);
+      const sol = cam.proj(LAT, LON, 0), haut = cam.proj(LAT, LON, 30);
+      assert.ok(sol && haut);
+      assert.ok(Math.abs(sol[0] - haut[0]) < 1e-8, projection + ' : x vertical constant');
+      assert.ok(Math.abs(sol[2] - haut[2]) < 1e-8, projection + ' : profondeur de base conservée');
+      assert.ok(haut[1] < sol[1], projection + ' : le sommet monte à l’écran');
+    }
+  });
+
+  test('un mode inconnu retombe sans erreur sur la perspective libre', () => {
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, largeur: 400, hauteur: 400, projection: 'fantaisie' });
+    assert.equal(cam.projection, 'perspective');
+    assert.equal(cam.orthographic, false);
+    assert.equal(cam.verticalsCorrected, false);
+  });
+});
+
 describe('scène : murs, toits, ombres', () => {
   const bat = [
     { g: carre(LAT, LON - 0.001), h: 12, t: 'residential' },
@@ -212,6 +250,15 @@ describe('sortie SVG de la vue 3D', () => {
   test('le SVG est bien formé et sans valeur invalide', () => {
     const svg = V.versSVG(bat, {
       lat: LAT, lon: LON, rayon: 600, cap: 30, inclinaison: 45,
+      soleil: V.soleil(V.instantLocal(10, LAT, LON), LAT, LON)
+    });
+    assert.ok(svg.startsWith('<svg') && svg.endsWith('</svg>'));
+    for (const bad of ['NaN', 'undefined', 'Infinity']) assert.ok(!svg.includes(bad), bad);
+  });
+
+  test('le SVG exporte aussi le mode de projection choisi', () => {
+    const svg = V.versSVG(bat, {
+      lat: LAT, lon: LON, rayon: 600, projection: 'two-point',
       soleil: V.soleil(V.instantLocal(10, LAT, LON), LAT, LON)
     });
     assert.ok(svg.startsWith('<svg') && svg.endsWith('</svg>'));
@@ -583,5 +630,11 @@ describe('vue interactive : rendu sur canevas', () => {
     assert.ok(g.appels.some(a => a.regle === 'evenodd'), 'le toit à cour est évidé');
     assert.doesNotThrow(() => V.dessiner(g, V.scene(bat, cam, {}), { routes: [] }),
       'rendu sans relief ni cour, sans erreur');
+  });
+
+  test('le fond axonométrique sans horizon passe par le canevas', () => {
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, largeur: 400, hauteur: 400, projection: 'axonometric' });
+    const sc = V.scene([{ g: carre(LAT, LON), h: 12 }], cam, {});
+    assert.doesNotThrow(() => V.dessiner(fauxContexte(), sc, { routes: [] }));
   });
 });

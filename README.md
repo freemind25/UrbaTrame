@@ -19,9 +19,19 @@
 - **Comparer la course solaire et les ombres** selon la date et l’heure choisies, dans les simulations 2D et 3D. La rose des vents est une statistique régionale à 10 m; elle ne simule pas le vent local entre les bâtiments.
 - **Consulter les résultats** sous forme de planches lisibles et les exporter individuellement ou en planche A3.
 
+### Importer des couches locales
+
+L’**atelier cartographique** importe des couches GeoJSON, CSV/TSV, KML/KMZ, Shapefile local (`.shp/.dbf/.prj`, fichiers associés ou ZIP standard) et GeoPackage (`.gpkg`). Le GeoPackage peut fournir jusqu’à 12 tables d’entités; attributs et géométries WKB ordinaires (Point, MultiPoint, lignes, polygones et collections) sont convertis vers WGS 84. Les courbes et extensions géométriques ne sont pas prises en charge. GeoTIFF (`.tif/.tiff`) est accepté en 1 bande ou RGB/RGBA s’il est géoréférencé, nord en haut, avec CRS EPSG dans ses propres métadonnées. Le raster est affiché avec transparence NoData et une palette pour les valeurs à une bande; la table indique dimensions, résolution, CRS, minimum/maximum et emprise. Il s’agit d’un aperçu affine de l’emprise transformée, sans rééchantillonnage pixel par pixel; les valeurs raster ne sont pas analysées ni modifiées. Pour GeoJSON, CSV, Shapefile, GeoPackage et GeoTIFF, les CRS convertibles sont EPSG:4326, EPSG:3857 et UTM WGS 84 (EPSG:326xx/327xx); le CRS source est conservé. Le Shapefile exige une confirmation du CRS; si aucun `.prj` exploitable n’est fourni, l’utilisateur doit saisir un EPSG pris en charge. Les couches vectorielles peuvent être superposées, masquées, réordonnées par flèches accessibles, recolorées, filtrées par attribut, stylées par catégorie, étiquetées et consultées dans une table; un raster se règle par opacité et son aperçu figure dans les plans SVG/PNG. Un tableau de bord local présente les effectifs par géométrie, les longueurs/contours, les surfaces approximatives et une répartition par attribut, en suivant le filtre de la couche choisie; il n’invente pas de seuil d’accessibilité ou de zonage et n’envoie aucune donnée. L’édition locale permet d’ajouter des points, lignes et polygones, d’insérer/déplacer/supprimer des sommets, de supprimer des entités et de gérer les attributs JSON; annulation/rétablissement est limité aux 50 dernières actions et à 4 Mo par couche, et l’historique n’est pas inclus dans le projet sauvegardé. Les données vectorielles modifiées, elles, sont exportables. Mesures indicatives, sélection des points dans un polygone ou à proximité d’une autre couche de points (distance de grand cercle approximée sur une sphère, jusqu’à 100 km), tampons sphériques indicatifs de points et de lignes (rayon 1 à 5 000 m; segments de ligne ≤100 km, pièces non dissoutes et recouvrements possibles), recettes JSON à opérations autorisées et export SVG/PNG/impression sont disponibles. Un projet local `.urbatrame.json` conserve couches, styles, filtres, provenance et données GeoTIFF originales; il ne restaure pas les fonds externes. L’export GeoJSON concerne les couches vectorielles uniquement. Les services XYZ/WMS/WMTS (matrices Web Mercator standard), WFS 2.0, ArcGIS FeatureServer/MapServer interrogeables et GeoJSON distant sont facultatifs et inactifs par défaut; chaque requête part uniquement après clic et envoie l’URL/l’emprise au fournisseur, jamais les couches locales. WFS/ArcGIS sont paginés à 1 000 entités/page, au plus 5 000 entités, 10 pages et 30 Mo cumulés, avec un délai de 30 secondes par page et un arrêt si le service répète une page; un GeoJSON distant est limité à une réponse de 15 Mo. Le catalogue OpenRouter peut être consulté par action distincte pour vérifier le prix du modèle. L’IA reste désactivée par défaut; le service choisi ne reçoit que les couches sélectionnées (20 premières entités chacune) et la consigne après consentement. La clé personnelle n’est ni enregistrée ni ajoutée au projet. Limites : 15 Mo par fichier (lot Shapefile 30 Mo), 20 000 entités et 100 000 positions par couche; GeoTIFF 1 million de pixels/fichier, 4 millions au total et 15 Mo cumulés; projet 30 Mo, 12 couches, 60 000 entités et 300 000 positions au total; aperçu vectoriel 8 000 entités/20 000 symboles. UrbaTrame ne crée ni limite cadastrale/juridique ni zonage réglementaire.
+
+#### Relevé terrain et exports de l’Atelier cartographique
+
+La fiche de collecte intégrée permet de définir des gabarits et champs typés, de créer une couche vectorielle vide, puis de capturer un point GNSS ou de dessiner points, lignes et polygones avec attributs. Les gabarits peuvent être gardés sur l’appareil, exportés/importés en JSON et intégrés au projet local; les valeurs des relevés ne sont pas stockées dans la bibliothèque de gabarits. La géolocalisation du navigateur ne démarre qu’après l’action de l’utilisateur. La précision annoncée, l’horodatage et les éventuelles hauteurs sont des mesures fournies par l’appareil, non certifiées. Le récepteur GNSS externe doit être exposé au navigateur par le système; l’appairage Bluetooth/NTRIP direct et la conversion UBX→RINEX/post-traitement ne sont pas fournis.
+
+L’import et l’export KML/KMZ sont locaux; UrbaTrame ne suit pas les liens réseau KML. Les exports vectoriels comprennent GeoJSON, CSV avec WKT et provenance, KML, KMZ et GeoPackage EPSG:4326; les couches raster ne sont pas incluses dans ces exports vectoriels. Un modèle géoïde GTX peut être choisi par l’utilisateur, chargé en mémoire de l’onglet et utilisé après confirmation de sa couverture et de son datum vertical; aucun modèle n’est fourni ou téléchargé et le GTX n’est pas intégré au projet. Les demandes de fond cartographique en ligne peuvent révéler l’emprise consultée au fournisseur choisi; les couches et fichiers locaux ne lui sont pas transmis.
+
 ### Explorer la ville en 3D
 
-La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de choisir la date et l’heure solaires et d’examiner les bâtiments sur le relief. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
+La vue 3D interactive permet de faire pivoter et d’incliner la scène, de zoomer, de choisir la date et l’heure solaires et d’examiner les bâtiments sur le relief. Elle propose quatre projections — perspective libre, axonométrie isométrique, perspective architecturale à un ou deux points de fuite — avec export PNG/SVG du rendu choisi. Les ombres, les fiches de bâtiments et l’export d’images sont accessibles depuis la vue.
 
 Le rapport de site propose aussi un **générateur de volumes 3D conceptuels** : à partir de la capacité calculée selon les hypothèses saisies, l’utilisateur choisit le nombre de volumes, la hauteur d’étage, le rapport largeur/profondeur et l’écartement. La maquette en rangée peut être tournée à l’écran puis exportée en SVG, OBJ ou STL. Elle est schématique, non géoréférencée, ne représente aucune limite foncière et ne vérifie pas le zonage ni la réglementation.
 
@@ -38,6 +48,16 @@ L’atelier est accessible sans compte ni quota. Les notes restent locales à ce
 
 L’**atlas administratif GADM**, ajouté dans l’Atelier Altiplan, permet de parcourir les pays et leurs subdivisions, de sélectionner les limites et leurs métadonnées, de consulter les aperçus thématiques GADM (altitude, température, précipitations et éclairage nocturne), puis de télécharger les données par pays ou pour le monde. Les téléchargements proposent les versions 4.1, 4.0.4 et 3.6 selon les formats officiels disponibles.
 
+### Cadrer un site · du territoire au quartier
+
+Le **Cadrage spatial**, accessible depuis la navigation principale, organise le repérage en quatre niveaux : wilaya dans le pays, ville dans la wilaya, quartier dans la ville, puis quartier et environnement proche. Les cartes de niveaux 1–2 sont schématiques et séparées des emprises d’analyse détaillée. Aux niveaux 3–4, le centre, le cercle, le rectangle, le polygone et chaque sommet sont contrôlés par rapport à une limite maximale de **3 000 m**; le serveur applique son propre plafond, indépendant de la limite d’Altiplan. Le module propose les limites administratives GADM, la recherche de lieux, des couches OSM disponibles (routes, chemins, équipements, centralités, espaces verts, eau, rail, quartiers cartographiés et barrières), le relief optionnel, l’import local GeoJSON/GeoPackage, les annotations, la légende automatique, le nord, l’échelle, les coordonnées et les mises en page A4/A3/A2. Les cadrages et leurs annotations se sauvegardent dans le navigateur et peuvent être exportés en projet JSON, SVG, PNG, JPEG ou imprimés en PDF. Une recherche, une requête GADM ou un chargement OSM/relief ne part qu’après une action explicite; les contours locaux ne sont pas téléversés. Les données OSM/GADM doivent être vérifiées et ne valent jamais limites cadastrales, juridiques ou réglementaires. Voir la [notice courte](docs/NOTICE-CADRAGE-SPATIAL.md) et la [documentation technique](docs/CADRAGE-SPATIAL.md).
+
+### Comparer les cartes historiques · séance S5
+
+Le comparateur S5 de l’atelier d’analyse accepte deux cartes raster (PNG, JPEG ou WebP), conserve leurs métadonnées de période, échelle, source et droits, puis les aligne à partir d’au moins trois points communs dont les coordonnées WGS84 et les positions sur chaque image sont saisies par l’étudiant. La transformation affine est calculée en EPSG:3857; son RMSE et les résidus par point (mètres planimétriques dans cette projection) sont visibles et exportés pour vérification. La superposition se consulte par transparence ou balayage, avec des observations manuelles et un texte de synthèse relu par le groupe; seul le texte confirmé est inclus au plan PNG sourcé et daté. Les points, résidus, métadonnées et annotations peuvent aussi être exportés en JSON (sans les images).
+
+L’analyse reste locale par défaut. L’aide IA est facultative et nécessite le choix d’un fournisseur, la clé API personnelle de l’étudiant et un consentement explicite. La clé n’est pas enregistrée; le chargement d’un catalogue transmet une requête authentifiée sans carte, tandis qu’une analyse envoie les deux images réduites et les métadonnées de période, d’échelle et de source directement au fournisseur choisi. Les modèles gratuits, leurs quotas et leur capacité image peuvent changer; les coûts éventuels, la rétention et l’usage pour l’entraînement dépendent du fournisseur et du modèle. OpenAlex est une API de données scientifiques, pas un fournisseur d’inférence. Les suggestions IA doivent être validées pour figurer parmi les observations retenues; elles ne créent jamais de parcelles, de limites cadastrales ou de zonage juridique.
+
 ### Exporter et partager
 
 | Contenu | Formats disponibles |
@@ -52,7 +72,7 @@ Les exports topographiques peuvent être exprimés en mètres locaux ou géoréf
 
 ### Adapter l’affichage
 
-L’interface est disponible en français et en anglais. Elle propose un thème clair ou sombre, plusieurs palettes de couleur et des aperçus avant téléchargement.
+L’interface est disponible en français et en anglais. Elle propose un thème clair ou sombre, plusieurs palettes de couleur et des aperçus avant téléchargement. Les projets et modèles locaux conservent aussi les palettes, les titres personnalisés et l’affichage du texte des cartes, sans embarquer les données ou les rendus.
 
 ## Exemples
 
@@ -78,13 +98,14 @@ L’exemple intégré d’El Khroub permet de découvrir les analyses et les exp
 ## Documentation
 
 - [Rapport de présentation](docs/UrbaTrame_Rapport_de_presentation.docx) · [Notice d’utilisation](docs/UrbaTrame_Notice_d_utilisation.docx)
-- [Atelier topographique Altiplan](docs/ALTIPLAN.md) · [Atlas administratif GADM](docs/GADM.md)
+- [Atelier cartographique — relevé terrain GNSS](docs/ATELIER-RELEVE-TERRAIN.md) · [Atelier topographique Altiplan](docs/ALTIPLAN.md) · [Comparateur historique S5](docs/ATELIER-S5.md) · [Atlas administratif GADM](docs/GADM.md)
+- [Cadrage spatial — notice](docs/NOTICE-CADRAGE-SPATIAL.md) · [Cadrage spatial — documentation technique](docs/CADRAGE-SPATIAL.md)
 - [Exports topographiques et CAO](docs/EXPORTS.md)
-- [Visualisation 3D](docs/VUE3D.md)
+- [Visualisation 3D](docs/VUE3D.md) · [Comparaison fonctionnelle archiMap](docs/ANALYSE-ARCHIMAP.md)
 - [Données, sources et attribution](docs/DONNEES.md)
 - [API](docs/API.md)
 - [Déploiement](docs/DEPLOIEMENT.md) · [Vercel](docs/VERCEL.md)
 
 ## Licence
 
-Le code de l’application est sous licence [MIT](LICENSE). Les données restent soumises aux licences et conditions de leurs producteurs.
+Le code de l’application est sous licence [MIT](LICENSE). Les données restent soumises aux licences et conditions de leurs producteurs. Les avis des composants de lecture GeoPackage/GeoTIFF sont dans [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

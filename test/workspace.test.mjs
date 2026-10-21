@@ -12,7 +12,12 @@ const projectInput = {
   selectedIds: ['roads', 'volumes', 'unknown', 'roads'],
   shape: 'circle', radius: 600, time: 12,
   sunDate: '2026-06-21',
-  scenario: { far: 2.4, cost: 'à saisir', unexpected: { unsafe: true } }
+  scenario: { far: 2.4, cost: 'à saisir', unexpected: { unsafe: true } },
+  appearance: {
+    palettes: { roads: 5, volumes: 8, unknown: 2 },
+    names: { roads: '  Rue principale  ', unknown: 'À ignorer' },
+    noText: ['roads', 'unknown', 'roads']
+  }
 };
 
 describe('espace de travail local', () => {
@@ -23,6 +28,9 @@ describe('espace de travail local', () => {
     assert.equal(project.name, 'Centre-ville — test');
     assert.deepEqual(project.selectedIds, ['roads', 'volumes']);
     assert.deepEqual(project.scenario, { far: '2.4', cost: 'à saisir' });
+    assert.deepEqual(project.appearance, {
+      palettes: { roads: 5 }, names: { roads: 'Rue principale' }, noText: ['roads']
+    });
     assert.deepEqual(project.site, { lat: 36.47, lon: 2.83, name: 'Blida' });
     assert.equal('geometry' in project, false);
     assert.equal('results' in project, false);
@@ -35,7 +43,26 @@ describe('espace de travail local', () => {
     assert.equal(imported.type, 'urbatrame-project');
     assert.equal(imported.name, project.name);
     assert.deepEqual(imported.selectedIds, project.selectedIds);
+    assert.deepEqual(imported.appearance, project.appearance);
     assert.deepEqual(imported.site, project.site);
+  });
+
+  test('garde les anciens fichiers compatibles et filtre les styles importés', () => {
+    const legacy = { ...projectInput, appearance: undefined };
+    delete legacy.appearance;
+    const importedLegacy = validateWorkspaceRecord(createWorkspaceProject(legacy));
+    assert.equal('appearance' in importedLegacy, false);
+    const styled = createWorkspaceProject({
+      ...projectInput,
+      appearance: {
+        palettes: { roads: -1, landuse: 3.5, gw: 2 },
+        names: { roads: 'x'.repeat(80) },
+        noText: ['unknown', 'gw']
+      }
+    });
+    assert.deepEqual(styled.appearance, {
+      palettes: { gw: 2 }, names: { roads: 'x'.repeat(60) }, noText: ['gw']
+    });
   });
 
   test('valide les modèles réutilisables sans coordonnées de site', () => {

@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="description" content="Atelier cartographique UrbaTrame : importer et superposer des couches vectorielles GeoPackage, GeoJSON, CSV, Shapefile et des rasters GeoTIFF locaux.">
+  <title>UrbaTrame — Atelier cartographique</title>
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/atelier-cartographique.css">
+  <script type="module" src="/js/student-auth-ui.mjs"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="UrbaTrame, accueil">
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+      <span class="brand-copy">
+        <span class="brand-name">UrbaTrame</span>
+        <span class="brand-subtitle">Analyse des sites urbains</span>
+        <span class="brand-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a href="/atelier-analyse.html">Atelier d’analyse</a>
+      <a class="current" href="/atelier-cartographique.html" aria-current="page">Couches locales</a>
+      <a href="/cadrage-spatial.html">Cadrage spatial</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">URBATRAME <span>·</span> DONNÉES LOCALES <span>·</span> PHASE 1</p>
+      <h1 id="page-title">Atelier cartographique</h1>
+      <p class="lede">Importez des couches vectorielles ou des rasters géoréférencés, réorganisez-les, examinez leurs attributs et consultez les indicateurs descriptifs de la couche choisie avant de préparer un plan. Les fichiers locaux ne sont jamais téléversés; les services externes restent inactifs jusqu’à votre activation explicite.</p>
+      <div class="notice-row">
+        <p class="privacy-note"><strong>Traitement local par défaut.</strong> Fichiers non téléversés. Une source distante n’est contactée qu’après activation; elle reçoit l’URL et/ou l’emprise, jamais vos couches locales.</p>
+        <p class="limits-note">Limites : 15 Mo/fichier (lot Shapefile 30 Mo), 20 000 entités et 100 000 positions/couche; 12 couches, 60 000 entités et 300 000 positions/atelier. GeoTIFF : 1 million de pixels/fichier, 4 millions au total; raster nord en haut, 1 bande ou RGB/RGBA. Conversion vers WGS 84 : EPSG:4326, EPSG:3857, UTM WGS 84. Fonds externes facultatifs.</p>
+      </div>
+    </section>
+
+    <section class="workbench" aria-label="Espace de travail cartographique">
+      <aside class="sidebar">
+        <section class="panel import-panel" aria-labelledby="import-title">
+          <div class="panel-heading">
+            <span class="step">01 / DONNÉES</span>
+            <h2 id="import-title">Ajouter une couche</h2>
+          </div>
+          <label class="file-drop" id="dropZone" for="fileInput">
+            <input id="fileInput" type="file" accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz,application/geo+json,application/json,text/csv,text/tab-separated-values,application/geopackage+sqlite3,image/tiff,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz">
+            <span class="drop-icon" aria-hidden="true">＋</span>
+            <span class="drop-title">Choisir un fichier</span>
+            <span class="drop-subtitle">GeoJSON · CSV/TSV · GeoPackage · GeoTIFF · KML/KMZ</span>
+            <span class="drop-limit">Fichier lu dans ce navigateur uniquement</span>
+          </label>
+          <label class="file-drop shapefile-drop" for="shapefileFiles">
+            <input id="shapefileFiles" type="file" multiple accept=".shp,.dbf,.prj,.cpg,.zip">
+            <span class="drop-icon" aria-hidden="true">▦</span>
+            <span class="drop-title">Ajouter un Shapefile</span>
+            <span class="drop-subtitle">Sélectionnez .shp + .dbf + .prj ensemble, ou un .zip Shapefile</span>
+            <span class="drop-limit">Lecture locale; choisissez/validez le CRS</span>
+          </label>
+          <p class="source-footnote">GeoPackage : import de tables vectorielles. GeoTIFF : aperçu affine approximatif de l’emprise, avec statistiques descriptives seulement; aucun rééchantillonnage ni traitement raster pixel par pixel. KML/KMZ : couches vectorielles locales; aucun lien réseau KML n’est suivi.</p>
+          <section id="shapeMapping" class="csv-mapping" hidden aria-labelledby="shape-title">
+            <h3 id="shape-title">Système de coordonnées Shapefile</h3>
+            <p id="shapeFilesSummary">Confirmez le CRS indiqué par le .prj ou par la source des données.</p>
+            <label class="field-label" for="shapeCrs">CRS source (code EPSG)
+              <input id="shapeCrs" type="text" list="supportedShapeCrs" maxlength="20" placeholder="EPSG:4326">
+              <datalist id="supportedShapeCrs">
+                <option value="EPSG:4326">WGS 84</option><option value="EPSG:3857">Web Mercator</option>
+                <option value="EPSG:32631">WGS 84 / UTM 31N</option><option value="EPSG:32632">WGS 84 / UTM 32N</option><option value="EPSG:32633">WGS 84 / UTM 33N</option>
+                <option value="EPSG:32731">WGS 84 / UTM 31S</option><option value="EPSG:32732">WGS 84 / UTM 32S</option><option value="EPSG:32733">WGS 84 / UTM 33S</option>
+              </datalist>
+            </label>
+            <button id="addShapefile" class="button-primary" type="button">Importer le Shapefile</button>
+          </section>
+          <label class="field-label" for="sourceReference">Source / attribution (recommandée)
+            <input id="sourceReference" type="text" maxlength="240" placeholder="Auteur, licence, URL, date…">
+          </label>
+          <p class="source-footnote">Ajoutez l’attribution et la licence applicables à vos données, notamment OSM/OBM le cas échéant.</p>
+          <section id="csvMapping" class="csv-mapping" hidden aria-labelledby="csv-title">
+            <h3 id="csv-title">Colonnes de coordonnées</h3>
+            <p>Choisissez X et Y puis indiquez le CRS réel du fichier. Les coordonnées sont transformées en WGS 84 / EPSG:4326 pour l’affichage et l’export.</p>
+            <label class="field-label" for="csvLongitude">Colonne X / longitude
+              <select id="csvLongitude"></select>
+            </label>
+            <label class="field-label" for="csvLatitude">Colonne Y / latitude
+              <select id="csvLatitude"></select>
+            </label>
+            <label class="field-label" for="csvCrs">CRS source (code EPSG)
+              <input id="csvCrs" type="text" list="supportedCrs" value="EPSG:4326" maxlength="20" autocomplete="off">
+              <datalist id="supportedCrs">
+                <option value="EPSG:4326">WGS 84</option><option value="EPSG:3857">Web Mercator</option>
+                <option value="EPSG:32631">WGS 84 / UTM 31N</option><option value="EPSG:32632">WGS 84 / UTM 32N</option><option value="EPSG:32633">WGS 84 / UTM 33N</option>
+                <option value="EPSG:32731">WGS 84 / UTM 31S</option><option value="EPSG:32732">WGS 84 / UTM 32S</option><option value="EPSG:32733">WGS 84 / UTM 33S</option>
+              </datalist>
+            </label>
+            <p class="csv-crs-help">Prise en charge : EPSG:4326, EPSG:3857 et UTM WGS 84 (EPSG:32601–32660 / 32701–32760). Vérifiez le code du fichier avant l’import.</p>
+            <button id="addCsvLayer" class="button-primary" type="button">Ajouter les points CSV</button>
+          </section>
+          <p id="importStatus" class="status" role="status" aria-live="polite">Aucun fichier chargé.</p>
+        </section>
+
+        <section class="panel field-survey-panel" aria-labelledby="survey-title">
+          <div class="panel-heading">
+            <div><span class="step">02 / RELEVÉ TERRAIN</span><h2 id="survey-title">Fiche de collecte GNSS</h2></div>
+          </div>
+          <p class="survey-disclaimer">La géolocalisation ne démarre qu’après votre clic et l’autorisation du navigateur. Les points et formulaires restent dans ce navigateur; aucun fichier ni position n’est envoyé à UrbaTrame. Si un fond web est actif, le fournisseur peut recevoir des requêtes révélant l’emprise affichée et votre adresse IP. La précision dépend du téléphone/récepteur et de son système.</p>
+          <div class="survey-template-tools">
+            <label class="field-label" for="surveyTemplateLibrary">Gabarits enregistrés sur cet appareil
+              <select id="surveyTemplateLibrary"></select>
+            </label>
+            <div class="survey-action-row">
+              <button id="loadSurveyTemplate" class="button-secondary" type="button">Charger</button>
+              <button id="saveSurveyTemplate" class="button-secondary" type="button">Enregistrer</button>
+              <button id="exportSurveyTemplate" class="button-secondary" type="button">Exporter le gabarit</button>
+              <button id="deleteSurveyTemplate" class="button-secondary" type="button">Supprimer le gabarit enregistré</button>
+            </div>
+            <label class="template-file-label" for="surveyTemplateFile">Importer un gabarit UrbaTrame (.json)
+              <input id="surveyTemplateFile" type="file" accept=".json,application/json">
+            </label>
+          </div>
+          <label class="field-label" for="surveyTemplateName">Nom du gabarit
+            <input id="surveyTemplateName" type="text" maxlength="80" value="Relevé urbain">
+          </label>
+          <div class="survey-fields-editor">
+            <div class="survey-fields-heading"><strong>Dictionnaire d’attributs</strong><button id="addSurveyField" class="text-button" type="button">＋ Ajouter un champ</button></div>
+            <div id="surveyFieldDefinitions" class="survey-field-definitions"></div>
+            <p class="source-footnote">Types pris en charge : texte, nombre, date, oui/non et liste de choix. Le gabarit est local; il peut être exporté pour être partagé.</p>
+          </div>
+          <div class="survey-values">
+            <strong>Valeurs de la prochaine entité</strong>
+            <div id="surveyFormFields" class="survey-form-fields"></div>
+            <p class="source-footnote">Ces champs sont appliqués aux points, lignes et polygones ajoutés avec les outils d’édition ci-dessous.</p>
+          </div>
+          <div class="survey-view">
+            <strong>Centre et cadrage du fond</strong>
+            <div class="survey-coordinate-row">
+              <label for="surveyCenterLat">Latitude WGS 84<input id="surveyCenterLat" type="number" step="any" value="36.2642"></label>
+              <label for="surveyCenterLon">Longitude WGS 84<input id="surveyCenterLon" type="number" step="any" value="6.6969"></label>
+            </div>
+            <label class="field-label" for="surveyViewSpan">Largeur de la vue (m) · plafond 3 000 m
+              <input id="surveyViewSpan" type="number" min="100" max="3000" step="100" value="2000">
+            </label>
+            <div class="survey-action-row">
+              <button id="applySurveyView" class="button-secondary" type="button">Afficher ce centre</button>
+              <button id="fitSurveyData" class="button-secondary" type="button">Ajuster aux couches</button>
+              <button id="surveyZoomOut" class="button-secondary" type="button" aria-label="Dézoomer">−</button>
+              <button id="surveyZoomIn" class="button-secondary" type="button" aria-label="Zoomer">＋</button>
+            </div>
+            <div class="survey-action-row">
+              <button id="readGps" class="button-secondary" type="button">Lire ma position GNSS</button>
+              <button id="captureGpsPoint" class="button-primary" type="button" disabled>Capturer un point GPS</button>
+            </div>
+            <p id="surveyGpsStatus" class="survey-status" role="status" aria-live="polite">Position non lue. La permission de localisation sera demandée uniquement après le clic ci-dessus.</p>
+          </div>
+          <div class="geoid-tools">
+            <label class="field-label" for="geoidFile">Modèle de géoïde local (.gtx), facultatif
+              <input id="geoidFile" type="file" accept=".gtx,application/octet-stream">
+            </label>
+            <button id="removeGeoid" class="text-button" type="button" disabled>Retirer le modèle</button>
+            <div id="geoidConfirmRow" class="geoid-confirm-row" hidden><label><input id="confirmGeoidUse" type="checkbox"> J’ai vérifié la couverture et le datum vertical de ce modèle pour mon site; activer le calcul H = h − N.</label></div>
+            <p id="geoidStatus" class="source-footnote" role="status">Aucun modèle chargé. Un modèle compatible doit couvrir le site et son datum vertical doit être confirmé par l’utilisateur; aucun modèle n’est téléchargé ou fourni.</p>
+          </div>
+          <button id="createSurveyLayer" class="button-primary full-button" type="button">Créer une couche vide « Relevé terrain »</button>
+          <p class="source-footnote">Le GNSS du téléphone passe par l’API de géolocalisation du navigateur. Un récepteur externe ne fonctionne ici que si Android ou le système le présente au navigateur comme position; l’appairage Bluetooth/NTRIP direct n’est pas fourni par cette page. Un modèle GTX est seulement gardé en mémoire jusqu’à la fermeture/recharge de l’onglet et n’est pas incorporé au projet. La conversion UBX→RINEX et le post-traitement GNSS ne sont pas inclus : cette page ne remplace pas un outil GNSS dédié et ne lit pas directement les fichiers bruts du récepteur.</p>
+        </section>
+
+        <section class="panel layers-panel" aria-labelledby="layers-title">
+          <div class="panel-heading layers-heading">
+            <div><span class="step">03 / AFFICHAGE</span><h2 id="layers-title">Couches</h2></div>
+            <span id="layerCount" class="count-pill">0</span>
+          </div>
+          <p class="layer-stack-help">Ordre d’affichage : du haut de la liste (au-dessus) vers le bas. Utilisez les flèches pour réorganiser la pile; le nouvel import arrive au-dessus.</p>
+          <div id="layerList" class="layer-list">
+            <p class="empty-layers">Ajoutez un GeoJSON, CSV/TSV, KML/KMZ, Shapefile, GeoPackage ou GeoTIFF pour commencer.</p>
+          </div>
+          <div class="layer-actions">
+            <div class="export-format-actions" aria-label="Exporter les couches vectorielles visibles">
+              <button id="exportGeoJSON" class="button-primary" type="button" disabled>GeoJSON</button>
+              <button id="exportCsv" class="button-secondary" type="button" disabled>CSV (tableur)</button>
+              <button id="exportKml" class="button-secondary" type="button" disabled>KML</button>
+              <button id="exportKmz" class="button-secondary" type="button" disabled>KMZ</button>
+              <button id="exportGpkg" class="button-secondary" type="button" disabled>GeoPackage</button>
+            </div>
+            <p class="source-footnote">Les exports vectoriels contiennent les couches visibles; un GeoTIFF n’est pas exporté en GeoPackage par cet outil.</p>
+            <button id="clearLayers" class="button-secondary" type="button" disabled>Tout retirer</button>
+          </div>
+          <p class="source-footnote">Chaque couche conserve le nom du fichier, la date d’import et la référence de source fournie.</p>
+          <div class="project-actions">
+            <button id="exportProjectJson" class="button-secondary full-button" type="button" disabled>Enregistrer le projet local (.json)</button>
+            <label class="project-file-label" for="projectFile">Ouvrir un projet UrbaTrame<input id="projectFile" type="file" accept=".urbatrame.json,.json,application/json"></label>
+          </div>
+        </section>
+
+        <section class="panel tools-panel" aria-labelledby="tools-title">
+          <div class="panel-heading"><div><span class="step">05 / OUTILS</span><h2 id="tools-title">Style, filtre et édition</h2></div></div>
+          <label class="field-label" for="filterField">Filtrer la couche choisie par attribut
+            <select id="filterField"></select>
+          </label>
+          <div class="filter-row"><input id="filterValue" type="search" placeholder="Valeur à rechercher" aria-label="Valeur du filtre"><button id="applyFilter" class="button-secondary" type="button">Filtrer</button></div>
+          <button id="clearFilter" class="text-button" type="button">Effacer le filtre</button>
+          <label class="field-label" for="styleField">Colorer par catégories
+            <select id="styleField"></select>
+          </label>
+          <button id="applyCategoryStyle" class="button-secondary full-button" type="button">Appliquer une palette catégorielle</button>
+          <label class="field-label" for="labelField">Étiquettes des points
+            <select id="labelField"></select>
+          </label>
+          <button id="applyLabels" class="button-secondary full-button" type="button">Mettre à jour les étiquettes</button>
+          <div class="analysis-block">
+            <button id="analyzeLayer" class="button-primary full-button" type="button">Mesurer la couche choisie</button>
+            <div id="analysisResults" class="analysis-results" role="status">Longueurs géodésiques et aires approximées sur un plan local; résultats indicatifs.</div>
+          </div>
+          <div class="edit-block">
+            <span class="edit-title">Ajouter des entités dessinées</span>
+            <div class="edit-buttons">
+              <button id="drawPoint" class="button-secondary" type="button">＋ Point</button>
+              <button id="drawLine" class="button-secondary" type="button">＋ Ligne</button>
+              <button id="drawPolygon" class="button-secondary" type="button">＋ Polygone</button>
+            </div>
+            <div class="edit-buttons">
+              <button id="finishDrawing" class="button-primary" type="button" disabled>Terminer</button>
+              <button id="cancelDrawing" class="button-secondary" type="button" disabled>Annuler</button>
+            </div>
+            <div class="edit-buttons">
+              <button id="undoEdit" class="button-secondary" type="button" disabled>Annuler l’édition</button>
+              <button id="redoEdit" class="button-secondary" type="button" disabled>Rétablir l’édition</button>
+            </div>
+            <div class="selected-feature-edit">
+              <p id="selectedEditSummary" class="source-footnote">Cliquez sur une entité pour la sélectionner.</p>
+              <label class="field-label" for="editVertexIndex">Sommet à modifier (ordre GeoJSON, à partir de 1)
+                <input id="editVertexIndex" type="number" min="1" step="1" value="1" disabled>
+              </label>
+              <div class="coordinate-edit-row">
+                <label for="editPointLon">Longitude<input id="editPointLon" type="number" min="-180" max="180" step="any" placeholder="WGS 84" disabled></label>
+                <label for="editPointLat">Latitude<input id="editPointLat" type="number" min="-90" max="90" step="any" placeholder="WGS 84" disabled></label>
+              </div>
+              <div class="edit-buttons">
+                <button id="moveSelectedVertex" class="button-secondary" type="button" disabled>Déplacer le sommet</button>
+                <button id="insertSelectedVertex" class="button-secondary" type="button" disabled>Insérer après</button>
+                <button id="deleteSelectedVertex" class="button-secondary" type="button" disabled>Supprimer le sommet</button>
+                <button id="deleteSelectedFeature" class="button-secondary" type="button" disabled>Supprimer l’entité</button>
+              </div>
+              <div class="attribute-edit">
+                <p id="attributeFieldsSummary" class="source-footnote">Sélectionnez une entité pour modifier ses attributs.</p>
+                <label class="field-label" for="editAttributeName">Nom du champ
+                  <input id="editAttributeName" type="text" maxlength="120" autocomplete="off" list="editAttributeOptions" placeholder="ex. usage" disabled>
+                </label>
+                <datalist id="editAttributeOptions"></datalist>
+                <label class="field-label" for="editAttributeValue">Valeur au format JSON
+                  <textarea id="editAttributeValue" rows="2" maxlength="2000" spellcheck="false" placeholder="ex. texte JSON, 42 ou true" disabled></textarea>
+                </label>
+                <div class="edit-buttons">
+                  <button id="saveFeatureAttribute" class="button-secondary" type="button" disabled>Enregistrer l’attribut</button>
+                  <button id="deleteFeatureAttribute" class="button-secondary" type="button" disabled>Supprimer l’attribut</button>
+                </div>
+              </div>
+            </div>
+            <p id="editStatus" class="source-footnote" role="status">Choisissez une couche et dessinez sur la carte. Les nouvelles géométries sont ajoutées à la couche sélectionnée.</p>
+            <p class="source-footnote">Historique borné aux 50 dernières actions et à 4 Mo par couche; il n’est pas inclus dans le projet sauvegardé. Les changements effectués dans les données sont, eux, exportables.</p>
+          </div>
+        </section>
+
+        <section class="panel automation-panel" aria-labelledby="automation-title">
+          <div class="panel-heading"><div><span class="step">06 / AUTOMATISATION</span><h2 id="automation-title">Recettes locales</h2></div></div>
+          <p class="source-footnote">Un format JSON local à opérations autorisées (mesurer, filtrer, points dans un polygone, sélection de proximité Point/MultiPoint jusqu’à 100 km, tampons indicatifs de points et de lignes, exporter). Distances approximées sur une sphère; les tampons utilisent un rayon de 1 à 5 000 m et 12 à 64 segments; les lignes donnent des capsules par segment, non dissoutes, pour des segments de 100 km maximum; aucun tampon de polygone n’est proposé. Aucun code arbitraire, plugin ou requête réseau n’est exécuté.</p>
+          <label class="field-label" for="automationRecipe">Recette déterministe
+            <textarea id="automationRecipe" rows="7" spellcheck="false">{
+  "version": 1,
+  "steps": [
+    { "op": "measure", "layer": "Nom exact de la couche" },
+    { "op": "within-distance", "layer": "Nom exact de la couche cible", "referenceLayer": "Nom exact des points de référence", "distanceMeters": 500 },
+    { "op": "buffer-points", "layer": "Nom exact de la couche de points", "radiusMeters": 100, "segments": 32 },
+    { "op": "buffer-lines", "layer": "Nom exact de la couche de lignes", "radiusMeters": 25, "segments": 32 }
+  ]
+}</textarea>
+          </label>
+          <button id="runAutomation" class="button-primary full-button" type="button">Valider et exécuter localement</button>
+          <div id="automationResults" class="automation-results" role="status">Les résultats ne sont affichés qu’après exécution locale.</div>
+          <div id="automationArtifacts" class="automation-artifacts"></div>
+        </section>
+
+        <section class="panel ai-panel" aria-labelledby="ai-title">
+          <div class="panel-heading"><div><span class="step">07 / IA FACULTATIVE</span><h2 id="ai-title">Synthèse assistée</h2></div></div>
+          <p class="service-warning">Désactivée par défaut. Vous choisissez un fournisseur et un modèle, fournissez votre propre clé, vérifiez ses tarifs/quotas/rétention, puis confirmez l’envoi. Seules les couches choisies (20 premières entités chacune, attributs et coordonnées) et votre consigne quittent l’onglet vers le service indiqué; OpenRouter les route vers un fournisseur d’inférence, un endpoint personnalisé peut aussi les retransmettre. Aucune géométrie IA n’est ajoutée sans validation étudiante.</p>
+          <label class="field-label" for="aiProvider">Fournisseur
+            <select id="aiProvider"><option value="">Choisir — IA inactive</option><option value="openrouter">OpenRouter (routage ZDR demandé)</option><option value="custom">Endpoint OpenAI-compatible fourni par vous</option></select>
+          </label>
+          <label id="aiEndpointField" class="field-label" for="aiEndpoint" hidden>Endpoint HTTPS personnalisé
+            <input id="aiEndpoint" type="url" maxlength="500" placeholder="https://votre-fournisseur/v1/chat/completions">
+          </label>
+          <label class="field-label" for="aiModel">ID du modèle
+            <input id="aiModel" type="text" maxlength="160" autocomplete="off" placeholder="ex. organisation/modele">
+          </label>
+          <label class="field-label" for="aiApiKey">Votre clé personnelle (non sauvegardée)
+            <input id="aiApiKey" type="password" maxlength="500" autocomplete="new-password" spellcheck="false">
+          </label>
+          <div id="openRouterPricing" class="pricing-box" hidden>
+            <button id="checkAiPrice" class="button-secondary full-button" type="button">Vérifier le tarif live du modèle</button>
+            <p id="aiPriceStatus" class="source-footnote">Ce clic contacte uniquement l’API publique des modèles; aucune clé, consigne ou géométrie n’est envoyée.</p>
+          </div>
+          <p class="source-footnote ai-price-note">Repère OpenRouter consulté le 17/10/2026 : prix au modèle/token; frais de plateforme annoncés de 5,5 % (Standard) ou 8 % (Business) sur l’achat de crédits. Les prix et quotas changent; aucun usage gratuit n’est garanti. Les Conditions OpenRouter consultées le 17/10/2026 exigent l’âge de 18 ans et indiquent que les appels API nécessitent des crédits prépayés (minimum annoncé : 5 USD par achat); ne présumez ni gratuité ni éligibilité. OpenRouter indique conserver des métadonnées de requête; la conservation des prompts est désactivée par défaut, mais les règles des fournisseurs d’inférence varient. UrbaTrame demande <code>zdr=true</code> et <code>data_collection=deny</code>; aucun résultat ne garantit une politique précise au-delà des conditions publiées. <a href="https://openrouter.ai/pricing" target="_blank" rel="noopener noreferrer">Tarifs officiels</a> · <a href="https://openrouter.ai/terms" target="_blank" rel="noopener noreferrer">Conditions</a> · <a href="https://openrouter.ai/docs/guides/privacy/provider-logging" target="_blank" rel="noopener noreferrer">Rétention des fournisseurs</a> · <a href="https://openrouter.ai/docs/guides/privacy/data-collection" target="_blank" rel="noopener noreferrer">Collecte OpenRouter</a></p>
+          <label class="field-label" for="aiLayers">Couches à transmettre (Ctrl/Cmd pour plusieurs)
+            <select id="aiLayers" multiple size="4"></select>
+          </label>
+          <label class="field-label" for="aiPrompt">Consigne d’analyse / de synthèse
+            <textarea id="aiPrompt" rows="4" maxlength="1500" placeholder="Décrivez la question d’étude. Évitez les données personnelles."></textarea>
+          </label>
+          <p class="ai-safety-note">L’IA peut aider à comparer/superposer les cartes et proposer une carte de synthèse. Elle ne certifie ni le géoréférencement ni les faits. Interdit d’inventer limites cadastrales/juridiques ou zonages. Toute sortie doit être sourcée, datée, vérifiée et validée par l’étudiant. OpenRouter : requête limitée aux fournisseurs compatibles avec <code>zdr=true</code> et <code>data_collection=deny</code>; si aucun ne convient, la requête échoue. Les endpoints personnalisés ont leurs propres coûts et règles, non vérifiés par UrbaTrame.</p>
+          <label class="consent-row"><input id="aiConsent" type="checkbox"> J’ai vérifié les conditions et j’autorise l’envoi des éléments affichés ci-dessus.</label>
+          <button id="runAi" class="button-primary full-button" type="button" disabled>Envoyer la demande explicitement</button>
+          <pre id="aiOutput" class="ai-output" aria-live="polite">Aucun appel IA n’a été effectué.</pre>
+          <label id="aiValidationRow" class="consent-row" hidden><input id="aiValidateResult" type="checkbox"> J’ai vérifié les sources, la date, le CRS et les limites de cette géométrie IA.</label>
+          <button id="acceptAiResult" class="button-secondary full-button" type="button" disabled hidden>Valider et ajouter la couche localement</button>
+        </section>
+
+        <section class="panel service-panel" aria-labelledby="service-title">
+          <div class="panel-heading"><div><span class="step">08 / SOURCES DISTANTES</span><h2 id="service-title">Services cartographiques</h2></div></div>
+          <p class="service-warning">Désactivés par défaut. Une requête ne part qu’après votre clic; le fournisseur verra l’URL et, pour WMS/WMTS/XYZ, l’emprise ou les tuiles demandées. Les fichiers locaux ne lui sont pas transmis.</p>
+          <label class="field-label" for="serviceType">Type de fond
+            <select id="serviceType"><option value="xyz">XYZ / tuiles (URL {z}/{x}/{y})</option><option value="wmts">WMTS 1.0.0 · matrice Web Mercator</option><option value="wms">WMS GetMap · 1.1.1 / EPSG:3857</option></select>
+          </label>
+          <label class="field-label" for="serviceUrl">URL HTTPS du service
+            <input id="serviceUrl" type="url" maxlength="700" placeholder="https://…">
+          </label>
+          <label id="wmsLayersField" class="field-label" for="serviceLayers" hidden>Nom de couche WMS / WMTS
+            <input id="serviceLayers" type="text" maxlength="200" placeholder="workspace:layer">
+          </label>
+          <div id="wmtsFields" hidden>
+            <label class="field-label" for="wmtsMatrixSet">TileMatrixSet (GoogleMapsCompatible ou WebMercatorQuad)
+              <input id="wmtsMatrixSet" type="text" maxlength="120" value="GoogleMapsCompatible">
+            </label>
+            <label class="field-label" for="wmtsStyle">Style WMTS
+              <input id="wmtsStyle" type="text" maxlength="120" value="default">
+            </label>
+            <label class="field-label" for="wmtsFormat">Format WMTS
+              <select id="wmtsFormat"><option value="image/png">image/png</option><option value="image/jpeg">image/jpeg</option></select>
+            </label>
+          </div>
+          <label class="field-label" for="serviceAttribution">Attribution et licence
+            <input id="serviceAttribution" type="text" maxlength="240" placeholder="Ex. © OpenStreetMap contributors · ODbL">
+          </label>
+          <div class="service-actions"><button id="activateService" class="button-primary" type="button">Activer le fond</button><button id="removeService" class="button-secondary" type="button" disabled>Retirer le fond</button></div>
+          <p id="serviceStatus" class="source-footnote" role="status">Aucun service externe actif.</p>
+          <div class="external-vector">
+            <span class="edit-title">Importer un service vectoriel</span>
+            <p>Requête ponctuelle après clic : GeoJSON limité à 15 Mo; WFS 2.0 / couches ArcGIS FeatureServer et MapServer queryables paginés à 1 000 entités/page, 5 000 entités, 10 pages et 30 Mo cumulés maximum, avec délai de 30 s/page. MapServer doit accepter les sorties GeoJSON et les offsets. CORS et attribution du fournisseur requis.</p>
+            <label class="field-label" for="externalServiceType">Type de requête
+              <select id="externalServiceType"><option value="geojson">URL GeoJSON complète</option><option value="wfs">WFS 2.0 GetFeature</option><option value="arcgis">ArcGIS FeatureServer</option><option value="arcgis-map">ArcGIS MapServer (couche queryable)</option></select>
+            </label>
+            <label id="wfsTypeNameField" class="field-label" for="wfsTypeName" hidden>WFS typeNames
+              <input id="wfsTypeName" type="text" maxlength="200" placeholder="workspace:layer">
+            </label>
+            <label class="field-label" for="externalGeoJSONUrl">URL HTTPS de base
+              <input id="externalGeoJSONUrl" type="url" maxlength="900" placeholder="https://…/wfs, …/FeatureServer/0 ou …/MapServer/0">
+            </label>
+            <label class="field-label" for="externalGeoJSONAttribution">Source / attribution
+              <input id="externalGeoJSONAttribution" type="text" maxlength="240" placeholder="Producteur, licence, date…">
+            </label>
+            <button id="importRemoteGeoJSON" class="button-secondary full-button" type="button">Charger ce service distant</button>
+            <p class="source-footnote">Le service voit cette requête; aucun fichier ou géométrie locale ne lui est envoyé. Quotas et conditions du service peuvent s’appliquer.</p>
+          </div>
+        </section>
+      </aside>
+
+      <div class="map-column">
+        <section class="map-panel" aria-labelledby="map-title">
+          <div class="map-heading">
+            <div><span class="step">03 / SUPERPOSITION</span><h2 id="map-title">Aperçu des couches</h2></div>
+            <div class="map-heading-actions"><span id="mapCrs" class="crs-badge">EPSG:4326 · WGS 84</span></div>
+          </div>
+          <div class="map-frame">
+            <svg id="localMap" viewBox="0 0 1000 600" role="img" aria-label="Aperçu des couches locales importées" preserveAspectRatio="xMidYMid meet"></svg>
+            <div id="mapEmpty" class="map-empty">
+              <span class="map-empty-icon" aria-hidden="true">⌖</span>
+              <strong>Votre carte apparaîtra ici</strong>
+              <span>Les géométries sont ajustées à l’emprise des couches visibles.</span>
+            </div>
+          </div>
+          <div class="layout-toolbar">
+            <label for="layoutTitle">Titre du plan<input id="layoutTitle" type="text" maxlength="120" value="UrbaTrame · carte locale"></label>
+            <button id="exportMapSvg" class="button-secondary" type="button" disabled>Exporter SVG</button>
+            <button id="exportMapPng" class="button-secondary" type="button" disabled>Exporter PNG</button>
+            <button id="printMap" class="button-secondary" type="button" disabled>Imprimer</button>
+          </div>
+          <div class="map-footer">
+            <span id="mapSummary" role="status">Aucune entité affichée</span>
+            <span id="mapAttribution" class="map-attribution"></span>
+            <span id="renderWarning" class="render-warning" hidden></span>
+          </div>
+        </section>
+
+        <section class="dashboard-panel" aria-labelledby="dashboard-title">
+          <div class="dashboard-heading">
+            <div><span class="step">WIDGET LOCAL · INDICATEURS</span><h2 id="dashboard-title">Tableau de bord de la couche</h2></div>
+            <span class="local-badge">calcul dans le navigateur</span>
+          </div>
+          <p class="dashboard-note">Les indicateurs suivent la couche sélectionnée et son filtre. Ils décrivent les entités chargées; ils ne déduisent ni accessibilité, ni zonage, ni norme d’urbanisme.</p>
+          <div id="dashboardKpis" class="dashboard-kpis" aria-live="polite"><p class="dashboard-empty">Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.</p></div>
+          <div class="dashboard-chart-head">
+            <label for="dashboardField">Répartition des entités par attribut
+              <select id="dashboardField" disabled><option value="">Choisir une catégorie</option></select>
+            </label>
+            <span id="dashboardFilterState" class="dashboard-filter-state">Aucun filtre appliqué</span>
+          </div>
+          <div id="dashboardChart" class="dashboard-chart" role="img" aria-label="Répartition des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
+          <p id="dashboardMeta" class="dashboard-meta" role="status">Aucune donnée n’a été envoyée à un service externe.</p>
+        </section>
+
+        <section class="table-panel" aria-labelledby="table-title">
+          <div class="map-heading table-heading">
+            <div><span class="step">04 / ATTRIBUTS</span><h2 id="table-title">Table des entités</h2></div>
+            <span id="tableSummary" class="table-summary">Sélectionnez une couche</span>
+          </div>
+          <div class="table-scroll">
+            <table id="attributeTable">
+              <caption class="visually-hidden">Aperçu des attributs de la couche sélectionnée</caption>
+              <thead></thead>
+              <tbody><tr><td class="table-empty">Importez une couche pour voir ses attributs.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="table-note">Cliquez sur une entité de la carte pour afficher ses attributs. Sans sélection, les premières lignes de la couche choisie sont présentées.</p>
+        </section>
+      </div>
+    </section>
+
+    <footer class="page-footer">
+      <span>URBATRAME · ATELIER CARTOGRAPHIQUE</span>
+      <span>Les couches affichées proviennent des fichiers importés. UrbaTrame ne crée ni ne certifie de limites cadastrales ou juridiques.</span>
+    </footer>
+  </main>
+</body>
+</html>

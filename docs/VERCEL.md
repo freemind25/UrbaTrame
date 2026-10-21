@@ -13,8 +13,11 @@ ce qui fonctionne, ce qui change, et ce qu'il faut configurer.
 | Les 46 analyses (dont les 8 planches Max et la couche OpenBuildingMap facultative) | ✅ |
 | Recherche de lieu par nom | ✅ (`/api/util` → Nominatim) |
 | Relief et climat (Terrarium, NASA POWER) | ✅ |
-| Activation d'un code de licence | ✅ si `FM_SIGNING_KEY` est définie |
-| Quota par IP | ⚠️ au mieux : en mémoire, donc une limite par instance |
+| Activation d’un fichier `.utlic` signé | ✅ si `FM_SIGNING_KEY` et `FM_LICENSE_PUB` sont configurées |
+| Authentification étudiante OTP | ✅ code préparé; **désactivée** tant que DB/SMTP ne sont pas provisionnés |
+| Accès étudiant Max (Pro inclus) | ✅ automatiquement après OTP si l’adresse est active dans la liste |
+| Codes historiques | ✅ si `FM_CODES` est défini (aucun code de démo en production) |
+| Quota d’analyse | ⚠️ au mieux : mémoire par instance; par IP en mode licence, par compte étudiant en régime étudiant |
 | Révocation d'une licence | ❌ impossible avant expiration |
 | Journal des générations | ❌ aucun stockage |
 
@@ -39,10 +42,17 @@ s'adapte de deux façons, sans modifier le code métier :
    essai gratuit et l'activation d'un code répond `NO_SIGNING_KEY`. Rien ne
    plante, mais les analyses sous licence restent fermées.
 
-   Conservez cette clé hors de Vercel : la perdre revient à invalider toutes
-   les licences délivrées.
+   Conservez cette clé hors de Vercel : la perdre revient à invalider les
+   attestations de session déjà émises.
 
-2. **Le jeton de session devient le titre lui-même.** En mode serveur, une
+2. **La clé publique de l’émetteur `.utlic` est `FM_LICENSE_PUB`.** Créez le
+   coffre local chiffré avec `npm run licence:init`, puis copiez uniquement la
+   valeur publique affichée dans l’environnement Vercel. La clé privée du
+   coffre reste sur votre ordinateur; elle ne doit jamais être configurée sur
+   Vercel ni ajoutée au dépôt. Le fichier `.utlic` est remis au titulaire.
+   Voir `docs/LICENCES-PRO-MAX.md` pour le détail et les limites.
+
+3. **Le jeton de session devient le titre lui-même.** En mode serveur, une
    activation crée une session en mémoire que le serveur peut révoquer. Sans
    stockage, il n'y a rien à consulter : le jeton renvoyé est donc le titre
    signé `{ v, t, d, x }`, que le serveur revérifie à chaque appel avec sa clé
@@ -51,17 +61,39 @@ s'adapte de deux façons, sans modifier le code métier :
    instance se rappelle. Une base de données (Neon, voir plus bas) lève cette
    limite.
 
+## Authentification étudiante — préparation, non activée
+
+Le chantier ajoute une barrière OTP contrôlée par `FM_STUDENT_AUTH=required`. Elle protège les API d’analyse et des ateliers; les adresses actives de la liste reçoivent automatiquement Max, Pro inclus. `FM_ACCESS` reste un réglage de droits/licences et ne remplace pas cette vérification d’identité.
+
+Le code utilise PostgreSQL via `pg` et SMTP via `nodemailer`. Avant toute activation, créer une base PostgreSQL de préproduction avec connexion TLS/poolée, appliquer `db/migrations/001_student_auth.sql`, puis créer deux rôles séparés :
+
+- `FM_AUTH_DATABASE_URL` : compte applicatif dans Vercel, sans droit d’écriture sur `whitelisted_students` ni `student_whitelist_audit`;
+- `FM_AUTH_ADMIN_DATABASE_URL` : compte de la responsable, uniquement dans son environnement local pour `npm run etudiants -- add|remove|list|import`. Ne jamais configurer ce secret dans Vercel.
+
+Pour un environnement Vercel **Preview uniquement**, ajouter aussi `FM_STUDENT_AUTH=required`, `FM_AUTH_OTP_KEY` (au moins 32 octets aléatoires encodés en base64), les paramètres SMTP `FM_AUTH_SMTP_*` et `FM_AUTH_EMAIL_FROM`. Les valeurs d’exemple détaillées figurent dans `docs/ACCES-ETUDIANTS-OTP.md` et `.env.example`. Sans les trois services requis — DB, secret OTP et SMTP — `/api/status` signale `auth.ready=false` et les API protégées répondent 503; aucune ouverture de secours n’est effectuée.
+
+`outputDirectory: public` laisse les pages HTML, le code client et les exemples statiques téléchargeables publiquement; ils ne contiennent pas de secrets. Les contrôles de données et d’opérations sont côté API. L’écran de connexion masque l’interface pour l’expérience utilisateur, mais ne rend pas le JavaScript client confidentiel.
+
+**État de ce chantier :** aucune base n’a été créée, aucune liste réelle importée, aucun secret SMTP/OTP configuré, aucune variable Vercel changée et aucun déploiement effectué. La première activation doit se faire sur Preview après un essai complet avec l’adresse de la responsable, puis faire l’objet d’une décision explicite avant Production.
+
 ## Mise en place
 
-```bash
-# 1. Générer la clé et la poser dans l'environnement Vercel
+```powershell
+# FM_SIGNING_KEY : uniquement si elle n’existe pas déjà. Ne la régénérez pas
+# si des attestations de session ou licences sont déjà en circulation.
 npm run genere-cle
 vercel env add FM_SIGNING_KEY production
 
-# 2. Déployer (la liaison GitHub déploie déjà à chaque push sur main)
-vercel --prod          # déploiement manuel, si besoin
+# Créer le coffre privé de l’émetteur .utlic sur cet ordinateur.
+# Copiez la valeur FM_LICENSE_PUB publique affichée, pas le coffre privé.
+npm run licence:init
+vercel env add FM_LICENSE_PUB production
 
-# 3. Vérifier
+# Quand vous décidez d’appliquer les paliers payants :
+vercel env add FM_ACCESS production   # valeur demandée : licence
+
+# Déployer si nécessaire et vérifier le statut
+vercel --prod
 curl https://<votre-domaine>/api/status
 ```
 

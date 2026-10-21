@@ -4,6 +4,7 @@
 import { createAnalysisHandler } from '../../server/api.mjs';
 import { clientIp } from '../../server/http.mjs';
 import { runtime } from '../../server/vercel.mjs';
+import { requireStudentSession } from '../../server/student-auth-http.mjs';
 
 const handle = createAnalysisHandler(runtime);
 const CORS = {
@@ -14,13 +15,20 @@ const CORS = {
 };
 
 export default async function handler(req, res) {
-  for (const [k, v] of Object.entries(CORS)) res.setHeader(k, v);
+  for (const [k, v] of Object.entries(CORS)) {
+    if (runtime.studentAuth.required && k === 'Access-Control-Allow-Origin') continue;
+    res.setHeader(k, v);
+  }
   if (req.method === 'OPTIONS') { res.statusCode = 200; return res.end(''); }
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.end(JSON.stringify({ error: 'POST_ONLY' }));
   }
+  const access = runtime.studentAuth.required
+    ? await requireStudentSession(req, res, runtime.studentAuth)
+    : { ok: true, user: null };
+  if (!access.ok) return;
   req.url = req.url || '/analysis/2d';
-  return handle(req, res, clientIp(req));
+  return handle(req, res, clientIp(req), access.user);
 }

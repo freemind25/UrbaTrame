@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Importer, géoréférencer et comparer des cartes historiques dans l’atelier S5 d’UrbaTrame.">
+  <title>UrbaTrame — Comparateur historique S5</title>
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/atelier-s5.css">
+  <script type="module" src="/js/student-auth-ui.mjs"></script>
+  <script type="module" src="/js/atelier/s5-comparison.mjs"></script>
+</head>
+<body>
+  <header class="s5-topbar">
+    <a class="s5-brand" href="/" aria-label="UrbaTrame, accueil">
+      <span class="s5-brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+      <span class="s5-brand-copy">
+        <span class="s5-logo">UrbaTrame</span>
+        <span class="s5-subtitle">Analyse des sites urbains</span>
+        <span class="s5-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="s5-nav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a href="/atelier-analyse.html#sessionList">Suivi de l’atelier · S5</a>
+      <a href="/atelier-cartographique.html">Couches locales</a>
+    </nav>
+  </header>
+
+  <main class="s5-main">
+    <section class="s5-hero">
+      <p class="s5-kicker">SÉANCE S5 · HISTOIRE ET TRANSFORMATIONS</p>
+      <h1>Comparer des cartes dans le temps</h1>
+      <p>Alignez une carte historique et une carte actuelle à l’aide de repères communs, puis examinez leur superposition. L’assistant IA est facultatif : ses observations restent des propositions à vérifier.</p>
+    </section>
+
+    <aside class="s5-privacy" role="note">
+      <strong>Vos fichiers restent dans ce navigateur par défaut.</strong>
+      Ils ne sont pas envoyés à UrbaTrame ni conservés dans le suivi. Une requête IA n’est envoyée qu’après votre choix explicite d’un fournisseur et votre clic sur « Proposer une synthèse »; les images réduites sont alors transmises directement au fournisseur choisi. N’envoyez pas de document confidentiel. La clé API reste en mémoire pour cette session et n’est jamais incluse dans un export.
+    </aside>
+
+    <section class="s5-section" aria-labelledby="sources-title">
+      <div class="s5-section-head">
+        <div><span class="s5-step">ÉTAPE 1</span><h2 id="sources-title">Choisir les cartes et leurs sources</h2></div>
+        <p>Images PNG, JPEG ou WebP · jusqu’à 12 Mo par fichier</p>
+      </div>
+      <div class="map-input-grid">
+        <article class="map-input-card" data-map-card="old">
+          <div class="map-card-heading"><span class="map-chip">1</span><div><h3>Carte historique</h3><p>Document à comparer</p></div></div>
+          <label class="file-picker" for="oldMapFile">Choisir une image historique</label>
+          <input id="oldMapFile" class="file-input" type="file" accept="image/png,image/jpeg,image/webp">
+          <div class="map-meta-grid">
+            <label>Année ou période<input id="oldYear" type="text" maxlength="80" placeholder="Ex. 1956 ou 1950–1960"></label>
+            <label>Échelle indiquée<input id="oldScale" type="text" maxlength="60" placeholder="Ex. 1:5 000"></label>
+            <label class="wide-field">Source / référence<input id="oldSource" type="text" maxlength="180" placeholder="Archive, ouvrage, URL…"></label>
+            <label class="wide-field">Droits / licence<input id="oldLicense" type="text" maxlength="120" placeholder="À vérifier avant publication"></label>
+          </div>
+          <div class="map-preview" id="oldPreview" data-side="old" aria-label="Aperçu de la carte historique">
+            <div class="empty-preview">Aucune carte sélectionnée</div>
+            <img id="oldPreviewImage" alt="Aperçu de la carte historique" hidden>
+          </div>
+          <p class="image-info" id="oldImageInfo">Sélectionnez une image pour commencer.</p>
+        </article>
+
+        <article class="map-input-card" data-map-card="current">
+          <div class="map-card-heading"><span class="map-chip current-chip">2</span><div><h3>Carte actuelle</h3><p>Plan de référence récent</p></div></div>
+          <label class="file-picker" for="currentMapFile">Choisir une image actuelle</label>
+          <input id="currentMapFile" class="file-input" type="file" accept="image/png,image/jpeg,image/webp">
+          <div class="map-meta-grid">
+            <label>Année ou période<input id="currentYear" type="text" maxlength="80" placeholder="Ex. 2026"></label>
+            <label>Échelle indiquée<input id="currentScale" type="text" maxlength="60" placeholder="Ex. 1:5 000"></label>
+            <label class="wide-field">Source / référence<input id="currentSource" type="text" maxlength="180" placeholder="Archive, relevé, URL…"></label>
+            <label class="wide-field">Droits / licence<input id="currentLicense" type="text" maxlength="120" placeholder="À vérifier avant publication"></label>
+          </div>
+          <div class="map-preview" id="currentPreview" data-side="current" aria-label="Aperçu de la carte actuelle">
+            <div class="empty-preview">Aucune carte sélectionnée</div>
+            <img id="currentPreviewImage" alt="Aperçu de la carte actuelle" hidden>
+          </div>
+          <p class="image-info" id="currentImageInfo">Sélectionnez une image pour commencer.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="s5-section" aria-labelledby="control-title">
+      <div class="s5-section-head">
+        <div><span class="s5-step">ÉTAPE 2</span><h2 id="control-title">Géoréférencer avec des points communs</h2></div>
+        <button id="addControlPoint" class="secondary-button" type="button">＋ Ajouter un point</button>
+      </div>
+      <p class="section-description">Ajoutez au moins trois repères non alignés (par exemple un carrefour ou un monument encore identifiable). Pour chaque repère, indiquez sa latitude/longitude, puis cliquez sur sa position dans les deux images. L’application ajuste une transformation affine EPSG:3857 et affiche RMSE et résidus en mètres de cette projection (non corrigés de la distorsion au sol); vérifiez-les avant d’interpréter le résultat.</p>
+      <div class="coordinate-note">Coordonnées WGS84 · latitude/longitude · aucune limite parcellaire ou juridique n’est générée.</div>
+      <div id="controlPoints" class="control-points" aria-live="polite"></div>
+      <div id="georefStatus" class="status-line" role="status">Importez les deux cartes puis ajoutez des repères communs.</div>
+      <details class="residual-details"><summary>Résidus par point de contrôle</summary><ol id="residualList"><li>Ils apparaîtront après l’ajustement affine.</li></ol></details>
+    </section>
+
+    <section class="s5-section" aria-labelledby="overlay-title">
+      <div class="s5-section-head">
+        <div><span class="s5-step">ÉTAPE 3</span><h2 id="overlay-title">Superposition et plan de synthèse</h2></div>
+        <div class="export-actions">
+          <button id="exportMapPng" class="primary-button" type="button" disabled>Exporter le plan PNG</button>
+          <button id="exportProjectJson" class="secondary-button" type="button" disabled>Exporter les points et annotations JSON</button>
+        </div>
+      </div>
+      <div class="overlay-controls">
+        <label>Affichage<select id="comparisonMode"><option value="opacity">Transparence</option><option value="swipe">Balayage</option></select></label>
+        <label class="range-control"><span id="sliderLabel">Opacité de la carte actuelle</span><input id="comparisonSlider" type="range" min="0" max="100" value="50"><output id="sliderValue">50 %</output></label>
+        <span id="overlayQuality" class="quality-pill">En attente du géoréférencement</span>
+      </div>
+      <div class="canvas-frame" id="canvasFrame">
+        <canvas id="comparisonCanvas" aria-label="Superposition des cartes géoréférencées"></canvas>
+        <div id="canvasPlaceholder" class="canvas-placeholder">La superposition apparaîtra après l’import des deux cartes et le calcul des points communs.</div>
+      </div>
+      <div class="map-legend"><span><i class="legend-old"></i> Historique</span><span><i class="legend-current"></i> Actuelle</span><span><i class="legend-ai"></i> Proposition IA non validée</span><span><i class="legend-accepted"></i> Observation retenue</span></div>
+      <div class="annotation-tools">
+        <label>Type d’observation<select id="manualCategory"><option value="viaire">Viaire</option><option value="bâti">Bâti</option><option value="eau">Eau</option><option value="végétation">Végétation</option><option value="espace-ouvert">Espace ouvert</option><option value="autre">Autre</option></select></label>
+        <label class="annotation-label">Intitulé<input id="manualLabel" type="text" maxlength="100" placeholder="Ex. ancien tracé de rue"></label>
+        <button id="addManualObservation" class="secondary-button" type="button" disabled>＋ Placer un repère sur le plan</button>
+        <span id="annotationStatus" class="muted-status">Les repères doivent être vérifiés et décrits.</span>
+      </div>
+      <div id="observationsList" class="observations-list" aria-live="polite"></div>
+      <div id="aiSummary" class="ai-summary" hidden></div>
+      <div class="group-synthesis">
+        <div class="synthesis-heading"><div><h3>Synthèse du groupe</h3><p>Seul le texte relu et confirmé est inclus dans le plan PNG.</p></div><button id="applyAiDraft" class="secondary-button" type="button" disabled>Ajouter le brouillon IA pour le réviser</button></div>
+        <label class="synthesis-label" for="groupSynthesisText">Texte de synthèse<textarea id="groupSynthesisText" maxlength="1600" rows="4" placeholder="Décrire les transformations observées, leurs sources et les incertitudes…"></textarea></label>
+        <label class="confirm-row synthesis-confirm"><input id="synthesisConfirmed" type="checkbox"> J’ai relu et validé ce texte pour l’inclure dans la synthèse exportée.</label>
+      </div>
+    </section>
+
+    <section class="s5-section ai-section" aria-labelledby="ai-title">
+      <div class="s5-section-head">
+        <div><span class="s5-step">OPTION</span><h2 id="ai-title">Aide IA — facultative</h2></div>
+        <span class="optional-pill">Désactivée par défaut</span>
+      </div>
+      <p class="section-description">L’IA peut proposer des points d’intérêt et une légende synthétique. Elle ne géoréférence pas à votre place et ne crée pas de parcelles. Les modèles gratuits et leurs capacités d’image changent : vérifiez toujours les conditions officielles avant usage.</p>
+      <div class="provider-notes">
+        <p><strong>OpenRouter</strong> — certains modèles ont un tarif nul, avec des quotas variables; la journalisation/rétention peut aussi dépendre du fournisseur amont. <a href="https://openrouter.ai/pricing" target="_blank" rel="noopener">Tarifs</a> · <a href="https://openrouter.ai/docs/guides/privacy/provider-logging" target="_blank" rel="noopener">Journalisation</a> · <a href="https://openrouter.ai/docs/guides/privacy/data-collection" target="_blank" rel="noopener">Collecte des données</a></p>
+        <p><strong>APInex</strong> — l’API annonce une catégorie gratuite; quota et capacité image sont à vérifier. Sa politique indique que prompts/réponses peuvent être traités par le service et ses fournisseurs amont et que le service n’est pas destiné aux moins de 16 ans. <a href="https://apinex.bond/pricing" target="_blank" rel="noopener">Tarifs</a> · <a href="https://apinex.bond/developers/models" target="_blank" rel="noopener">Modèles / API</a> · <a href="https://apinex.bond/legal/privacy" target="_blank" rel="noopener">Confidentialité / rétention</a></p>
+        <p><strong>OpenAlex</strong> est une source de littérature et de métadonnées, pas un modèle de vision. <strong>OmniRoute</strong> est une passerelle à configurer vers des fournisseurs amont. <strong>RouteMe</strong> n’est pas proposé comme API d’inférence dans cette première version.</p>
+      </div>
+      <p class="section-description">Le chargement du catalogue envoie une requête authentifiée au fournisseur, sans image. L’analyse envoie les deux images réduites, votre invite et les métadonnées listées ci-dessus. Les quotas, coûts éventuels, rétention et usage pour l’entraînement dépendent du fournisseur et du modèle; pour un endpoint personnalisé, consultez ses propres conditions. Aucune bascule vers un modèle payant n’est effectuée par UrbaTrame.</p>
+      <div class="ai-form">
+        <label>Fournisseur<select id="aiProvider"><option value="">Choisir…</option><option value="openrouter">OpenRouter</option><option value="apinex">APInex</option><option value="custom">Autre endpoint compatible OpenAI (HTTPS)</option></select></label>
+        <label id="customEndpointField" class="custom-field" hidden>URL de base HTTPS<input id="customEndpoint" type="url" autocomplete="url" placeholder="https://exemple.org/v1"></label>
+        <label id="customModelField" class="custom-field" hidden>Identifiant du modèle<input id="customModel" type="text" maxlength="160" placeholder="nom-du-modele"></label>
+        <label class="api-key-field">Clé API de ce fournisseur<input id="apiKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="Saisie en mémoire seulement" disabled></label>
+        <div class="ai-buttons">
+          <button id="loadFreeModels" class="secondary-button" type="button" disabled>Charger les modèles gratuits</button>
+          <label id="modelSelectField" class="model-field" hidden>Modèle compatible image<select id="aiModel"><option value="">Charger le catalogue…</option></select></label>
+          <button id="clearApiKey" class="text-button" type="button" disabled>Effacer la clé</button>
+        </div>
+        <label id="customConfirmRow" class="confirm-row" hidden><input id="customConfirmFree" type="checkbox"> J’ai vérifié que ce modèle est gratuit et accepte les images.</label>
+        <label id="visionConfirmRow" class="confirm-row" hidden><input id="visionConfirm" type="checkbox"> La documentation du fournisseur confirme que ce modèle accepte des images.</label>
+        <label class="confirm-row"><input id="imageConsent" type="checkbox"> J’autorise l’envoi des deux images réduites et des métadonnées (période, échelle, source) au fournisseur choisi pour cette analyse.</label>
+        <div class="ai-run-row"><button id="runAiSynthesis" class="primary-button" type="button" disabled>Proposer une synthèse</button><span id="aiStatus" class="status-line" role="status">Mode local actif; aucune clé ni requête IA.</span></div>
+      </div>
+    </section>
+
+    <footer class="s5-footer">
+      <p>Les formes visibles proviennent des images importées et des points validés. Les propositions IA sont indicatives; elles ne constituent ni une preuve historique ni une délimitation juridique.</p>
+      <p><a href="/atelier-analyse.html#sessionList">← Retour au suivi des séances</a> <span>·</span> © OpenStreetMap uniquement si vous utilisez une carte issue d’OSM comme document importé; indiquez sa source et sa licence.</p>
+    </footer>
+  </main>
+</body>
+</html>

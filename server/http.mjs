@@ -17,7 +17,8 @@ export const MIME = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8'
+  '.md': 'text/markdown; charset=utf-8',
+  '.wasm': 'application/wasm'
 };
 
 /* Identifiant de trace commun à toutes les réponses d'une instance : il permet

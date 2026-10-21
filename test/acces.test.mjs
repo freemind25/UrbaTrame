@@ -153,7 +153,7 @@ describe('le client suit le mode annoncé par le serveur', () => {
   const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
 
   test('le client lit le champ `access` de /api/status', () => {
-    assert.match(app, /d\.access\s*===\s*'open'/);
+    assert.match(app, /status\.access\s*===\s*'open'/);
     assert.match(app, /fetch\('\/api\/status'\)/);
   });
 
@@ -163,6 +163,6 @@ describe('le client suit le mode annoncé par le serveur', () => {
   });
 
   test('l’échec du serveur n’est jamais bloquant en accès libre', () => {
-    assert.match(app, /const softTrial = freeRun \|\| isOpenAccess\(\);/);
+    assert.match(app, /const softTrial = !S\.studentAuthRequired && \(freeRun \|\| isOpenAccess\(\)\);/);
   });
 });

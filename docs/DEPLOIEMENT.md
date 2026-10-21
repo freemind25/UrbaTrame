@@ -6,7 +6,7 @@ Pour un déploiement serverless sur Vercel, voir **[VERCEL.md](VERCEL.md)**.
 
 ## Prérequis
 
-- Node.js 20.11 ou plus récent (aucune dépendance à installer) ;
+- Node.js 20.11 ou plus récent, puis `npm ci` pour installer les dépendances verrouillées ;
 - un dossier inscriptible pour les données (clé de signature) ;
 - un accès sortant vers Overpass, Nominatim, NASA POWER et AWS Terrarium.
 
@@ -18,6 +18,10 @@ Pour un déploiement serverless sur Vercel, voir **[VERCEL.md](VERCEL.md)**.
 | `FM_HOST` | `0.0.0.0` | interface d'écoute |
 | `FM_DATA_DIR` | `<dépôt>/data` | clé Ed25519 et données locales |
 | `FM_PUBLIC_DIR` | `<dépôt>/public` | fichiers servis |
+| `FM_STUDENT_AUTH` | `off` | `required` active la barrière étudiant; voir `ACCES-ETUDIANTS-OTP.md` |
+| `FM_AUTH_DATABASE_URL` | vide | URL PostgreSQL du rôle applicatif, seulement si l’auth est requise |
+| `FM_AUTH_OTP_KEY` | vide | clé HMAC OTP en Base64 (32 octets aléatoires) |
+| `FM_AUTH_SMTP_*` | vide | relais d’envoi des OTP; aucun envoi si non configuré |
 
 ```bash
 PORT=8080 FM_DATA_DIR=/var/lib/freemap node server/index.mjs
@@ -64,19 +68,21 @@ invalide les licences déjà délivrées.
 
 ## Points d'attention avant une mise en ligne
 
-1. **Sauvegardez `data/keys.json`** hors du serveur. Le perdre revient à
-   perdre toutes les licences émises ; le publier revient à les rendre
-   falsifiables.
-2. **Remplacez les codes de démonstration** (`DEMO_CODES` dans
-   `server/licence.mjs`) par votre catalogue réel : ils sont publics dans le
-   dépôt, et `GET /api/status` les énumère.
-3. **Changez le `User-Agent`** (`server/config.mjs`) pour y mettre un contact :
+1. **Protégez et sauvegardez les clés privées.** `FM_SIGNING_KEY` signe les
+   attestations serveur; le coffre d’émission des `.utlic` est chiffré et reste
+   dans le profil local de son propriétaire. Ne publiez ni clé privée ni coffre.
+2. **Pour Pro/Max, configurez `FM_LICENSE_PUB`** avec la clé publique issue de
+   `npm run licence:init`, puis remettez les `.utlic` générés avec
+   `npm run licence:issue`. Les codes de démonstration ne fonctionnent qu’en
+   développement local; la réponse publique `/api/status` n’expose aucun code.
+3. **Pour l’accès universitaire**, ne définissez `FM_STUDENT_AUTH=required` qu’après configuration PostgreSQL/SMTP en préproduction. Le rôle applicatif ne doit pas pouvoir écrire la liste; la chaîne `FM_AUTH_ADMIN_DATABASE_URL` et l’outil `npm run etudiants` restent sur l’ordinateur de la responsable et ne vont jamais dans Vercel. Voir `ACCES-ETUDIANTS-OTP.md`.
+4. **Changez le `User-Agent`** (`server/config.mjs`) pour y mettre un contact :
    c'est la règle d'usage de Nominatim et d'Overpass.
-4. **Rendez le quota partagé** si vous lancez plusieurs instances : l'état de
+5. **Rendez le quota partagé** si vous lancez plusieurs instances : l'état de
    `server/quota.mjs` vit en mémoire, et les sessions d'activation
    (`server/licence.mjs`) également. Un magasin commun (Redis, table SQL) est
    nécessaire dès qu'il y a plusieurs processus ou un redémarrage fréquent.
-5. **Prévoyez un cache** pour les sources externes si le trafic dépasse
+6. **Prévoyez un cache** pour les sources externes si le trafic dépasse
    quelques visiteurs par minute : les quatre services interrogés sont gratuits
    et sans engagement de débit.
 
@@ -85,7 +91,7 @@ invalide les licences déjà délivrées.
 Le serveur journalise une ligne par événement, horodatée :
 
 ```
-18:24:07 activate cs_demo_max → max
+18:24:07 activate max
 18:24:08 begin 3f5c1b2a max 7 analyse(s) 3 requête(s)
 18:24:10 query 3f5c1b2a base 4390 éléments 2287 ms
 18:24:11 quota 203.0.113.7 GENERATION_IN_PROGRESS

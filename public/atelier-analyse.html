@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="description" content="Suivi des séances et des livrables de l’atelier d’analyse urbaine dans UrbaTrame.">
+  <title>UrbaTrame — Atelier d’analyse urbaine</title>
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/atelier-analyse.css">
+  <script type="module" src="/js/student-auth-ui.mjs"></script>
+  <script type="module" src="/js/atelier/workshop.mjs"></script>
+</head>
+<body>
+  <header class="workshop-topbar">
+    <a class="workshop-brand" href="/" aria-label="UrbaTrame, accueil">
+      <span class="workshop-brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+      <span class="workshop-brand-copy">
+        <span class="workshop-logo">UrbaTrame</span>
+        <span class="workshop-subtitle">Analyse des sites urbains</span>
+        <span class="workshop-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="workshop-nav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a class="is-current" href="/atelier-analyse.html" aria-current="page">Atelier d’analyse</a>
+      <a href="/atelier-cartographique.html">Atelier cartographique</a>
+      <a href="/cadrage-spatial.html">Cadrage spatial</a>
+    </nav>
+  </header>
+
+  <main class="workshop-main">
+    <section class="workshop-hero" aria-labelledby="workshop-title">
+      <p class="workshop-eyebrow">SEMESTRE 3 <span>·</span> GESTION DES VILLES <span>·</span> GROUPE N°5</p>
+      <h1 id="workshop-title">Atelier d’analyse urbaine</h1>
+      <p class="workshop-lede">Un espace de suivi pour passer du cadrage du quartier aux observations de terrain, puis au dossier final.</p>
+      <div class="workshop-context">
+        <label for="groupName">Groupe
+          <input id="groupName" type="text" value="Groupe n°5" maxlength="80">
+        </label>
+        <label for="neighborhoodName">Quartier étudié
+          <input id="neighborhoodName" type="text" placeholder="À renseigner" maxlength="120">
+        </label>
+        <p class="local-note">Le suivi est enregistré dans ce navigateur. Utilisez « Exporter le suivi » pour en garder une copie ou la transmettre.</p>
+      </div>
+    </section>
+
+    <section class="workshop-progress" aria-label="Progression de l’atelier">
+      <div class="progress-heading">
+        <div>
+          <span class="section-kicker">VOTRE PARCOURS</span>
+          <h2>14 séances, un dossier commun</h2>
+        </div>
+        <div class="progress-count"><strong id="completedCount">0 / 14</strong><span id="progressCaption">séances terminées</span></div>
+      </div>
+      <div class="progress-track" aria-hidden="true"><span id="progressFill"></span></div>
+      <div class="progress-footer">
+        <span id="inProgressCount">0 séance en cours</span>
+        <span id="saveStatus" role="status">Suivi local prêt</span>
+      </div>
+    </section>
+
+    <section class="session-section" aria-labelledby="sessions-heading">
+      <div class="session-toolbar">
+        <div>
+          <span class="section-kicker">PROGRAMME PRÉVISIONNEL</span>
+          <h2 id="sessions-heading">Séances et livrables</h2>
+        </div>
+        <div class="toolbar-actions">
+          <label class="filter-label" for="sessionFilter">Afficher
+            <select id="sessionFilter">
+              <option value="all">Toutes les séances</option>
+              <option value="todo">À faire</option>
+              <option value="doing">En cours</option>
+              <option value="done">Terminées</option>
+            </select>
+          </label>
+          <button class="export-button" id="exportProgress" type="button">Exporter le suivi</button>
+        </div>
+      </div>
+      <div class="session-grid" id="sessionList" aria-live="polite"></div>
+      <noscript><p class="no-script">Activez JavaScript pour afficher le programme et enregistrer l’avancement.</p></noscript>
+    </section>
+
+    <footer class="workshop-footer">
+      <span>URBATRAME · ATELIER D’ANALYSE URBAINE</span>
+      <span>Les fiches et cartes restent liées à leurs sources et aux observations du groupe.</span>
+    </footer>
+  </main>
+</body>
+</html>

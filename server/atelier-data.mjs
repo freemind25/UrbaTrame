@@ -3,7 +3,11 @@
    transmettre une requête libre. Les limites de parcelles restent strictement
    celles présentes dans OSM ; aucune donnée cadastrale n'est fabriquée. */
 export const MIN_RADIUS = 200;
-export const MAX_RADIUS = 3989; // rayon correspondant à environ 50 km²
+export const MAX_RADIUS = 3989; // rayon correspondant à environ 50 km² — limite historique d'Altiplan
+export const MAX_CADRAGE_RADIUS = 3000; // plafond indépendant du module Cadrage spatial
+export const CADRAGE_DATASET_IDS = Object.freeze([
+  'buildings', 'roads', 'landuse', 'water', 'rail', 'trees', 'pois', 'barriers', 'places'
+]);
 
 export const DATASETS = {
   buildings: ['way["building"]', 'relation["building"]', 'way["building:part"]', 'relation["building:part"]'],
@@ -61,4 +65,38 @@ export function queryFor({ lat, lon, radius, include = DATASET_IDS }) {
   const selectors = [...new Set(selected.flatMap(id => DATASETS[id]))];
   const timeout = Number(radius) > 2500 ? 45 : 30;
   return `[out:json][timeout:${timeout}][maxsize:268435456];(${selectors.map(s => `${s}(${box});`).join('')});out geom;`;
+}
+
+/* Requête strictement dédiée au Cadrage spatial : elle conserve le plafond
+   propre de 3 km sans réduire la limite historique d'Altiplan. Les sélecteurs
+   restent côté serveur; le client ne peut fournir ni code ni requête Overpass. */
+export function queryForCadrage({ lat, lon, radius, include = CADRAGE_DATASET_IDS }) {
+  const numericRadius = Number(radius);
+  if (!Number.isFinite(numericRadius) || numericRadius > MAX_CADRAGE_RADIUS)
+    throw new Error('CADRAGE_RADIUS_OUT_OF_RANGE');
+  validateSite(Number(lat), Number(lon), numericRadius);
+  const centerLat = Number(lat), centerLon = Number(lon);
+  const around = `(around:${numericRadius.toFixed(1)},${centerLat.toFixed(7)},${centerLon.toFixed(7)})`;
+  const selected = [...new Set((Array.isArray(include) ? include : [])
+    .filter(id => CADRAGE_DATASET_IDS.includes(id)))];
+  if (!selected.length) throw new Error('NO_DATASETS_SELECTED');
+  const selectors = [...new Set(selected.flatMap(id => {
+    if (DATASETS[id]) {
+      if (id === 'landuse') return [
+        ...DATASETS.landuse,
+        'way["natural"~"wood|scrub|grassland|heath"]',
+        'relation["natural"~"wood|scrub|grassland|heath"]'
+      ];
+      return DATASETS[id];
+    }
+    if (id === 'barriers') return ['node["barrier"]', 'way["barrier"]', 'relation["barrier"]'];
+    if (id === 'places') return [
+      'node["place"~"city|town|village|suburb|quarter|neighbourhood|locality"]',
+      'way["place"~"city|town|village|suburb|quarter|neighbourhood|locality"]',
+      'relation["place"~"city|town|village|suburb|quarter|neighbourhood|locality"]'
+    ];
+    return [];
+  }))];
+  const timeout = numericRadius > 2500 ? 45 : 30;
+  return `[out:json][timeout:${timeout}][maxsize:134217728];(${selectors.map(selector => `${selector}${around};`).join('')});out geom;`;
 }
