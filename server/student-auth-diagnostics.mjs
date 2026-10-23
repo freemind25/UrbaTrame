@@ -49,7 +49,6 @@ export async function probeDatabase(pool, { timeoutMs = 4_000 } = {}) {
         error.code = 'CONNECT_TIMEOUT';
         reject(error);
       }, timeoutMs);
-      if (typeof timer.unref === 'function') timer.unref();
     });
     await Promise.race([pool.query('SELECT 1 AS disponibilite'), timeout]);
     return { ok: true, latencyMs: Date.now() - started, stage: 'ready', code: null };
