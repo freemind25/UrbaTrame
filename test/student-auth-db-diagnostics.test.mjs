@@ -44,6 +44,7 @@ describe('classification des erreurs de connexion', () => {
     assert.deepEqual(classifyDatabaseError({ code: '28P01', message: 'password authentication failed' }),
       { stage: 'auth', code: '28P01' });
     assert.deepEqual(classifyDatabaseError({ code: '3D000' }), { stage: 'database', code: '3D000' });
+    assert.deepEqual(classifyDatabaseError({ code: '42501' }), { stage: 'privilege', code: '42501' });
     assert.deepEqual(classifyDatabaseError({ code: '53300' }), { stage: 'capacity', code: '53300' });
     assert.deepEqual(classifyDatabaseError({ code: '08P01' }), { stage: 'connection', code: '08P01' });
     assert.deepEqual(classifyDatabaseError(new Error('boom')), { stage: 'query', code: 'UNKNOWN' });
