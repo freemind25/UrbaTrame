@@ -8,9 +8,9 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 ### Corrigé — diagnostic de disponibilité de l'authentification étudiante
 
 - Sonde `SELECT 1` bornée (4 s ; cache de 15 s sur succès, 3 s sur échec) avant chaque route qui touche la base : une base injoignable est désormais détectée avant toute tentative d'envoi, réponse `503` avec `Retry-After` et journal `UT_AUTH_DB_UNAVAILABLE` limité à l'étape et au code (jamais l'URL, l'identifiant ni une adresse).
-- Nouvelle route `GET /api/auth/health` : test SQL réel au lieu de la simple présence des variables. L'étape (`dns`, `tcp`, `tls`, `auth`, …) et le code d'échec ne sont exposés qu'en aperçu (`VERCEL_ENV=preview`), la réponse restant minimale en production.
+- Diagnostic intégré à `GET /api/status` : test SQL réel (`SELECT 1`) au lieu de la simple présence des variables. L'étape (`dns`, `tcp`, `tls`, `auth`, …) et le code d'échec ne sont exposés qu'en aperçu (`VERCEL_ENV=preview`, champ `auth.db`), la réponse restant minimale en production. Aucune fonction serverless supplémentaire : la limite de douze de l'offre Hobby est respectée.
 - Correction du conflit `ssl`/`sslmode` : un `sslmode=` déjà présent dans `FM_AUTH_DATABASE_URL` n'est plus superposé à un objet `ssl` contradictoire (brianc/node-postgres#3355), et `enableChannelBinding` reste conditionné à `pg` ≥ 8.14.
-- 14 nouveaux tests ; 654/656 au total sur Windows/Node 25, les 2 échecs résiduels de `licence-ui.test.mjs` étant préexistants (chemin de travail et bits de permissions 0600) et sans rapport avec l'authentification.
+- 15 tests dédiés ; 655/657 au total sur Windows/Node 25, les 2 échecs résiduels de `licence-ui.test.mjs` étant préexistants (chemin de travail et bits de permissions 0600) et sans rapport avec l'authentification.
 
 ### Ajouté — couche OpenBuildingMap dans UrbaTrame
 
