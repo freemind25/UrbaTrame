@@ -15,8 +15,8 @@ const TLS_CODES = new Set([
   'HOSTNAME_MISMATCH'
 ]);
 
-/* Renvoie { stage, code } : dns, tcp, tls, auth, database, capacity,
-   connection, query — et le code observé, tronqué et assaini. */
+/* Renvoie { stage, code } : dns, tcp, tls, auth, privilege, database,
+   capacity, connection, query — et le code observé, tronqué et assaini. */
 export function classifyDatabaseError(error) {
   const raw = String(error?.code || error?.cause?.code || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 32);
   const code = raw.toUpperCase();
@@ -30,6 +30,7 @@ export function classifyDatabaseError(error) {
   if (code.startsWith('ERR_SSL') || TLS_CODES.has(code) || /self.signed|certificate|handshake.*tls|tls.*handshake/i.test(message))
     return { stage: 'tls', code: code || 'TLS_ERROR' };
   if (code.startsWith('28')) return { stage: 'auth', code };
+  if (code === '42501') return { stage: 'privilege', code };
   if (code.startsWith('3D')) return { stage: 'database', code };
   if (code === '53300') return { stage: 'capacity', code };
   if (code.startsWith('08')) return { stage: 'connection', code };

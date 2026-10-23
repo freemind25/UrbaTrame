@@ -57,8 +57,12 @@ export function createPostgresStudentAuthRepository(pool) {
       for (const key of lockKeys)
         await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
 
+      /* Les verrous advisory par email et par IP sérialisent déjà les demandes.
+         Pas de FOR SHARE ici : PostgreSQL refuse les verrous de ligne sans
+         privilège d'écriture, et le rôle applicatif n'en a — volontairement —
+         aucun sur la liste blanche (voir docs/ACCES-ETUDIANTS-OTP.md). */
       const allowed = await client.query(
-        'SELECT is_active FROM whitelisted_students WHERE email = $1 LIMIT 1 FOR SHARE', [email]);
+        'SELECT is_active FROM whitelisted_students WHERE email = $1 LIMIT 1', [email]);
       if (!allowed.rows[0]?.is_active) return { status: 'not_allowed' };
 
       const cutoff = new Date(now.getTime() - 60 * 60_000);
@@ -110,8 +114,10 @@ export function createPostgresStudentAuthRepository(pool) {
     userId, sessionId, sessionHash, sessionExpiresAt
   }) {
     return transaction(async client => {
+      /* Même raisonnement que dans issueOtpChallenge : SELECT seul, pas de
+         FOR SHARE (refusé sans privilège d'écriture sur cette table). */
       const allowed = await client.query(
-        'SELECT is_active FROM whitelisted_students WHERE email = $1 LIMIT 1 FOR SHARE', [email]);
+        'SELECT is_active FROM whitelisted_students WHERE email = $1 LIMIT 1', [email]);
       if (!allowed.rows[0]?.is_active) return { ok: false };
 
       const selected = await client.query(
