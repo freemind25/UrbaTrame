@@ -2,12 +2,13 @@
    SELECT 1 bornée, et comportement des routes quand la base est injoignable.
    Aucun réseau ni PostgreSQL réel n'est utilisé : uniquement des adaptateurs
    factices. */
-import { test, describe, before } from 'node:test';
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { classifyDatabaseError, probeDatabase } from '../server/student-auth-diagnostics.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from '../server/student-auth-http.mjs';
 import { createStudentAuthRuntime } from '../server/student-auth-runtime.mjs';
+import { createStatusHandler } from '../server/api.mjs';
 
 function fakeRes() {
   return {
@@ -194,28 +195,38 @@ describe('routes HTTP face à une base injoignable', () => {
   });
 });
 
-describe('route /api/auth/health sans configuration', () => {
-  let handler;
-  before(async () => {
-    process.env.FM_STUDENT_AUTH = 'required';
-    delete process.env.FM_AUTH_DATABASE_URL;
-    delete process.env.FM_AUTH_OTP_KEY;
-    delete process.env.FM_AUTH_SMTP_HOST;
-    handler = (await import('../api/auth/health.js')).default;
+describe('route /api/status et diagnostic de disponibilité', () => {
+  const licence = { pubB64: 'cle-factice' };
+
+  test('sans base configurée, le statut indique ready:false et ne sonde rien', async () => {
+    const res = fakeRes();
+    await createStatusHandler({ licence, studentAuth: { required: true, ready: false } })(fakeReq('GET'), res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json.auth.required, true);
+    assert.equal(res.json.auth.ready, false);
+    assert.equal('db' in res.json.auth, false);
   });
 
-  test('refuse les méthodes autres que GET', async () => {
+  test('en aperçu, le statut expose l’étape et le code d’un échec de connexion', async () => {
+    const studentAuth = {
+      required: true, ready: true, debug: true,
+      checkDatabase: async () => ({ ok: false, latencyMs: 12, stage: 'auth', code: '28P01' })
+    };
     const res = fakeRes();
-    await handler(fakeReq('POST'), res);
-    assert.equal(res.statusCode, 405);
-    assert.equal(res.json.error, 'GET_ONLY');
-  });
-
-  test('signale une authentification requise mais non prête, sans révéler les variables', async () => {
-    const res = fakeRes();
-    await handler(fakeReq('GET'), res);
-    assert.equal(res.statusCode, 503);
-    assert.deepEqual(res.json, { ok: false, required: true, ready: false });
+    await createStatusHandler({ licence, studentAuth })(fakeReq('GET'), res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json.auth.db, { ok: false, latencyMs: 12, stage: 'auth', code: '28P01' });
     assert.equal(JSON.stringify(res.json).includes('FM_AUTH_'), false);
+  });
+
+  test('hors aperçu, le statut reste minimal et ne sonde pas la base', async () => {
+    const studentAuth = {
+      required: true, ready: true, debug: false,
+      checkDatabase: async () => { throw new Error('ne doit pas être appelé'); }
+    };
+    const res = fakeRes();
+    await createStatusHandler({ licence, studentAuth })(fakeReq('GET'), res);
+    assert.equal(res.statusCode, 200);
+    assert.equal('db' in res.json.auth, false);
   });
 });
