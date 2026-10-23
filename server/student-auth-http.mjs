@@ -77,7 +77,10 @@ export function createStudentAuthHandlers(auth) {
     try {
       const response = await auth.requestOtp({ email: body.email, ip });
       return sendStudentAuth(res, 202, response);
-    } catch {
+    } catch (error) {
+      /* Code/name uniquement : ne jamais journaliser l'URL DB, l'adresse ou le code OTP. */
+      const diagnosticCode = String(error?.code || error?.cause?.code || error?.name || 'UNKNOWN').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      console.error('UT_AUTH_REQUEST_OTP_FAILED', diagnosticCode);
       return sendStudentAuth(res, 503, { error: 'STUDENT_AUTH_UNAVAILABLE' });
     }
   }

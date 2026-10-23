@@ -15,6 +15,7 @@ export function createStudentAuthPool({ connectionString, max = 1, ssl = true } 
   if (!connectionString) throw new TypeError('FM_AUTH_DATABASE_URL_REQUIRED');
   return new Pool({
     connectionString,
+    enableChannelBinding: true,
     max,
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 8_000,
