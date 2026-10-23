@@ -48,7 +48,7 @@ GRANT INSERT ON student_whitelist_audit TO urbatrame_admin;
 GRANT USAGE, SELECT ON SEQUENCE student_whitelist_audit_id_seq TO urbatrame_admin;
 ```
 
-Ne pas utiliser le rôle propriétaire/superutilisateur de la base pour les requêtes normales de l’application.
+Ne pas utiliser le rôle propriétaire/superutilisateur de la base pour les requêtes normales de l’application. Les verrous de ligne (`FOR SHARE`, `FOR UPDATE`, `LOCK TABLE … IN SHARE MODE`) exigent eux un privilège d’écriture sur la table visée : c’est pourquoi le code se contente d’un `SELECT` simple sur `whitelisted_students`, la sérialisation étant assurée par les verrous advisory par adresse et par IP.
 
 ## Gestion privée de la liste
 
@@ -97,6 +97,7 @@ Lecture de l'étape :
 | `tcp` | connexion refusée ou expirée | port du pooler incorrect, endpoint suspendu, `CONNECT_TIMEOUT` |
 | `tls` | échec du certificat/TLS | `sslmode` contradictoire avec l'objet `ssl` du code |
 | `auth` | refus d'authentification | `28P01` : mot de passe absent/invalide, rôle ou `channel_binding` refusé |
+| `privilege` | droit SQL manquant | `42501` : le rôle n'a pas le droit exigé — ex. `FOR SHARE` sur `whitelisted_students`, qui exige un privilège d'écriture et dont le code se passe (les verrous advisory par email/IP sérialisent déjà) |
 | `database` | base inexistante | `3D000` : nom de base incorrect |
 | `capacity` | connectivité saturée | `53300` : trop de connexions pour le pool |
 | `connection` | protocole cassé | `08P01` : message de protocole invalide (typiquement sur un port de pooler) |
