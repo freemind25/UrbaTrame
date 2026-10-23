@@ -74,6 +74,34 @@ L’import lit la première colonne d’un fichier texte/CSV, ajoute ou réactiv
 
 Aucun fournisseur d’e-mail n’est imposé par le code : SMTP permet de choisir après vérification de la délivrabilité vers les boîtes étudiantes, des tarifs/quotas et des conditions de traitement/rétention. Les identifiants SMTP et chaînes PostgreSQL sont des secrets et ne doivent pas être partagés. Aucun message n’est envoyé si la configuration SMTP est absente.
 
+## Diagnostic de disponibilité
+
+La présence des variables ne prouve pas qu'une connexion aboutit : `ready` ne teste que la configuration. Trois dispositifs complémentaires permettent d'observer l'état réel :
+
+- **Sonde SELECT 1** : chaque route qui touche la base (`request-otp`, `verify-otp`, `session`, les actions protégées) vérifie d'abord la disponibilité avec un `SELECT 1` borné à 4 s, dont le résultat est mis en cache 15 s en cas de succès et 3 s en cas d'échec. Si la base est injoignable, la réponse est `503 STUDENT_AUTH_UNAVAILABLE` avec l'en-tête `Retry-After`, **avant** toute tentative d'envoi.
+- **Route `GET /api/auth/health`** : exécute le `SELECT 1` à chaud. En aperçu (`VERCEL_ENV=preview`) le corps indique l'étape et le code de l'échec — jamais l'URL, l'identifiant ou le mot de passe :
+
+  ```json
+  { "ok": false, "required": true, "ready": true,
+    "db": { "ok": false, "latencyMs": 842, "stage": "auth", "code": "28P01" } }
+  ```
+
+  En production la réponse reste minimale (`ok`, `required`, `ready`) et l'échec n'est signalé que par le code HTTP.
+- **Journalisation** : les échecs sont tracés sans donnée personnelle ni secret — `UT_AUTH_DB_UNAVAILABLE <étape> <code> <durée_ms>` à la sonde, `UT_AUTH_REQUEST_OTP_FAILED <étape> <code>` sur une erreur levée pendant le traitement.
+
+Lecture de l'étape :
+
+| Étape | Signification | Piste typique |
+| --- | --- | --- |
+| `dns` | hôte introuvable | `ENOTFOUND` : hostname de l'endpoint renommé ou supprimé, faute de frappe |
+| `tcp` | connexion refusée ou expirée | port du pooler incorrect, endpoint suspendu, `CONNECT_TIMEOUT` |
+| `tls` | échec du certificat/TLS | `sslmode` contradictoire avec l'objet `ssl` du code |
+| `auth` | refus d'authentification | `28P01` : mot de passe absent/invalide, rôle ou `channel_binding` refusé |
+| `database` | base inexistante | `3D000` : nom de base incorrect |
+| `capacity` | connectivité saturée | `53300` : trop de connexions pour le pool |
+| `connection` | protocole cassé | `08P01` : message de protocole invalide (typiquement sur un port de pooler) |
+| `query` | autre erreur SQL | voir le code renvoyé |
+
 ## Ce qui reste à faire avant un essai réel
 
 1. Choisir et créer une base PostgreSQL de **préproduction**, puis appliquer la migration.
