@@ -79,14 +79,14 @@ Aucun fournisseur d’e-mail n’est imposé par le code : SMTP permet de choisi
 La présence des variables ne prouve pas qu'une connexion aboutit : `ready` ne teste que la configuration. Trois dispositifs complémentaires permettent d'observer l'état réel :
 
 - **Sonde SELECT 1** : chaque route qui touche la base (`request-otp`, `verify-otp`, `session`, les actions protégées) vérifie d'abord la disponibilité avec un `SELECT 1` borné à 4 s, dont le résultat est mis en cache 15 s en cas de succès et 3 s en cas d'échec. Si la base est injoignable, la réponse est `503 STUDENT_AUTH_UNAVAILABLE` avec l'en-tête `Retry-After`, **avant** toute tentative d'envoi.
-- **Route `GET /api/auth/health`** : exécute le `SELECT 1` à chaud. En aperçu (`VERCEL_ENV=preview`) le corps indique l'étape et le code de l'échec — jamais l'URL, l'identifiant ou le mot de passe :
+- **Diagnostic dans `GET /api/status`** : en aperçu (`VERCEL_ENV=preview`), le champ `auth.db` expose l'étape et le code du dernier `SELECT 1` — jamais l'URL, l'identifiant ou le mot de passe :
 
   ```json
-  { "ok": false, "required": true, "ready": true,
-    "db": { "ok": false, "latencyMs": 842, "stage": "auth", "code": "28P01" } }
+  { "auth": { "required": true, "ready": true,
+    "db": { "ok": false, "latencyMs": 842, "stage": "auth", "code": "28P01" } } }
   ```
 
-  En production la réponse reste minimale (`ok`, `required`, `ready`) et l'échec n'est signalé que par le code HTTP.
+  En production, `auth` reste minimal (`required`, `ready`) : aucune sonde n'est exécutée et l'échec n'est signalé que par le code HTTP des routes concernées. Le diagnostic est intégré à une route existante plutôt qu'à sa propre fonction : l'offre Hobby limite le déploiement à douze fonctions serverless.
 - **Journalisation** : les échecs sont tracés sans donnée personnelle ni secret — `UT_AUTH_DB_UNAVAILABLE <étape> <code> <durée_ms>` à la sonde, `UT_AUTH_REQUEST_OTP_FAILED <étape> <code>` sur une erreur levée pendant le traitement.
 
 Lecture de l'étape :
