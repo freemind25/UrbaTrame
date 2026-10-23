@@ -21,16 +21,26 @@ import { createStudentAuthHandlers, requireStudentSession } from './student-auth
    les fonctions Vercel en exposent une chacune. */
 export function createStatusHandler({ licence, studentAuth = null }) {
   return async function status(_req, res) {
+    const auth = {
+      required: Boolean(studentAuth?.required),
+      ready: studentAuth?.ready !== false
+    };
+    /* Aperçu seulement (VERCEL_ENV=preview) : expose l'étape et le code d'un
+       échec de connexion — jamais l'URL, l'identifiant ni le mot de passe —
+       pour diagnostiquer sans journaux. Aucune fonction serverless n'est
+       ajoutée : l'offre Hobby en limite le déploiement à douze. */
+    if (auth.required && auth.ready && studentAuth?.debug &&
+        typeof studentAuth.checkDatabase === 'function') {
+      const probe = await studentAuth.checkDatabase({ fresh: true });
+      auth.db = { ok: probe.ok, latencyMs: probe.latencyMs, stage: probe.stage, code: probe.code };
+    }
     return send(res, 200, {
       ok: true,
       version: VERSION,
       trace: TRACE,
       pub: licence.pubB64,
       access: accessMode(),
-      auth: {
-        required: Boolean(studentAuth?.required),
-        ready: studentAuth?.ready !== false
-      },
+      auth,
       free: FREE_IDS,
       max: MAX_IDS,
       limits: LIMITS,
