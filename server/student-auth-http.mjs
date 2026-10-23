@@ -1,6 +1,7 @@
 /* HTTP/cookie layer for student sessions. Cookies are host-only, HttpOnly,
    SameSite=Lax, and Secure behind HTTPS. No token is returned to JavaScript. */
 import { readBody } from './http.mjs';
+import { classifyDatabaseError } from './student-auth-diagnostics.mjs';
 
 export const STUDENT_SESSION_COOKIE = 'ut_student_session';
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -66,6 +67,21 @@ async function readJson(req) {
   } catch { return null; }
 }
 
+/* Sonde de disponibilité de la base avant chaque accès. Le détail n'est
+   renvoyé au client qu'en aperçu (auth.debug), jamais en production. */
+async function ensureDatabase(res, auth) {
+  if (typeof auth?.checkDatabase !== 'function') return true;
+  const probe = await auth.checkDatabase();
+  if (probe.ok) return true;
+  /* Étape et code uniquement : jamais l'URL, l'identifiant ou le mot de passe. */
+  console.error('UT_AUTH_DB_UNAVAILABLE', probe.stage, probe.code, probe.latencyMs);
+  sendStudentAuth(res, 503, {
+    error: 'STUDENT_AUTH_UNAVAILABLE',
+    ...(auth.debug ? { debug: { stage: probe.stage, code: probe.code, latencyMs: probe.latencyMs } } : {})
+  }, { 'Retry-After': '10' });
+  return false;
+}
+
 export function createStudentAuthHandlers(auth) {
   async function requestOtp(req, res, ip) {
     if (!auth?.required) return sendStudentAuth(res, 404, { error: 'NOT_FOUND' });
@@ -74,14 +90,19 @@ export function createStudentAuthHandlers(auth) {
     if (!isSameOriginRequest(req)) return sendStudentAuth(res, 403, { error: 'ORIGIN_NOT_ALLOWED' });
     const body = await readJson(req);
     if (!body) return sendStudentAuth(res, 400, { error: 'BAD_JSON' });
+    if (!(await ensureDatabase(res, auth))) return;
     try {
       const response = await auth.requestOtp({ email: body.email, ip });
       return sendStudentAuth(res, 202, response);
     } catch (error) {
       /* Code/name uniquement : ne jamais journaliser l'URL DB, l'adresse ou le code OTP. */
       const diagnosticCode = String(error?.code || error?.cause?.code || error?.name || 'UNKNOWN').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-      console.error('UT_AUTH_REQUEST_OTP_FAILED', diagnosticCode);
-      return sendStudentAuth(res, 503, { error: 'STUDENT_AUTH_UNAVAILABLE' });
+      const { stage } = classifyDatabaseError(error);
+      console.error('UT_AUTH_REQUEST_OTP_FAILED', stage, diagnosticCode);
+      return sendStudentAuth(res, 503, {
+        error: 'STUDENT_AUTH_UNAVAILABLE',
+        ...(auth.debug ? { debug: { stage, code: diagnosticCode } } : {})
+      }, { 'Retry-After': '10' });
     }
   }
 
@@ -92,6 +113,7 @@ export function createStudentAuthHandlers(auth) {
     if (!isSameOriginRequest(req)) return sendStudentAuth(res, 403, { error: 'ORIGIN_NOT_ALLOWED' });
     const body = await readJson(req);
     if (!body) return sendStudentAuth(res, 400, { error: 'BAD_JSON' });
+    if (!(await ensureDatabase(res, auth))) return;
     try {
       const result = await auth.verifyOtp({ email: body.email, code: body.code });
       if (!result.ok) return sendStudentAuth(res, 400, { error: 'INVALID_OR_EXPIRED_CODE' });
@@ -99,8 +121,13 @@ export function createStudentAuthHandlers(auth) {
       return sendStudentAuth(res, 200, { ok: true, user: result.user }, {
         'Set-Cookie': cookieHeader(req, result.sessionToken, maxAge)
       });
-    } catch {
-      return sendStudentAuth(res, 503, { error: 'STUDENT_AUTH_UNAVAILABLE' });
+    } catch (error) {
+      const { stage, code } = classifyDatabaseError(error);
+      console.error('UT_AUTH_VERIFY_OTP_FAILED', stage, code);
+      return sendStudentAuth(res, 503, {
+        error: 'STUDENT_AUTH_UNAVAILABLE',
+        ...(auth.debug ? { debug: { stage, code } } : {})
+      }, { 'Retry-After': '10' });
     }
   }
 
@@ -108,11 +135,17 @@ export function createStudentAuthHandlers(auth) {
     if (!auth?.required) return sendStudentAuth(res, 200, { required: false, ready: true, authenticated: false });
     if (!auth.ready) return sendStudentAuth(res, 503, { required: true, ready: false, authenticated: false });
     if (req.method !== 'GET') return sendStudentAuth(res, 405, { error: 'GET_ONLY' });
+    if (!(await ensureDatabase(res, auth))) return;
     try {
       const user = await auth.getSession(getStudentSessionCookie(req));
       return sendStudentAuth(res, 200, { required: true, ready: true, authenticated: Boolean(user), user: publicStudentUser(user) });
-    } catch {
-      return sendStudentAuth(res, 503, { error: 'STUDENT_AUTH_UNAVAILABLE' });
+    } catch (error) {
+      const { stage, code } = classifyDatabaseError(error);
+      console.error('UT_AUTH_SESSION_FAILED', stage, code);
+      return sendStudentAuth(res, 503, {
+        error: 'STUDENT_AUTH_UNAVAILABLE',
+        ...(auth.debug ? { debug: { stage, code } } : {})
+      }, { 'Retry-After': '10' });
     }
   }
 
@@ -143,6 +176,17 @@ export async function requireStudentSession(req, res, auth) {
     sendStudentAuth(res, 403, { error: 'ORIGIN_NOT_ALLOWED' });
     return { ok: false, user: null };
   }
+  if (typeof auth.checkDatabase === 'function') {
+    const probe = await auth.checkDatabase();
+    if (!probe.ok) {
+      console.error('UT_AUTH_DB_UNAVAILABLE', probe.stage, probe.code, probe.latencyMs);
+      sendStudentAuth(res, 503, {
+        error: 'STUDENT_AUTH_UNAVAILABLE',
+        ...(auth.debug ? { debug: { stage: probe.stage, code: probe.code, latencyMs: probe.latencyMs } } : {})
+      }, { 'Retry-After': '10' });
+      return { ok: false, user: null };
+    }
+  }
   try {
     const user = await auth.getSession(getStudentSessionCookie(req));
     if (!user) {
@@ -150,8 +194,13 @@ export async function requireStudentSession(req, res, auth) {
       return { ok: false, user: null };
     }
     return { ok: true, user };
-  } catch {
-    sendStudentAuth(res, 503, { error: 'STUDENT_AUTH_UNAVAILABLE' });
+  } catch (error) {
+    const { stage, code } = classifyDatabaseError(error);
+    console.error('UT_AUTH_SESSION_FAILED', stage, code);
+    sendStudentAuth(res, 503, {
+      error: 'STUDENT_AUTH_UNAVAILABLE',
+      ...(auth.debug ? { debug: { stage, code } } : {})
+    }, { 'Retry-After': '10' });
     return { ok: false, user: null };
   }
 }
