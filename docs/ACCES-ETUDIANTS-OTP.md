@@ -71,6 +71,7 @@ L’import lit la première colonne d’un fichier texte/CSV, ajoute ou réactiv
 - `FM_AUTH_OTP_KEY` : secret aléatoire d’au moins 32 octets, encodé en Base64. Génération locale possible : `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
 - `FM_AUTH_DB_SSL=true` par défaut. Pour une base de développement strictement locale sans TLS seulement, `FM_AUTH_DB_SSL=false`.
 - `FM_AUTH_SMTP_HOST`, `FM_AUTH_SMTP_PORT`, `FM_AUTH_SMTP_SECURE`, `FM_AUTH_SMTP_USER`, `FM_AUTH_SMTP_PASSWORD`, `FM_AUTH_EMAIL_FROM` : paramètres du relais SMTP institutionnel ou du fournisseur choisi. Le compte expéditeur doit être autorisé par ce fournisseur; configurer SPF/DKIM/DMARC selon ses instructions.
+- **Piège Vercel — variable liée à une branche** : une variable d'aperçu créée pour une branche précise écrase, pour les déploiements de cette branche, la variable d'aperçu du même nom. Si cette chaîne est incomplète (mot de passe absent, `sslmode` retiré, copie tronquée), les previews de cette branche tombent en échec alors qu'une autre branche fonctionne — c'est exactement ce que le champ `auth.db` permet de voir. Vérifier dans Vercel → Settings → Environment Variables qu'une seule valeur exacte et complète s'applique, puis **relancer le déploiement** : un déploiement existant ne reprend pas la nouvelle valeur.
 
 Aucun fournisseur d’e-mail n’est imposé par le code : SMTP permet de choisir après vérification de la délivrabilité vers les boîtes étudiantes, des tarifs/quotas et des conditions de traitement/rétention. Les identifiants SMTP et chaînes PostgreSQL sont des secrets et ne doivent pas être partagés. Aucun message n’est envoyé si la configuration SMTP est absente.
 
@@ -79,12 +80,14 @@ Aucun fournisseur d’e-mail n’est imposé par le code : SMTP permet de choisi
 La présence des variables ne prouve pas qu'une connexion aboutit : `ready` ne teste que la configuration. Trois dispositifs complémentaires permettent d'observer l'état réel :
 
 - **Sonde SELECT 1** : chaque route qui touche la base (`request-otp`, `verify-otp`, `session`, les actions protégées) vérifie d'abord la disponibilité avec un `SELECT 1` borné à 4 s, dont le résultat est mis en cache 15 s en cas de succès et 3 s en cas d'échec. Si la base est injoignable, la réponse est `503 STUDENT_AUTH_UNAVAILABLE` avec l'en-tête `Retry-After`, **avant** toute tentative d'envoi.
-- **Diagnostic dans `GET /api/status`** : en aperçu (`VERCEL_ENV=preview`), le champ `auth.db` expose l'étape et le code du dernier `SELECT 1` — jamais l'URL, l'identifiant ou le mot de passe :
+- **Diagnostic dans `GET /api/status`** : en aperçu (`VERCEL_ENV=preview`), le champ `auth.db` expose l'étape et le code du dernier `SELECT 1` — pas plus l'URL, l'identifiant ou le mot de passe :
 
   ```json
   { "auth": { "required": true, "ready": true,
-    "db": { "ok": false, "latencyMs": 842, "stage": "auth", "code": "28P01" } } }
+    "db": { "ok": false, "latencyMs": 467, "stage": "auth", "code": "SASL_PASSWORD_MISSING" } } }
   ```
+
+  Quand aucun SQLSTATE n'existe — erreurs client levées par le driver pendant l'échange SCRAM ou pendant l'amorçage — `code` prend un jeton d'un vocabulaire fermé dérivé du message, jamais le message lui-même (il peut contenir un certificat ou des identifiants) : `SASL_PASSWORD_MISSING` (la chaîne ne contient aucun mot de passe), `SASL_CHANNEL_BINDING`, `SASL_MECHANISM`, `SASL_SIGNATURE`, `SASL_ERROR` (échange SCRAM), `AUTH_FAILED`, `CONNECTION_TERMINATED` (le serveur ferme pendant l'amorçage : vérifier `sslmode`), `CLIENT_ERROR`, `TLS_ERROR` (refus TLS du serveur pendant l'amorçage). Le classeur parcourt aussi la chaîne de causes (`cause`, 4 niveaux) pour retrouver un code enfoui. En tout dernier recours, `UNKNOWN` est remplacé par `UNKNOWN_<classe>` (`UNKNOWN_TYPEERROR`, `UNKNOWN_ABORTERROR`, …) plutôt que par un blanc.
 
   En production, `auth` reste minimal (`required`, `ready`) : aucune sonde n'est exécutée et l'échec n'est signalé que par le code HTTP des routes concernées. Le diagnostic est intégré à une route existante plutôt qu'à sa propre fonction : l'offre Hobby limite le déploiement à douze fonctions serverless.
 - **Journalisation** : les échecs sont tracés sans donnée personnelle ni secret — `UT_AUTH_DB_UNAVAILABLE <étape> <code> <durée_ms>` à la sonde, `UT_AUTH_REQUEST_OTP_FAILED <étape> <code>` sur une erreur levée pendant le traitement.
@@ -96,12 +99,12 @@ Lecture de l'étape :
 | `dns` | hôte introuvable | `ENOTFOUND` : hostname de l'endpoint renommé ou supprimé, faute de frappe |
 | `tcp` | connexion refusée ou expirée | port du pooler incorrect, endpoint suspendu, `CONNECT_TIMEOUT` |
 | `tls` | échec du certificat/TLS | `sslmode` contradictoire avec l'objet `ssl` du code |
-| `auth` | refus d'authentification | `28P01` : mot de passe absent/invalide, rôle ou `channel_binding` refusé |
+| `auth` | refus d'authentification | `28P01` : mot de passe invalide, rôle ou `channel_binding` refusé; sans SQLSTATE : `SASL_PASSWORD_MISSING` (mot de passe absent de la chaîne), `SASL_CHANNEL_BINDING`, `SASL_ERROR` (échange SCRAM) |
 | `privilege` | droit SQL manquant | `42501` : le rôle n'a pas le droit exigé — ex. `FOR SHARE` sur `whitelisted_students`, qui exige un privilège d'écriture et dont le code se passe (les verrous advisory par email/IP sérialisent déjà) |
 | `database` | base inexistante | `3D000` : nom de base incorrect |
 | `capacity` | connectivité saturée | `53300` : trop de connexions pour le pool |
-| `connection` | protocole cassé | `08P01` : message de protocole invalide (typiquement sur un port de pooler) |
-| `query` | autre erreur SQL | voir le code renvoyé |
+| `connection` | protocole cassé ou serveur qui ferme | `08P01` : message de protocole invalide (typiquement sur un port de pooler); sans SQLSTATE : `CONNECTION_TERMINATED` (fermeture pendant l'amorçage, souvent `sslmode` absent/désactivé), `CLIENT_ERROR` |
+| `query` | autre erreur SQL | voir le code renvoyé; `UNKNOWN_<classe>` en dernier recours (ex. `UNKNOWN_TYPEERROR`) |
 
 ## Ce qui reste à faire avant un essai réel
 
