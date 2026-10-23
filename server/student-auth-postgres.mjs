@@ -13,6 +13,12 @@ function sameMac(a, b) {
 
 export function createStudentAuthPool({ connectionString, max = 1, ssl = true } = {}) {
   if (!connectionString) throw new TypeError('FM_AUTH_DATABASE_URL_REQUIRED');
+  /* Si l'URL porte déjà sslmode=, pg s'en sert seul : lui superposer un objet
+     ssl contradictoire crée une configuration ambiguë (brianc/node-postgres
+     #3355). On ne construit donc un objet ssl que sans sslmode explicite. */
+  let urlSslMode = null;
+  try { urlSslMode = new URL(connectionString).searchParams.get('sslmode'); } catch { /* URL relative ou vide */ }
+  const sslOption = !ssl ? false : (urlSslMode ? undefined : { rejectUnauthorized: true });
   return new Pool({
     connectionString,
     enableChannelBinding: true,
@@ -20,7 +26,7 @@ export function createStudentAuthPool({ connectionString, max = 1, ssl = true } 
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 8_000,
     allowExitOnIdle: true,
-    ssl: ssl ? { rejectUnauthorized: true } : false,
+    ...(sslOption === undefined ? {} : { ssl: sslOption }),
     application_name: 'UrbaTrame-student-auth'
   });
 }
