@@ -8,9 +8,11 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 ### Corrigé — diagnostic de disponibilité de l'authentification étudiante
 
 - Sonde `SELECT 1` bornée (4 s ; cache de 15 s sur succès, 3 s sur échec) avant chaque route qui touche la base : une base injoignable est désormais détectée avant toute tentative d'envoi, réponse `503` avec `Retry-After` et journal `UT_AUTH_DB_UNAVAILABLE` limité à l'étape et au code (jamais l'URL, l'identifiant ni une adresse).
-- Diagnostic intégré à `GET /api/status` : test SQL réel (`SELECT 1`) au lieu de la simple présence des variables. L'étape (`dns`, `tcp`, `tls`, `auth`, …) et le code d'échec ne sont exposés qu'en aperçu (`VERCEL_ENV=preview`, champ `auth.db`), la réponse restant minimale en production. Aucune fonction serverless supplémentaire : la limite de douze de l'offre Hobby est respectée.
+- Diagnostic intégré à `GET /api/status` : test SQL réel (`SELECT 1`) au lieu de la simple présence des variables. L'étape (`dns`, `tcp`, `tls`, `auth`, …) et le code d'échec ne sont exposés qu'en aperçon (`VERCEL_ENV=preview`, champ `auth.db`), la réponse restant minimale en production. Aucune fonction serverless supplémentaire : la limite de douze de l'offre Hobby est respectée.
+- Classification des échecs sans SQLSTATE : la chaîne de causes (`cause`, 4 niveaux) est parcourue et un vocabulaire fermé dérivé du message remplace le `UNKNOWN` opaque — `SASL_PASSWORD_MISSING` (mot de passe absent de `FM_AUTH_DATABASE_URL`), `SASL_CHANNEL_BINDING`, `SASL_MECHANISM`, `SASL_SIGNATURE`, `SASL_ERROR`, `AUTH_FAILED`, `CONNECTION_TERMINATED`, `CLIENT_ERROR`, `TLS_ERROR` — le repli final devenant `UNKNOWN_<classe>` (ex. `UNKNOWN_TYPEERROR`). Le message brut n'est jamais renvoyé ni journalisé.
+- Documentation du piège des variables Vercel liées à une branche : elles écrasent la variable d'aperçon du même nom sans effet sur les déploiements existants, ce qui peut rendre un aperçu inopérant alors qu'un autre branche fonctionne.
 - Correction du conflit `ssl`/`sslmode` : un `sslmode=` déjà présent dans `FM_AUTH_DATABASE_URL` n'est plus superposé à un objet `ssl` contradictoire (brianc/node-postgres#3355), et `enableChannelBinding` reste conditionné à `pg` ≥ 8.14.
-- 15 tests dédiés ; 655/657 au total sur Windows/Node 25, les 2 échecs résiduels de `licence-ui.test.mjs` étant préexistants (chemin de travail et bits de permissions 0600) et sans rapport avec l'authentification.
+- 18 tests dédiés ; 658/660 au total sur Windows/Node 25, les 2 échecs résiduels de `licence-ui.test.mjs` étant préexistants (chemin de travail et bits de permissions 0600) et sans rapport avec l'authentification.
 
 ### Ajouté — couche OpenBuildingMap dans UrbaTrame
 
@@ -55,8 +57,8 @@ Exports pour la CAO, et le rapport de rétro-ingénierie qui les a motivés.
   navigateur (`--quoi`, `--avec`, `--equi`, `--hauteur`, `--geolocate`,
   `--coupe`, `--sans-sol`).
 - La scène 3D expose désormais sa géométrie : `pts3` (sommets en mètres locaux)
-  sur chaque face, `terrainRef` (altitude du zéro local) et `grille` — c'est ce
-  que lisent les exports.
+  sur chaque face, `terrainRef` (altitude du zéro local) et `grille` — c'est ce que
+  lisent les exports.
 - **51 tests** (281 hors ligne) : projection UTM comparée à des valeurs de
   référence, structure du DXF relue par un lecteur minimal (sections, tables,
   entités, `EOF`, polylignes, textes), recadrage à l'emprise, équidistance,
@@ -68,9 +70,9 @@ Exports pour la CAO, et le rapport de rétro-ingénierie qui les a motivés.
 
 - **`docs/reverse-topoexport.md`** : ce que fait le service TopoExport
   (cartes vectorielles, modèles 3D, coupes), son architecture, ses jeux de
-  données et leur sélection, la forme de son `POST /compute`, ses formats et sa
-  grille de prix — relevé sans compte, sur des ressources publiques. Ce qui en a
-  été retenu est dans les exports ci-dessus ; ce qui a été écarté (DWG, RVT, SKP,
+  données et leur sélection, la forme de son `POST /compute`, ses formats et
+  sa grille de prix — relevé sans compte, sur des ressources publiques. Ce qui en
+  a été retenu est dans les exports ci-dessus ; ce qui en a été écarté (DWG, RVT, SKP,
   IFC, LoD2, arbres « IA », comptes et quotas) est expliqué dans
   **`docs/EXPORTS.md`**.
 
@@ -102,14 +104,14 @@ de licence fonctionnent de bout en bout.
   fond de carte OpenStreetMap optionnel, export PNG et SVG.
 - **Moteur maison** (`public/js/vue3d.js`, aucune dépendance) : position du
   soleil (éphéméride abrégée), caméra perspective avec découpage du plan proche,
-  murs et toits triés par profondeur, ombres, désignation au clic, sortie SVG et
-  canvas. Fonctions relevées sur osmbuildings.org (rapport dans
-  `docs/reverse-osmbuildings.md`, mode d'emploi dans `docs/VUE3D.md`).
+  murs et toits triés par profondeur, désignation au clic, export SVG et canvas.
+  Lue (cours, ombres portées, surfaces) : voir `docs/reverse-osmbuildings.md`,
+  mode d'emploi dans `docs/VUE3D.md`.
 - **Deux sources de bâtiments** : Overpass via une requête composée par le
   serveur (nouvelle action `buildings`, même modèle de sûreté que `begin`) et,
   en option, les tuiles d'osmbuildings.org — toutes pourvues d'une hauteur.
 - 42 tests supplémentaires (217 au total, hors ligne) : course du soleil dans
-  les deux hémisphères, géométrie de la caméra (centre, cardinaux, plan proche),
+  les quatre saisons, géométrie de la caméra (centre, cardinales, plan proche),
   tri des faces, ombres (longueur, côté, absence la nuit), désignation au clic,
   lecture des deux formats, requête de bâtiments.
 
@@ -117,30 +119,30 @@ de licence fonctionnent de bout en bout.
 
 - **Les volumes se posent sur le terrain** : l'altimétrie du projet (tuiles
   Terrarium, action `terrain`, jusqu'ici réservée aux analyses « relief »,
-  « courbes de niveau » et « exposition ») est appliquée à la vue 3D. La grille
+  « courbes de niveau », « exposition ») est appliquée à la vue 3D. La grille
   est maillée en quadrilatères ombrés par la pente, prolongée au-delà de son
-  emprise pour que le sol ne s'arrête pas net au bord du cadre ; voirie, eau et
-  ombres suivent la pente. Le zéro du dessin est l'altitude du centre du site —
-  sans ce recalage, un site à 630 m placerait toute la scène 630 m au-dessus de
-  la caméra. Case *Relief* dans la vue interactive (acquise par défaut, une
+  emprise pour que le sol ne s'arrête net au bord du cadre ; voirie et ombres
+  suivent la pente. Le zéro du dessin est l'altitude du centre du site —
+  sans ce recalage, un site à 630 m placerait toute la scène à 630 m au-dessus
+  de la caméra. Case *Relief* dans la vue interactive (acquise par défaut, une
   requête au premier affichage), amplitude annoncée dans la note de la planche
   (`sol 589–665 m`). `DEPS.volumes` demande désormais `buildings` **et**
   `terrain`.
-- **Cours intérieures évidées** : les membres `inner` des relations OSM
-  deviennent des **trous** du toit (chemin unique, remplissage « pair-impair »),
-  rattachés à l'emprise qui les contient ; les murs de la cour sont dessinés avec
-  la bonne orientation. Le centre qui décide du côté extérieur d'un mur est
-  maintenant le centre de gravité de la surface (formule des lacets) : la
-  moyenne des sommets se décalait vers le point de fermeture répété et pouvait
-  tomber hors d'un anneau concave.
-- **Tri par bâtiment** : les faces sont groupées par bâtiment, les groupes
-  rangés du plus lointain au plus proche. Un toit lointain ne passe plus devant
-  le mur d'un voisin proche, et le clic rend le bâtiment le plus proche sous le
-  curseur.
+- **Cours intérieures évidées** : les membres `inner` des relations OSM deviennent
+  des **trous** du toit (chemin unique, règle « pair-impair »), rattachés à
+  l'emprise qui les contient ; les murs de la cour sont dessinés avec la bonne
+  orientation. Le centre qui décide du côté extérieur d'un mur est maintenant
+  le centre de gravité de la surface (formule des lacets) : la moyenne des
+  points se décalait vers le point de fermeture répété et pouvait tomber hors
+  d'un anneau concave.
+- **Tri par bâtiment** : les bâtiments sont groupés par classe, les groupes
+  rangés du plus lointain au plus proche. Un bâtiment lointain ne passe plus
+  devant le mur d'un voisin proche, et le clic rend le bâtiment le plus
+  proche du curseur.
 - 13 tests supplémentaires (230 au total, hors ligne) : repère local du relief,
   débord du maillage et altitude du bord, assise du bâti sur la pente, indice de
-  relief dans la note, taille de la cour à l'écran, toit évité, murs de cour,
-  rattachement d'une cour à la bonne emprise, tri groupé, désignation du plus
+  relief dans la note, taille de la cour à l'écran, toit évité, murs de cours,
+  rattachement d'une cour à la bonne emprise, lecture groupée, désignation du plus
   proche, rendu sur canvas.
 
 ### Ajouté
@@ -168,8 +170,8 @@ de licence fonctionnent de bout en bout.
 
 - **Exemple de carte 404 en ligne** : `.vercelignore` portait un motif `data`
   sans barre oblique initiale, qui excluait aussi `public/data/` du
-  déploiement — donc le fichier d'exemple (`/data/sample-elkhroub.json`
-  renvoyait 404). Tous les motifs sont désormais ancrés à la racine, vérifiés
+  déploiement — donc le fichier d'exemple (`/data/sample-elkhroub.json`)
+  renvoyait 404. Tous les motifs sont désormais ancrés à la racine, vérifiés
   avec `git check-ignore`, et deux tests interdisent le retour du défaut.
 
 ### Corrigé
@@ -207,7 +209,7 @@ de licence fonctionnent de bout en bout.
 - **Outils** — `tools/capture-sample.mjs` (recapture l'exemple depuis les
   sources réelles), `tools/render-svg.mjs` (rendu hors navigateur),
   `tools/check-syntax.mjs`, `tools/run-tests.mjs`.
-- **Bancs d’essai** — 135 tests hors ligne (139 avec `test:net`) : rendu des 35 analyses et de leurs palettes,
+- **Bancs d'essai** — 135 tests hors ligne (139 avec `test:net`) : rendu des 35 analyses et de leurs palettes,
   planificateur, licences, API HTTP, décodeur PNG, projection Mercator.
 
 ### Corrigé
