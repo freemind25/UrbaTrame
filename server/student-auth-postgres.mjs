@@ -135,20 +135,22 @@ export function createPostgresStudentAuthRepository(pool) {
 
       if (!sameMac(challenge.code_mac, codeMac)) {
         const nextAttempts = Number(challenge.attempts_count) + 1;
+        /* Explicit casts keep this rejection path from raising SQLSTATE 42P08
+           while comparing untyped protocol parameters. */
         await client.query(
           `UPDATE otp_verifications
-           SET attempts_count = $2,
-               invalidated_at = CASE WHEN $2 >= $3 THEN $4 ELSE invalidated_at END
-           WHERE id = $1`,
+           SET attempts_count = $2::integer,
+               invalidated_at = CASE WHEN $2::integer >= $3::integer THEN $4::timestamptz ELSE invalidated_at END
+           WHERE id = $1::uuid`,
           [challenge.id, nextAttempts, maxAttempts, now]);
         return { ok: false };
       }
 
-      await client.query('UPDATE otp_verifications SET consumed_at = $2 WHERE id = $1', [challenge.id, now]);
+      await client.query('UPDATE otp_verifications SET consumed_at = $2::timestamptz WHERE id = $1::uuid', [challenge.id, now]);
       const userResult = await client.query(
         `INSERT INTO student_users
           (id, email, role, tier, email_verified_at, created_at, last_login_at, is_active)
-         VALUES ($1, $2, 'student', 'max', $3, $3, $3, TRUE)
+         VALUES ($1::uuid, $2::text, 'student', 'max', $3::timestamptz, $3::timestamptz, $3::timestamptz, TRUE)
          ON CONFLICT (email) DO UPDATE
          SET email_verified_at = COALESCE(student_users.email_verified_at, EXCLUDED.email_verified_at),
              last_login_at = EXCLUDED.last_login_at
@@ -161,7 +163,7 @@ export function createPostgresStudentAuthRepository(pool) {
       await client.query(
         `INSERT INTO student_sessions
           (id, user_id, token_hash, created_at, expires_at)
-         VALUES ($1, $2, $3, $4, $5)`,
+         VALUES ($1::uuid, $2::uuid, $3::text, $4::timestamptz, $5::timestamptz)`,
         [sessionId, user.id, sessionHash, now, sessionExpiresAt]);
       return { ok: true, user };
     });

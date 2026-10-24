@@ -33,6 +33,10 @@ const failingProbe = async () => ({ ok: false, latencyMs: 12, stage: 'auth', cod
 const okProbe = async () => ({ ok: true, latencyMs: 3, stage: 'ready', code: null });
 
 describe('classification des erreurs de connexion', () => {
+  test('classe le code PostgreSQL 42P08 comme une erreur de requête', () => {
+    assert.deepEqual(classifyDatabaseError({ code: '42P08' }), { stage: 'query', code: '42P08' });
+  });
+
   test('range chaque échec connu sous une étape exploitable', () => {
     assert.deepEqual(classifyDatabaseError({ code: 'ENOTFOUND' }), { stage: 'dns', code: 'ENOTFOUND' });
     assert.deepEqual(classifyDatabaseError({ code: 'ECONNREFUSED' }), { stage: 'tcp', code: 'ECONNREFUSED' });
