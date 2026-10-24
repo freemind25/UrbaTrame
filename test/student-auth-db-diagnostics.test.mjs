@@ -50,6 +50,36 @@ describe('classification des erreurs de connexion', () => {
     assert.deepEqual(classifyDatabaseError(new Error('boom')), { stage: 'query', code: 'UNKNOWN' });
   });
 
+  test('classe les échecs client sans SQLSTATE sous des jetons fixes', () => {
+    /* Mot de passe absent de la chaîne : pg lève une erreur SASL sans code. */
+    assert.deepEqual(
+      classifyDatabaseError(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string')),
+      { stage: 'auth', code: 'SASL_PASSWORD_MISSING' });
+    assert.deepEqual(
+      classifyDatabaseError(new Error('SASL channel binding: unknown OID when parsing public certificate AAAA')),
+      { stage: 'auth', code: 'SASL_CHANNEL_BINDING' });
+    assert.deepEqual(
+      classifyDatabaseError(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: server nonce does not start with client nonce')),
+      { stage: 'auth', code: 'SASL_ERROR' });
+    assert.deepEqual(classifyDatabaseError(new Error('Connection terminated unexpectedly')),
+      { stage: 'connection', code: 'CONNECTION_TERMINATED' });
+    assert.deepEqual(classifyDatabaseError(new Error('Client has encountered a connection error and cannot query')),
+      { stage: 'connection', code: 'CLIENT_ERROR' });
+    /* Fermeture TLS pendant l'amorçage (sslmode exigé par le pooler). */
+    assert.deepEqual(classifyDatabaseError(new Error('The server does not support SSL connections')),
+      { stage: 'tls', code: 'TLS_ERROR' });
+    /* Un SQLSTATE reste prioritaire sur le message. */
+    assert.equal(classifyDatabaseError({ code: '42501', message: 'Connection terminated' }).stage, 'privilege');
+  });
+
+  test('remonte le code d’une chaîne de causes et encode la classe au repli', () => {
+    const root = Object.assign(new Error('échec encastré'), { code: 'ENOTFOUND' });
+    const outer = new Error('échec enveloppé', { cause: root });
+    assert.deepEqual(classifyDatabaseError(outer), { stage: 'dns', code: 'ENOTFOUND' });
+    /* Sans jeton ni SQLSTATE, la classe d’erreur évite un UNKNOWN nu. */
+    assert.deepEqual(classifyDatabaseError(new TypeError('boom')), { stage: 'query', code: 'UNKNOWN_TYPEERROR' });
+  });
+
   test('ne propage ni le message complet ni une chaîne qui ressemblerait à une URL', () => {
     const { code, stage } = classifyDatabaseError({
       code: '28P01',
@@ -218,6 +248,20 @@ describe('route /api/status et diagnostic de disponibilité', () => {
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.json.auth.db, { ok: false, latencyMs: 12, stage: 'auth', code: '28P01' });
     assert.equal(JSON.stringify(res.json).includes('FM_AUTH_'), false);
+  });
+
+  test('en aperçu, un échec client sans SQLSTATE transmet son jeton via auth.db', async () => {
+    const studentAuth = {
+      required: true, ready: true, debug: true,
+      checkDatabase: async () => ({
+        ok: false, latencyMs: 9, stage: 'auth', code: 'SASL_PASSWORD_MISSING'
+      })
+    };
+    const res = fakeRes();
+    await createStatusHandler({ licence, studentAuth })(fakeReq('GET'), res);
+    assert.deepEqual(res.json.auth.db, {
+      ok: false, latencyMs: 9, stage: 'auth', code: 'SASL_PASSWORD_MISSING'
+    });
   });
 
   test('hors aperçu, le statut reste minimal et ne sonde pas la base', async () => {
