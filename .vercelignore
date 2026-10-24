@@ -12,6 +12,7 @@
 /test
 /tools
 /docs
+/db
 /data
 /Dockerfile
 /.dockerignore

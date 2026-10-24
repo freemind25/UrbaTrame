@@ -21,12 +21,13 @@ import { VERSION } from '../public/js/plan-2d.mjs';
 export function createApp({
   publicDir = PUBLIC_DIR,
   dataDir = DATA_DIR,
-  cooldownMs
+  cooldownMs,
+  studentAuthOptions = {}
 } = {}) {
   /* `typeof` et non un test de véracité : 0 est une valeur légitime (tests). */
-  const runtime = createRuntime({ mode: 'node', dataDir, cooldownMs });
+  const runtime = createRuntime({ mode: 'node', dataDir, cooldownMs, studentAuthOptions });
   const licence = runtime.licence, quota = runtime.quota, runs = runtime.runs;
-  const api = createApi({ licence, quota, runs, publicDir });
+  const api = createApi({ licence, quota, runs, publicDir, studentAuth: runtime.studentAuth });
 
   const server = http.createServer((req, res) => {
     api(req, res).catch(e => {
@@ -59,7 +60,7 @@ if (isMain) {
   const host = arg('host') || DEFAULT_HOST;
   const dataDir = arg('data-dir') || DATA_DIR;
 
-  const { server, licence } = createApp({ dataDir });
+  const { server, licence, runtime } = createApp({ dataDir });
   server.listen(port, host, () => {
     log(`${PRODUCT} v${VERSION} · serveur prêt sur http://${host}:${port}`);
     log(`dossier public  : ${PUBLIC_DIR}`);
@@ -67,8 +68,10 @@ if (isMain) {
     log(`état      : ${stateLine(licence)}`);
     log(accessMode() === 'open'
       ? 'accès     : libre — toutes les analyses, sans licence ni quota (FM_ACCESS=licence pour rétablir les paliers)'
-      : 'accès     : sous licence — 4 analyses gratuites, Pro/Max sur code');
-    log(`codes     : ${licence.knownCodes().join(' · ')}`);
+      : 'accès     : sous licence — 5 analyses gratuites, Pro/Max sur licence signée ou code historique');
+    log(runtime.studentAuth.required
+      ? `auth étudiants : requise · ${runtime.studentAuth.ready ? 'prête' : 'configuration incomplète (routes protégées en 503)'}`
+      : 'auth étudiants : désactivée (FM_STUDENT_AUTH=required pour l’activer après validation)');
   });
   for (const sig of ['SIGINT', 'SIGTERM'])
     process.on(sig, () => { log('arrêt'); server.close(() => process.exit(0)); });

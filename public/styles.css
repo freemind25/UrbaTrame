@@ -249,6 +249,7 @@ body.v3d-ouvert{overflow:hidden}
 .v3d-c{display:flex;align-items:center;gap:6px;color:#B9B6AD;white-space:nowrap}
 .v3d-c input[type=range]{width:92px;accent-color:#C0392B}
 .v3d-c input[type=date]{width:134px;height:29px;padding:0 5px;border:1px solid #3C4036;border-radius:4px;background:#12130F;color:#EDEAE3;color-scheme:dark;font:10px var(--mono)}
+.v3d-c select{max-width:150px;height:29px;padding:0 7px;border:1px solid #3C4036;border-radius:4px;background:#12130F;color:#EDEAE3;color-scheme:dark;font:10px var(--mono)}
 .v3d-c output{min-width:34px;color:#EDEAE3}
 .v3d-c.v3d-case{gap:4px}
 .v3d-spacer{flex:1}
@@ -298,6 +299,7 @@ body.v3d-ouvert{overflow:hidden}
   .data-preview-status{text-align:left;max-width:none}
   .v3d-barre{gap:9px;font-size:11px}
   .v3d-c input[type=range]{width:64px}
+  .v3d-c select{max-width:132px}
   .v3d-fiche{width:200px}
 }
 

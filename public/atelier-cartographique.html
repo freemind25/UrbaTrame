@@ -8,6 +8,7 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/atelier-cartographique.css">
+  <script type="module" src="/js/student-auth-ui.mjs"></script>
   <script type="module" src="/js/atelier/local-layers-ui.mjs"></script>
 </head>
 <body>
@@ -48,10 +49,10 @@
             <h2 id="import-title">Ajouter une couche</h2>
           </div>
           <label class="file-drop" id="dropZone" for="fileInput">
-            <input id="fileInput" type="file" accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,application/geo+json,application/json,text/csv,text/tab-separated-values,application/geopackage+sqlite3,image/tiff">
+            <input id="fileInput" type="file" accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz,application/geo+json,application/json,text/csv,text/tab-separated-values,application/geopackage+sqlite3,image/tiff,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz">
             <span class="drop-icon" aria-hidden="true">＋</span>
             <span class="drop-title">Choisir un fichier</span>
-            <span class="drop-subtitle">GeoJSON · CSV/TSV · GeoPackage · GeoTIFF</span>
+            <span class="drop-subtitle">GeoJSON · CSV/TSV · GeoPackage · GeoTIFF · KML/KMZ</span>
             <span class="drop-limit">Fichier lu dans ce navigateur uniquement</span>
           </label>
           <label class="file-drop shapefile-drop" for="shapefileFiles">
@@ -61,7 +62,7 @@
             <span class="drop-subtitle">Sélectionnez .shp + .dbf + .prj ensemble, ou un .zip Shapefile</span>
             <span class="drop-limit">Lecture locale; choisissez/validez le CRS</span>
           </label>
-          <p class="source-footnote">GeoPackage : import de tables vectorielles. GeoTIFF : aperçu affine approximatif de l’emprise, avec statistiques descriptives seulement; aucun rééchantillonnage ni traitement raster pixel par pixel.</p>
+          <p class="source-footnote">GeoPackage : import de tables vectorielles. GeoTIFF : aperçu affine approximatif de l’emprise, avec statistiques descriptives seulement; aucun rééchantillonnage ni traitement raster pixel par pixel. KML/KMZ : couches vectorielles locales; aucun lien réseau KML n’est suivi.</p>
           <section id="shapeMapping" class="csv-mapping" hidden aria-labelledby="shape-title">
             <h3 id="shape-title">Système de coordonnées Shapefile</h3>
             <p id="shapeFilesSummary">Confirmez le CRS indiqué par le .prj ou par la source des données.</p>
@@ -102,17 +103,89 @@
           <p id="importStatus" class="status" role="status" aria-live="polite">Aucun fichier chargé.</p>
         </section>
 
+        <section class="panel field-survey-panel" aria-labelledby="survey-title">
+          <div class="panel-heading">
+            <div><span class="step">02 / RELEVÉ TERRAIN</span><h2 id="survey-title">Fiche de collecte GNSS</h2></div>
+          </div>
+          <p class="survey-disclaimer">La géolocalisation ne démarre qu’après votre clic et l’autorisation du navigateur. Les points et formulaires restent dans ce navigateur; aucun fichier ni position n’est envoyé à UrbaTrame. Si un fond web est actif, le fournisseur peut recevoir des requêtes révélant l’emprise affichée et votre adresse IP. La précision dépend du téléphone/récepteur et de son système.</p>
+          <div class="survey-template-tools">
+            <label class="field-label" for="surveyTemplateLibrary">Gabarits enregistrés sur cet appareil
+              <select id="surveyTemplateLibrary"></select>
+            </label>
+            <div class="survey-action-row">
+              <button id="loadSurveyTemplate" class="button-secondary" type="button">Charger</button>
+              <button id="saveSurveyTemplate" class="button-secondary" type="button">Enregistrer</button>
+              <button id="exportSurveyTemplate" class="button-secondary" type="button">Exporter le gabarit</button>
+              <button id="deleteSurveyTemplate" class="button-secondary" type="button">Supprimer le gabarit enregistré</button>
+            </div>
+            <label class="template-file-label" for="surveyTemplateFile">Importer un gabarit UrbaTrame (.json)
+              <input id="surveyTemplateFile" type="file" accept=".json,application/json">
+            </label>
+          </div>
+          <label class="field-label" for="surveyTemplateName">Nom du gabarit
+            <input id="surveyTemplateName" type="text" maxlength="80" value="Relevé urbain">
+          </label>
+          <div class="survey-fields-editor">
+            <div class="survey-fields-heading"><strong>Dictionnaire d’attributs</strong><button id="addSurveyField" class="text-button" type="button">＋ Ajouter un champ</button></div>
+            <div id="surveyFieldDefinitions" class="survey-field-definitions"></div>
+            <p class="source-footnote">Types pris en charge : texte, nombre, date, oui/non et liste de choix. Le gabarit est local; il peut être exporté pour être partagé.</p>
+          </div>
+          <div class="survey-values">
+            <strong>Valeurs de la prochaine entité</strong>
+            <div id="surveyFormFields" class="survey-form-fields"></div>
+            <p class="source-footnote">Ces champs sont appliqués aux points, lignes et polygones ajoutés avec les outils d’édition ci-dessous.</p>
+          </div>
+          <div class="survey-view">
+            <strong>Centre et cadrage du fond</strong>
+            <div class="survey-coordinate-row">
+              <label for="surveyCenterLat">Latitude WGS 84<input id="surveyCenterLat" type="number" step="any" value="36.2642"></label>
+              <label for="surveyCenterLon">Longitude WGS 84<input id="surveyCenterLon" type="number" step="any" value="6.6969"></label>
+            </div>
+            <label class="field-label" for="surveyViewSpan">Largeur de la vue (m) · plafond 3 000 m
+              <input id="surveyViewSpan" type="number" min="100" max="3000" step="100" value="2000">
+            </label>
+            <div class="survey-action-row">
+              <button id="applySurveyView" class="button-secondary" type="button">Afficher ce centre</button>
+              <button id="fitSurveyData" class="button-secondary" type="button">Ajuster aux couches</button>
+              <button id="surveyZoomOut" class="button-secondary" type="button" aria-label="Dézoomer">−</button>
+              <button id="surveyZoomIn" class="button-secondary" type="button" aria-label="Zoomer">＋</button>
+            </div>
+            <div class="survey-action-row">
+              <button id="readGps" class="button-secondary" type="button">Lire ma position GNSS</button>
+              <button id="captureGpsPoint" class="button-primary" type="button" disabled>Capturer un point GPS</button>
+            </div>
+            <p id="surveyGpsStatus" class="survey-status" role="status" aria-live="polite">Position non lue. La permission de localisation sera demandée uniquement après le clic ci-dessus.</p>
+          </div>
+          <div class="geoid-tools">
+            <label class="field-label" for="geoidFile">Modèle de géoïde local (.gtx), facultatif
+              <input id="geoidFile" type="file" accept=".gtx,application/octet-stream">
+            </label>
+            <button id="removeGeoid" class="text-button" type="button" disabled>Retirer le modèle</button>
+            <div id="geoidConfirmRow" class="geoid-confirm-row" hidden><label><input id="confirmGeoidUse" type="checkbox"> J’ai vérifié la couverture et le datum vertical de ce modèle pour mon site; activer le calcul H = h − N.</label></div>
+            <p id="geoidStatus" class="source-footnote" role="status">Aucun modèle chargé. Un modèle compatible doit couvrir le site et son datum vertical doit être confirmé par l’utilisateur; aucun modèle n’est téléchargé ou fourni.</p>
+          </div>
+          <button id="createSurveyLayer" class="button-primary full-button" type="button">Créer une couche vide « Relevé terrain »</button>
+          <p class="source-footnote">Le GNSS du téléphone passe par l’API de géolocalisation du navigateur. Un récepteur externe ne fonctionne ici que si Android ou le système le présente au navigateur comme position; l’appairage Bluetooth/NTRIP direct n’est pas fourni par cette page. Un modèle GTX est seulement gardé en mémoire jusqu’à la fermeture/recharge de l’onglet et n’est pas incorporé au projet. La conversion UBX→RINEX et le post-traitement GNSS ne sont pas inclus : cette page ne remplace pas un outil GNSS dédié et ne lit pas directement les fichiers bruts du récepteur.</p>
+        </section>
+
         <section class="panel layers-panel" aria-labelledby="layers-title">
           <div class="panel-heading layers-heading">
-            <div><span class="step">02 / AFFICHAGE</span><h2 id="layers-title">Couches</h2></div>
+            <div><span class="step">03 / AFFICHAGE</span><h2 id="layers-title">Couches</h2></div>
             <span id="layerCount" class="count-pill">0</span>
           </div>
           <p class="layer-stack-help">Ordre d’affichage : du haut de la liste (au-dessus) vers le bas. Utilisez les flèches pour réorganiser la pile; le nouvel import arrive au-dessus.</p>
           <div id="layerList" class="layer-list">
-            <p class="empty-layers">Ajoutez un GeoJSON, GeoPackage, GeoTIFF, CSV/TSV ou Shapefile pour commencer.</p>
+            <p class="empty-layers">Ajoutez un GeoJSON, CSV/TSV, KML/KMZ, Shapefile, GeoPackage ou GeoTIFF pour commencer.</p>
           </div>
           <div class="layer-actions">
-            <button id="exportGeoJSON" class="button-primary" type="button" disabled>Exporter les couches vectorielles visibles en GeoJSON</button>
+            <div class="export-format-actions" aria-label="Exporter les couches vectorielles visibles">
+              <button id="exportGeoJSON" class="button-primary" type="button" disabled>GeoJSON</button>
+              <button id="exportCsv" class="button-secondary" type="button" disabled>CSV (tableur)</button>
+              <button id="exportKml" class="button-secondary" type="button" disabled>KML</button>
+              <button id="exportKmz" class="button-secondary" type="button" disabled>KMZ</button>
+              <button id="exportGpkg" class="button-secondary" type="button" disabled>GeoPackage</button>
+            </div>
+            <p class="source-footnote">Les exports vectoriels contiennent les couches visibles; un GeoTIFF n’est pas exporté en GeoPackage par cet outil.</p>
             <button id="clearLayers" class="button-secondary" type="button" disabled>Tout retirer</button>
           </div>
           <p class="source-footnote">Chaque couche conserve le nom du fichier, la date d’import et la référence de source fournie.</p>

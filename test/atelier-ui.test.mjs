@@ -53,14 +53,33 @@ describe('UrbaTrame · contrôles d’interface de l’atelier cartographique', 
     assert.match(css, /\.layer-order-controls/);
   });
 
-  test('l’IA est inactive par défaut et la clé n’est pas préremplie ni persistée', () => {
+  test('l’IA est inactive par défaut, la clé n’est pas persistée et seuls les gabarits locaux sont stockés', () => {
     assert.match(html, /<option value="">Choisir — IA inactive<\/option>/);
     assert.match(html, /id="aiApiKey" type="password" maxlength="500" autocomplete="new-password" spellcheck="false"/);
     assert.doesNotMatch(html, /id="aiApiKey"[^>]*value=/i);
     assert.match(js, /\$\('#aiApiKey'\)\.value = ''/);
     assert.match(js, /window\.confirm\(disclosure\)/);
-    assert.doesNotMatch(js, /localStorage|sessionStorage/);
+    assert.match(js, /localStorage\.setItem\(FIELD_TEMPLATES_KEY, JSON\.stringify\(savedSurveyTemplates\)\)/);
+    assert.doesNotMatch(js, /localStorage\.setItem\([^,]*(?:aiApiKey|state\.layers|gpsFix)/i);
     assert.match(js, /zdr: true, data_collection: 'deny'/);
+  });
+
+  test('le relevé terrain, les formats KML/KMZ et le cadrage GNSS restent dans l’Atelier existant', () => {
+    for (const id of ['surveyTemplateLibrary', 'surveyTemplateName', 'surveyFieldDefinitions', 'surveyFormFields', 'deleteSurveyTemplate', 'createSurveyLayer', 'readGps', 'captureGpsPoint', 'surveyCenterLat', 'surveyCenterLon', 'surveyViewSpan', 'geoidFile', 'confirmGeoidUse', 'exportCsv', 'exportKml', 'exportKmz', 'exportGpkg'])
+      assert.match(html, new RegExp(`id="${id}"`));
+    assert.ok(html.includes('accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz'));
+    assert.match(html, /UBX→RINEX/);
+    assert.match(html, /plafond 3 000 m/);
+    assert.match(js, /from '\.\/field-survey\.mjs'/);
+    assert.match(js, /from '\.\/kml\.mjs'/);
+    assert.match(js, /from '\.\/geopackage-export\.mjs'/);
+    assert.match(js, /navigator\.geolocation\.getCurrentPosition/);
+    assert.match(js, /extractKmlFromZip\(archive\)/);
+    assert.ok(js.includes("createStoredZip([{ name: 'doc.kml'"));
+    assert.match(js, /createGeoPackage\(state\.layers, SQL\)/);
+    assert.match(js, /interpolateGeoidUndulation\(state\.geoidGrid, fix\.lon, fix\.lat\)/);
+    assert.match(html, /aucun lien réseau KML n’est suivi/);
+    assert.match(html, /appairage Bluetooth\/NTRIP direct n’est pas fourni/);
   });
 
   test('les requêtes externes sont explicites, sans cookies, et le plan exporté retire les images externes', () => {

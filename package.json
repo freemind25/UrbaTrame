@@ -39,6 +39,10 @@
     "capture": "node tools/capture-sample.mjs",
     "personnaliser": "node tools/personaliser.mjs",
     "genere-cle": "node tools/genere-cle.mjs",
+    "licence:init": "node tools/licence-manager.mjs init",
+    "licence:public": "node tools/licence-manager.mjs public",
+    "licence:issue": "node tools/licence-manager.mjs issue",
+    "etudiants": "node tools/student-whitelist.mjs",
     "dev:vercel": "vercel dev",
     "exporter": "node tools/exporter.mjs",
     "atelier:exporter": "node tools/atelier/exporter.mjs"
@@ -54,5 +58,9 @@
   "devDependencies": {
     "geotiff": "3.0.5",
     "sql.js": "1.15.0"
+  },
+  "dependencies": {
+    "nodemailer": "^10.1.7",
+    "pg": "^8.23.1"
   }
 }

@@ -61,7 +61,8 @@ describe('service', () => {
     assert.equal(j.max.length, 8);
     assert.equal(Buffer.from(j.pub, 'base64').length, 32);
     assert.equal(j.trace, r.headers.get('x-em-trace'), 'trace renvoyée en en-tête');
-    assert.ok(j.codes.includes('cs_demo_pro'));
+    assert.equal('codes' in j, false, 'le statut public ne doit jamais exposer le catalogue de licences');
+    assert.equal(typeof j.licenses.signedFileActivation, 'boolean');
   });
 
   test('les fichiers statiques sont servis, la traversée ne l\'est pas', async () => {

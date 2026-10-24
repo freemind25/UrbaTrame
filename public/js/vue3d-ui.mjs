@@ -2,6 +2,7 @@
    ─────────────────────────────────────────────────────────────────────────
    Fenêtre plein écran qui affiche les volumes bâtis d'un site, avec :
 
+     • quatre projections : libre, axonométrique, perspective architecturale à un ou deux points ;
      • rotation (glisser horizontalement) et inclinaison (glisser verticalement) ;
      • sélecteurs de date et d'heure : le soleil se déplace, les ombres suivent ;
      • molette : rapprochement ;
@@ -24,6 +25,12 @@ const validISODate = value => {
   const d = new Date(value + 'T00:00:00Z');
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
 };
+const PROJECTION_PRESETS = {
+  perspective: { cap: null, inclinaison: null },
+  axonometric: { cap: 45, inclinaison: 55 },
+  'two-point': { cap: 45, inclinaison: 45 },
+  'one-point': { cap: 0, inclinaison: 50 }
+};
 
 const FR = {
   titre: 'Vue 3D', heure: 'Heure', cap: 'Rotation', pente: 'Inclinaison',
@@ -39,6 +46,10 @@ export function ouvrir3D(o) {
   const lang = o.langue === 'en' ? 'en' : 'fr';
   const t = (fr, en) => (lang === 'en' ? en : fr);
   const sunDate = validISODate(o.sunDate) ? o.sunDate : todayLocalISO();
+  const projection = Object.hasOwn(PROJECTION_PRESETS, o.projection) ? o.projection : 'perspective';
+  const preset = PROJECTION_PRESETS[projection];
+  const initialCap = preset.cap ?? (Number.isFinite(Number(o.cap)) ? Number(o.cap) : 0);
+  const initialTilt = preset.inclinaison ?? (Number.isFinite(Number(o.inclinaison)) ? Number(o.inclinaison) : 50);
 
   const racine = document.createElement('div');
   racine.className = 'v3d';
@@ -50,10 +61,17 @@ export function ouvrir3D(o) {
         <output id="v3d-hv">${o.heure ?? 12} h</output></label>
       <label class="v3d-c"><span>${t('Date solaire', 'Solar date')}</span>
         <input type="date" id="v3d-date" value="${sunDate}"></label>
+      <label class="v3d-c v3d-projection"><span>${t('Projection', 'Projection')}</span>
+        <select id="v3d-projection" aria-label="${t('Mode de projection', 'Projection mode')}">
+          <option value="perspective" ${projection === 'perspective' ? 'selected' : ''}>${t('Perspective libre', 'Free perspective')}</option>
+          <option value="axonometric" ${projection === 'axonometric' ? 'selected' : ''}>${t('Axonométrie', 'Axonometric')}</option>
+          <option value="two-point" ${projection === 'two-point' ? 'selected' : ''}>${t('Perspective à 2 points', 'Two-point perspective')}</option>
+          <option value="one-point" ${projection === 'one-point' ? 'selected' : ''}>${t('Perspective à 1 point', 'One-point perspective')}</option>
+        </select></label>
       <label class="v3d-c"><span>${t('Rotation', 'Rotation')}</span>
-        <input type="range" id="v3d-cap" min="-180" max="180" step="2" value="0"></label>
+        <input type="range" id="v3d-cap" min="-180" max="180" step="2" value="${initialCap}"></label>
       <label class="v3d-c"><span>${t('Inclinaison', 'Tilt')}</span>
-        <input type="range" id="v3d-inc" min="0" max="80" step="1" value="${o.inclinaison ?? 50}"></label>
+        <input type="range" id="v3d-inc" min="0" max="80" step="1" value="${initialTilt}"></label>
       <label class="v3d-c"><span>${t('Palette', 'Palette')}</span>
         <input type="range" id="v3d-pal" min="0" max="3" step="1" value="0"></label>
       <label class="v3d-c v3d-case"><input type="checkbox" id="v3d-fond" ${o.fondParDefaut ? 'checked' : ''}> ${t('Fond de carte', 'Basemap')}</label>
@@ -85,7 +103,7 @@ export function ouvrir3D(o) {
   /* ── état ── */
   const V = globalThis.FMVue3D;
   const et = {
-    cap: 0, inclinaison: o.inclinaison ?? 50, heure: o.heure ?? 12, sunDate,
+    cap: initialCap, inclinaison: initialTilt, projection, heure: o.heure ?? 12, sunDate,
     palette: 0, rayon: o.rayon, fond: !!o.fondParDefaut, ombres: true,
     selection: null, batiments: o.batiments || [], routes: o.routes || [],
     terrain: o.terrain || null, relief: true,   // le relief est acquis par défaut ; la case le débraye
@@ -125,7 +143,8 @@ export function ouvrir3D(o) {
     if (!V) return;
     const cam = V.camera({
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap,
-      inclinaison: et.inclinaison, largeur: cv.width, hauteur: cv.height, recul: 1.08
+      inclinaison: et.inclinaison, projection: et.projection,
+      largeur: cv.width, hauteur: cv.height, recul: 1.08
     });
     const soleil = V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon);
     const sc = V.scene(et.batiments, cam, {
@@ -184,6 +203,26 @@ export function ouvrir3D(o) {
       : '';
   }
 
+  function freePerspectiveOnManualCameraChange() {
+    if (et.projection === 'perspective') return;
+    et.projection = 'perspective';
+    q('#v3d-projection').value = 'perspective';
+  }
+
+  function changerProjection(value) {
+    if (!Object.hasOwn(PROJECTION_PRESETS, value)) {
+      q('#v3d-projection').value = et.projection;
+      return;
+    }
+    et.projection = value;
+    const next = PROJECTION_PRESETS[value];
+    if (next.cap !== null) et.cap = next.cap;
+    if (next.inclinaison !== null) et.inclinaison = next.inclinaison;
+    q('#v3d-cap').value = et.cap;
+    q('#v3d-inc').value = et.inclinaison;
+    dessiner();
+  }
+
   /* ── interactions ── */
   let glisse = null;
   cv.addEventListener('pointerdown', e => {
@@ -193,7 +232,10 @@ export function ouvrir3D(o) {
   cv.addEventListener('pointermove', e => {
     if (!glisse) return;
     const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) glisse.bouge = true;
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      glisse.bouge = true;
+      freePerspectiveOnManualCameraChange();
+    }
     et.cap = Math.max(-180, Math.min(180, glisse.cap - dx * 0.35));
     et.inclinaison = Math.max(0, Math.min(80, glisse.inc + dy * 0.25));
     q('#v3d-cap').value = et.cap;
@@ -250,8 +292,13 @@ export function ouvrir3D(o) {
     if (validISODate(e.target.value)) { et.sunDate = e.target.value; dessiner(); }
     else e.target.value = et.sunDate;
   });
-  q('#v3d-cap').addEventListener('input', e => { et.cap = Number(e.target.value); dessiner(); });
-  q('#v3d-inc').addEventListener('input', e => { et.inclinaison = Number(e.target.value); dessiner(); });
+  q('#v3d-projection').addEventListener('change', e => changerProjection(e.target.value));
+  q('#v3d-cap').addEventListener('input', e => {
+    freePerspectiveOnManualCameraChange(); et.cap = Number(e.target.value); dessiner();
+  });
+  q('#v3d-inc').addEventListener('input', e => {
+    freePerspectiveOnManualCameraChange(); et.inclinaison = Number(e.target.value); dessiner();
+  });
   q('#v3d-pal').addEventListener('input', e => { et.palette = Number(e.target.value); dessiner(); });
   q('#v3d-ombres').addEventListener('change', e => { et.ombres = e.target.checked; dessiner(); });
   q('#v3d-relief').addEventListener('change', async e => {
@@ -268,7 +315,7 @@ export function ouvrir3D(o) {
   q('#v3d-svg').addEventListener('click', () => {
     const svg = V.versSVG(et.batiments, {
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap, inclinaison: et.inclinaison,
-      palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
+      projection: et.projection, palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
       routes: et.routes, eaux: et.eaux, terrain: et.relief ? et.terrain : null,
       soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon),
       attribution: et.sunDate + ' · ' + et.heure + ' h · ' + (et.fond
@@ -283,10 +330,10 @@ export function ouvrir3D(o) {
   racine.addEventListener('keydown', e => { if (e.key === 'Escape') fermer(); });
   const surTouche = e => {
     if (e.key === 'Escape') { fermer(); return; }
-    if (e.key === 'ArrowLeft') { et.cap -= 5; q('#v3d-cap').value = et.cap; dessiner(); }
-    if (e.key === 'ArrowRight') { et.cap += 5; q('#v3d-cap').value = et.cap; dessiner(); }
-    if (e.key === 'ArrowUp') { et.inclinaison = Math.min(80, et.inclinaison + 3); q('#v3d-inc').value = et.inclinaison; dessiner(); }
-    if (e.key === 'ArrowDown') { et.inclinaison = Math.max(0, et.inclinaison - 3); q('#v3d-inc').value = et.inclinaison; dessiner(); }
+    if (e.key === 'ArrowLeft') { freePerspectiveOnManualCameraChange(); et.cap -= 5; q('#v3d-cap').value = et.cap; dessiner(); }
+    if (e.key === 'ArrowRight') { freePerspectiveOnManualCameraChange(); et.cap += 5; q('#v3d-cap').value = et.cap; dessiner(); }
+    if (e.key === 'ArrowUp') { freePerspectiveOnManualCameraChange(); et.inclinaison = Math.min(80, et.inclinaison + 3); q('#v3d-inc').value = et.inclinaison; dessiner(); }
+    if (e.key === 'ArrowDown') { freePerspectiveOnManualCameraChange(); et.inclinaison = Math.max(0, et.inclinaison - 3); q('#v3d-inc').value = et.inclinaison; dessiner(); }
   };
   window.addEventListener('keydown', surTouche);
   const surRedim = () => { dimensionner(); dessiner(); };

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-/* Génère la paire de clés Ed25519 utilisée pour signer les licences.
+/* Génère la paire Ed25519 du serveur, utilisée pour signer les attestations
+   de session. Ce n’est PAS le générateur des titres Pro/Max .utlic : celui-ci
+   est `tools/licence-manager.mjs` et conserve sa clé privée hors du projet.
    ───────────────────────────────────────────────────────────────────────────
      node tools/genere-cle.mjs            # affiche la valeur à copier
      node tools/genere-cle.mjs --fichier data/keys.json

@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#153e3d">
 <title>UrbaTrame — analyse des sites urbains</title>
 <meta name="description" content="UrbaTrame : analyses de sites urbains, synthèse quantitative, scénario indicatif, exports vectoriels, 3D et relief fondés sur des données cartographiques.">
+<script type="module" src="/js/student-auth-ui.mjs"></script>
 <link rel="stylesheet" href="styles.css?v=header-clean">
 <script src="js/catalog.js"></script>
 <script src="js/engine.js"></script>
@@ -179,8 +180,8 @@
   <div class="sheet workspace-sheet" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
     <button class="x" data-close aria-label="Fermer">×</button>
     <h2 id="workspaceTitle" data-fr="Projets & modèles locaux" data-en="Local projects & templates">Projets & modèles locaux</h2>
-    <p class="lead" data-fr="Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site."
-       data-en="Saved in this browser only. Projects retain the place/coordinates, analysis selection and assumptions—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent l’adresse/coordonnées, la sélection et les hypothèses — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
+    <p class="lead" data-fr="Sauvegardés dans ce navigateur uniquement. Les projets conservent le lieu, la sélection, les hypothèses et l’apparence des cartes (palettes, titres et affichage du texte) — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site."
+       data-en="Saved in this browser only. Projects retain the place, analysis selection, assumptions and map appearance (palettes, titles and text visibility)—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent le lieu, la sélection, les hypothèses et l’apparence des cartes (palettes, titres et affichage du texte) — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
     <div class="workspace-save">
       <label for="workspaceName" data-fr="Nom du projet ou modèle" data-en="Project or template name">Nom du projet ou modèle</label>
       <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet">
@@ -210,8 +211,8 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="plansTitle">
     <button class="x" data-close aria-label="Fermer">×</button>
     <h2 id="plansTitle" data-fr="Essai gratuit, puis licence d'étude" data-en="Free trial, then study licence">Essai gratuit, puis licence d'étude</h2>
-    <p class="lead" data-fr="5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur."
-       data-en="5 free analyses, including OpenBuildingMap building occupancy. The rest require a server-signed licence.">5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les autres demandent une licence signée par le serveur.</p>
+    <p class="lead" data-fr="5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les paliers Pro et Max s’activent avec un fichier de licence UrbaTrame signé."
+       data-en="5 free analyses, including OpenBuildingMap building occupancy. Pro and Max tiers activate with a signed UrbaTrame licence file.">5 analyses gratuites, dont l’occupation des bâtiments OpenBuildingMap. Les paliers Pro et Max s’activent avec un fichier de licence UrbaTrame signé.</p>
     <div id="planBody"></div>
   </div>
 </section>
@@ -231,8 +232,8 @@
           data-en="<b>Analyses</b>: 5 free + 33 Pro + 8 composed Max boards in A3 landscape format."></li>
       <li data-fr="<b>Données</b> : OpenStreetMap (Overpass), couche facultative OpenBuildingMap d’occupation bâtie (ODbL 1.0), climat NASA POWER, rose des vents MERRA-2 à 10 m (flux régional, pas local) et altimétrie Terrarium (SRTM/USGS)."
           data-en="<b>Data</b>: OpenStreetMap (Overpass), optional OpenBuildingMap building-occupancy layer (ODbL 1.0), NASA POWER climate, MERRA-2 wind rose at 10 m (regional, not local flow), and Terrarium elevation (SRTM/USGS)."></li>
-      <li data-fr="<b>Licences</b> : jeton Ed25519 signé par le serveur, lié à cet appareil. Codes d'essai : cs_demo_pro, cs_demo_max, cs_demo_lifetime."
-          data-en="<b>Licences</b>: Ed25519 token signed by the server, bound to this device. Demo codes: cs_demo_pro, cs_demo_max, cs_demo_lifetime."></li>
+      <li data-fr="<b>Licences</b> : fichier .utlic Pro/Max signé Ed25519 par le générateur privé du propriétaire; la signature est vérifiée localement puis à nouveau par le serveur pour les analyses protégées."
+          data-en="<b>Licences</b>: Pro/Max .utlic signed with the owner’s private issuer; the signature is checked locally and again by the server for protected analyses."></li>
       <li data-fr="<b>Exports</b> : chaque carte sort en SVG vectoriel (éditable) ou PNG ×3 ; « Planche » imprime la grille."
           data-en="<b>Exports</b>: each card exports as editable SVG or PNG ×3; “Board” prints the grid."></li>
       <li data-fr="Synthèse & scénario : indicateurs issus des données chargées, puis scénario de capacité calculé uniquement à partir de vos hypothèses. Aucun règlement ni limite cadastrale n’est inventé."

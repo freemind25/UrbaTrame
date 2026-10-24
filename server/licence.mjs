@@ -18,12 +18,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { issuerPublicKeyFromEnv, verifyLicenseToken } from './licence-token.mjs';
 
 export const DAY = 864e5;
 
-/* Codes de démonstration livrés publiquement pour éprouver le parcours
-   d'activation. En production, les remplacer par le catalogue réel : variable
-   d'environnement `FM_CODES` (JSON) ou fichier `codes.json` dans les données. */
+/* Codes de démonstration réservés au développement local. Ils ne sont jamais
+   utilisés par défaut en production; les catalogues réels sont fournis par
+   FM_CODES ou par un fichier de données privé. */
 export const DEMO_CODES = new Map([
   ['cs_demo_pro',      { plan: 'pro', tier: 'pro', days: 30 }],
   ['cs_demo_max',      { plan: 'max', tier: 'max', days: 30 }],
@@ -31,24 +32,23 @@ export const DEMO_CODES = new Map([
   ['cs_etude_2026',    { plan: 'max', tier: 'max', days: 90 }]
 ]);
 
-/* Catalogue effectif : variables d'environnement > fichier > démonstration. */
+/* Catalogue effectif : variable d'environnement > fichier local. Les codes
+   de démonstration ne servent qu'en développement, jamais en production. */
 export function resolveCodes({ dataDir, env = process.env } = {}) {
-  if (env.FM_CODES) {
+  if (typeof env.FM_CODES === 'string' && env.FM_CODES.trim()) {
     try {
       const j = JSON.parse(env.FM_CODES);
-      const m = new Map(Object.entries(j));
-      if (m.size) return m;
-    } catch { /* JSON invalide : on garde le catalogue de démonstration */ }
+      if (j && typeof j === 'object' && !Array.isArray(j)) return new Map(Object.entries(j));
+    } catch { /* catalogue invalide : ne jamais ouvrir les licences en production */ }
   }
   const file = dataDir ? path.join(dataDir, 'codes.json') : null;
   if (file && fs.existsSync(file)) {
     try {
       const j = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const m = new Map(Object.entries(j));
-      if (m.size) return m;
-    } catch { /* fichier illisible : idem */ }
+      if (j && typeof j === 'object' && !Array.isArray(j)) return new Map(Object.entries(j));
+    } catch { /* fichier illisible : mode vide en production */ }
   }
-  return DEMO_CODES;
+  return env.NODE_ENV === 'production' || Boolean(env.VERCEL) ? new Map() : DEMO_CODES;
 }
 
 export const validDevice = d => typeof d === 'string' && /^[0-9a-f-]{16,40}$/i.test(d);
@@ -75,6 +75,7 @@ export function keysFromEnv(env = process.env) {
 export function keysFromFile(dataDir) {
   const keyFile = path.join(dataDir, 'keys.json');
   if (fs.existsSync(keyFile)) {
+    try { fs.chmodSync(keyFile, 0o600); } catch { /* ACL Windows / stockage read-only */ }
     const j = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
     return {
       privateKey: crypto.createPrivateKey({ key: j.private, format: 'jwk' }),
@@ -96,14 +97,17 @@ export function createLicence({
   dataDir,
   keys,                      // paire fournie (environnement) ; sinon lue ou créée
   codes,
+  issuerPublicKey = undefined,
   stateless = false          // sessions sans stockage (plateformes sans disque)
 } = {}) {
   const resolved = keys || (dataDir ? keysFromFile(dataDir) : null);
   const catalogue = codes || resolveCodes({ dataDir });
+  const licenseIssuer = issuerPublicKey === undefined ? issuerPublicKeyFromEnv() : issuerPublicKey;
   /* Sans clé, le service reste utilisable en essai gratuit : mieux vaut un
      mode dégradé explicite qu'une erreur au démarrage. */
   const disabled = !resolved;
   const pubB64 = resolved ? resolved.publicRaw.toString('base64') : '';
+  const licensePubB64 = licenseIssuer?.publicRaw?.toString('base64') || '';
 
   const sessions = new Map();    // mode « sessions » : token -> {account, code, tier, …}
   const refByCode = new Map();   // code -> code de parrainage
@@ -128,9 +132,9 @@ export function createLicence({
     let p;
     try { p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); }
     catch { return { error: 'INVALID_TOKEN', status: 400 }; }
-    if (p.v !== 1) return { error: 'DEVICE_REVOKED', status: 403 };
+    if (p.v !== 1 || !['pro', 'max'].includes(p.t)) return { error: 'DEVICE_REVOKED', status: 403 };
     if (device && p.d !== device) return { error: 'DEVICE_REVOKED', status: 403 };
-    if (p.x && p.x < now) return { error: 'EXPIRED', status: 403, expired: true };
+    if (p.x && p.x <= now) return { error: 'EXPIRED', status: 403, expired: true };
     return { ok: true, tier: p.t, plan: p.t, expiresAt: p.x || null };
   }
 
@@ -143,7 +147,7 @@ export function createLicence({
 
     const account = 'acc_' + crypto.createHash('sha1').update(code).digest('hex').slice(0, 12);
     const expiresAt = def.days ? now + def.days * DAY : null;
-    const ent = signEntitlement({ v: 1, t: def.tier, d: device, x: expiresAt || now + 3650 * DAY });
+    const ent = signEntitlement({ v: 1, t: def.tier, d: device, x: expiresAt || 0 });
     const token = b64u(crypto.randomBytes(24));
 
     if (!stateless)
@@ -161,33 +165,68 @@ export function createLicence({
     };
   }
 
+  function activateLicense(tokenValue, device, now = Date.now()) {
+    if (!validDevice(device)) return { error: 'INVALID_DEVICE', status: 400 };
+    if (!licenseIssuer?.publicKey) return { error: 'LICENSE_ISSUER_UNCONFIGURED', status: 503 };
+    if (disabled) return { error: 'NO_SIGNING_KEY', status: 503 };
+    const verified = verifyLicenseToken(tokenValue, licenseIssuer.publicKey, now);
+    if (verified.error) return verified;
+
+    const { licenseId, tier, expiresAt } = verified.claims;
+    const account = 'lic_' + crypto.createHash('sha256').update(licenseId).digest('hex').slice(0, 12);
+    const ent = signEntitlement({ v: 1, t: tier, d: device, x: expiresAt || 0, li: licenseId });
+    const token = b64u(crypto.randomBytes(24));
+    if (!stateless)
+      sessions.set(token, { account, code: 'signed:' + licenseId, tier, plan: tier, expiresAt, device, licenseId });
+
+    return {
+      ok: true, account, token: stateless ? ent : token,
+      plan: tier, tier, expiresAt, ent, licenseId
+    };
+  }
+
   function check(session, now = Date.now()) {
     const { account, token, device } = session || {};
     if (!token) return { ok: true, tier: 'free' };
 
+    /* Un fichier .utlic est un titre autonome : le navigateur peut l’importer
+       sans code d’activation, et le serveur le vérifie à chaque analyse payante. */
+    const issued = verifyLicenseToken(token, licenseIssuer?.publicKey, now);
+    if (issued.ok) {
+      if (!validDevice(device)) return { error: 'INVALID_DEVICE', status: 400 };
+      if (disabled) return { error: 'NO_SIGNING_KEY', status: 503 };
+      const { licenseId, tier, expiresAt } = issued.claims;
+      const ent = signEntitlement({ v: 1, t: tier, d: device, x: expiresAt || 0, li: licenseId });
+      return { ok: true, tier, plan: tier, expiresAt, ent, licenseId };
+    }
+    if (issued.error === 'EXPIRED' || issued.error === 'LICENSE_NOT_YET_VALID') return issued;
+
     if (stateless) {
       const r = verifyEntitlement(token, device, now);
       if (r.error) return r;
-      const ent = signEntitlement({ v: 1, t: r.tier, d: device, x: r.expiresAt || now + 3650 * DAY });
+      const ent = signEntitlement({ v: 1, t: r.tier, d: device, x: r.expiresAt || 0 });
       return { ok: true, tier: r.tier, plan: r.tier, expiresAt: r.expiresAt, ent };
     }
 
     if (!account) return { ok: true, tier: 'free' };
     const s = sessions.get(token);
     if (!s || s.account !== account) return { error: 'DEVICE_REVOKED', status: 403 };
-    if (s.expiresAt && s.expiresAt < now) return { error: 'EXPIRED', status: 403, expired: true };
-    const ent = signEntitlement({ v: 1, t: s.tier, d: device, x: s.expiresAt || now + 3650 * DAY });
+    if (s.expiresAt && s.expiresAt <= now) return { error: 'EXPIRED', status: 403, expired: true };
+    const ent = signEntitlement({ v: 1, t: s.tier, d: device, x: s.expiresAt || 0, ...(s.licenseId ? { li: s.licenseId } : {}) });
     return { ok: true, tier: s.tier, plan: s.plan || s.tier, expiresAt: s.expiresAt, ent };
   }
 
   return {
     pubB64,
+    licensePubB64,
     activate,
+    activateLicense,
     check,
     signEntitlement,
     verifyEntitlement,
     disabled,
     stateless,
+    issuerReady: Boolean(licenseIssuer?.publicKey),
     /* utilisés par les utilitaires de parrainage */
     sessionFor: code => {
       for (const s of sessions.values()) if (s.code === code) return s;

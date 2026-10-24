@@ -12,20 +12,29 @@ function pointShp() {
   return Buffer.from(buffer);
 }
 
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
 function makeZip(files) {
   const local = [], central = [];
   let localOffset = 0;
   for (const [name, value] of Object.entries(files)) {
-    const fileName = Buffer.from(name), original = Buffer.from(value), compressed = deflateRawSync(original);
+    const fileName = Buffer.from(name), original = Buffer.from(value), compressed = deflateRawSync(original), checksum = crc32(original);
     const header = Buffer.alloc(30);
     header.writeUInt32LE(0x04034b50, 0); header.writeUInt16LE(20, 4); header.writeUInt16LE(0x800, 6);
-    header.writeUInt16LE(8, 8); header.writeUInt32LE(0, 10); header.writeUInt32LE(0, 14);
+    header.writeUInt16LE(8, 8); header.writeUInt32LE(0, 10); header.writeUInt32LE(checksum, 14);
     header.writeUInt32LE(compressed.length, 18); header.writeUInt32LE(original.length, 22);
     header.writeUInt16LE(fileName.length, 26); header.writeUInt16LE(0, 28);
     local.push(header, fileName, compressed);
     const entry = Buffer.alloc(46);
     entry.writeUInt32LE(0x02014b50, 0); entry.writeUInt16LE(20, 4); entry.writeUInt16LE(20, 6);
-    entry.writeUInt16LE(0x800, 8); entry.writeUInt16LE(8, 10); entry.writeUInt32LE(0, 12); entry.writeUInt32LE(0, 16);
+    entry.writeUInt16LE(0x800, 8); entry.writeUInt16LE(8, 10); entry.writeUInt32LE(0, 12); entry.writeUInt32LE(checksum, 16);
     entry.writeUInt32LE(compressed.length, 20); entry.writeUInt32LE(original.length, 24);
     entry.writeUInt16LE(fileName.length, 28); entry.writeUInt16LE(0, 30); entry.writeUInt16LE(0, 32);
     entry.writeUInt16LE(0, 34); entry.writeUInt16LE(0, 36); entry.writeUInt32LE(0, 38); entry.writeUInt32LE(localOffset, 42);

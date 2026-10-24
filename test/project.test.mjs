@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { parseGeoJSONText } from '../public/js/atelier/local-layers.mjs';
 import { parseLocalProject, serializeLocalProject } from '../public/js/atelier/project.mjs';
 import { movePoint, setFeatureAttribute } from '../public/js/atelier/editing.mjs';
+import { defaultFieldTemplate } from '../public/js/atelier/field-survey.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sampleTiff = new Uint8Array(fs.readFileSync(path.join(ROOT, 'test/fixtures/geodata/mnt_test.tif')));
@@ -71,6 +72,17 @@ describe('UrbaTrame · projet cartographique local', () => {
     assert.equal(loaded.lastEditedAt, layer.lastEditedAt);
     assert.deepEqual(loaded.editHistory.undo, []);
     assert.deepEqual(loaded.editHistory.redo, []);
+  });
+
+  test('sauvegarde le gabarit terrain, sans incorporer le modèle géoïde', () => {
+    const template = defaultFieldTemplate();
+    const saved = serializeLocalProject([sampleLayer], new Date('2026-10-21T10:00:00.000Z'), { surveyTemplate: template });
+    assert.deepEqual(saved.surveyTemplate, template);
+    const loaded = parseLocalProject(JSON.stringify(saved), { includeMetadata: true });
+    assert.deepEqual(loaded.surveyTemplate, template);
+    assert.deepEqual(loaded.layers[0].geojson.features[0].geometry.coordinates, [6.1, 36.8]);
+    assert.equal('geoidGrid' in loaded, false);
+    assert.throws(() => serializeLocalProject([sampleLayer], new Date(), { surveyTemplate: { name: '', fields: [] } }), error => error.code === 'PROJECT_TEMPLATE_INVALID');
   });
 
   test('refuse les formats, couches et CRS non valides', () => {

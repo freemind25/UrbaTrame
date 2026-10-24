@@ -20,7 +20,7 @@ export const DEFAULT_HOST = process.env.FM_HOST || '0.0.0.0';
 /* Accès aux analyses.
      open    (défaut) : TOUT est ouvert à tout le monde — ni licence, ni
                         quota, ni filigrane. C'est la période d'essai.
-     licence          : découpage 4 analyses gratuites / Pro / Max, quota par
+     licence          : découpage 5 analyses gratuites / Pro / Max, quota par
                         IP et filigrane d'essai (comportement commercial).
    Lue à chaque appel : le mode change au redémarrage, sans reconstruire. */
 export const accessMode = () =>

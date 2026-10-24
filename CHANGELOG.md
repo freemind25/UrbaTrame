@@ -5,6 +5,15 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Corrigé — diagnostic de disponibilité de l'authentification étudiante
+
+- Sonde `SELECT 1` bornée (4 s ; cache de 15 s sur succès, 3 s sur échec) avant chaque route qui touche la base : une base injoignable est désormais détectée avant toute tentative d'envoi, réponse `503` avec `Retry-After` et journal `UT_AUTH_DB_UNAVAILABLE` limité à l'étape et au code (jamais l'URL, l'identifiant ni une adresse).
+- Diagnostic intégré à `GET /api/status` : test SQL réel (`SELECT 1`) au lieu de la simple présence des variables. L'étape (`dns`, `tcp`, `tls`, `auth`, …) et le code d'échec ne sont exposés qu'en aperçu (`VERCEL_ENV=preview`, champ `auth.db`), la réponse restant minimale en production. Aucune fonction serverless supplémentaire : la limite de douze de l'offre Hobby est respectée.
+- Classification des échecs sans SQLSTATE : la chaîne de causes (`cause`, 4 niveaux) est parcourue et un vocabulaire fermé dérivé du message remplace le `UNKNOWN` opaque — `SASL_PASSWORD_MISSING` (mot de passe absent de `FM_AUTH_DATABASE_URL`), `SASL_CHANNEL_BINDING`, `SASL_MECHANISM`, `SASL_SIGNATURE`, `SASL_ERROR`, `AUTH_FAILED`, `CONNECTION_TERMINATED`, `CLIENT_ERROR`, `TLS_ERROR` — le repli final devenant `UNKNOWN_<classe>` (ex. `UNKNOWN_TYPEERROR`). Le message brut n'est jamais renvoyé ni journalisé.
+- Documentation du piège des variables Vercel liées à une branche : elles écrasent la variable d'aperçon du même nom sans effet sur les déploiements existants, ce qui peut rendre un aperçu inopérant alors qu'un autre branche fonctionne.
+- Correction du conflit `ssl`/`sslmode` : un `sslmode=` déjà présent dans `FM_AUTH_DATABASE_URL` n'est plus superposé à un objet `ssl` contradictoire (brianc/node-postgres#3355), et `enableChannelBinding` reste conditionné à `pg` ≥ 8.14.
+- 18 tests dédiés ; 658/660 au total sur Windows/Node 25, les 2 échecs résiduels de `licence-ui.test.mjs` étant préexistants (chemin de travail et bits de permissions 0600) et sans rapport avec l'authentification.
+
 ### Ajouté — couche OpenBuildingMap dans UrbaTrame
 
 - Analyse facultative d’occupation bâtie, séparée des groupes OSM/Overpass : tuiles vectorielles publiques, rendu cartographique catégorisé, catégories inconnues explicites et synthèse de la part classée.

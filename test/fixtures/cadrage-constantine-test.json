@@ -1,0 +1,271 @@
+{
+  "type": "urbatrame-spatial-framing-project",
+  "version": 1,
+  "exportedAt": 1792317600000,
+  "cadrages": [
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "ctn-cadrage-niveau-1",
+      "name": "Test cadrage spatial – Constantine – Centre-ville — Wilaya / pays",
+      "createdAt": 1792317600000,
+      "updatedAt": 1792317600000,
+      "level": "wilaya-country",
+      "center": {
+        "lat": 36.3641642,
+        "lon": 6.6084281,
+        "name": "Constantine — repère OSM (place=city), pas un centre-ville vérifié"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Centre-ville",
+      "studyName": "Centre-ville (intitulé de scénario; limite non vérifiée)",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": null,
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [],
+      "viewRadius": 3000,
+      "scaleDenominator": 0,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Centre-ville — Wilaya / pays",
+      "comments": "Fixture synthétique importable. Centre choisi: point OSM place=city de Constantine (36.3641642, 6.6084281), pas un centre-ville délimité. Tout cercle d’étude est uniquement une géométrie de test, non officielle; aucune limite de quartier, cadastrale ou juridique n’est supposée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; repères observés le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "ctn-cadrage-niveau-2",
+      "name": "Test cadrage spatial – Constantine – Centre-ville — Ville / wilaya",
+      "createdAt": 1792317600000,
+      "updatedAt": 1792317600000,
+      "level": "city-wilaya",
+      "center": {
+        "lat": 36.3641642,
+        "lon": 6.6084281,
+        "name": "Constantine — repère OSM (place=city), pas un centre-ville vérifié"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Centre-ville",
+      "studyName": "Centre-ville (intitulé de scénario; limite non vérifiée)",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": null,
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [],
+      "viewRadius": 3000,
+      "scaleDenominator": 0,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Centre-ville — Ville / wilaya",
+      "comments": "Fixture synthétique importable. Centre choisi: point OSM place=city de Constantine (36.3641642, 6.6084281), pas un centre-ville délimité. Tout cercle d’étude est uniquement une géométrie de test, non officielle; aucune limite de quartier, cadastrale ou juridique n’est supposée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; repères observés le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "ctn-cadrage-niveau-3",
+      "name": "Test cadrage spatial – Constantine – Centre-ville — Quartier / ville",
+      "createdAt": 1792317600000,
+      "updatedAt": 1792317600000,
+      "level": "neighborhood-city",
+      "center": {
+        "lat": 36.3641642,
+        "lon": 6.6084281,
+        "name": "Constantine — repère OSM (place=city), pas un centre-ville vérifié"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Centre-ville",
+      "studyName": "Centre-ville (intitulé de scénario; limite non vérifiée)",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": {
+        "type": "circle",
+        "center": [
+          6.6084281,
+          36.3641642
+        ],
+        "radiusMeters": 500
+      },
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": true,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [
+        {
+          "id": "annotation-1",
+          "type": "point",
+          "position": [
+            6.6084281,
+            36.3641642
+          ],
+          "text": "Repère OSM de la ville — non limite du Centre-ville",
+          "category": "test",
+          "color": "#336699",
+          "width": 3
+        }
+      ],
+      "viewRadius": 600,
+      "scaleDenominator": 5000,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Centre-ville — Quartier / ville",
+      "comments": "Fixture synthétique importable. Centre choisi: point OSM place=city de Constantine (36.3641642, 6.6084281), pas un centre-ville délimité. Tout cercle d’étude est uniquement une géométrie de test, non officielle; aucune limite de quartier, cadastrale ou juridique n’est supposée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; repères observés le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "ctn-cadrage-niveau-4",
+      "name": "Test cadrage spatial – Constantine – Centre-ville — Quartier / environnement proche",
+      "createdAt": 1792317600000,
+      "updatedAt": 1792317600000,
+      "level": "neighborhood-environment",
+      "center": {
+        "lat": 36.3641642,
+        "lon": 6.6084281,
+        "name": "Constantine — repère OSM (place=city), pas un centre-ville vérifié"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Centre-ville",
+      "studyName": "Centre-ville (intitulé de scénario; limite non vérifiée)",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": {
+        "type": "circle",
+        "center": [
+          6.6084281,
+          36.3641642
+        ],
+        "radiusMeters": 250
+      },
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [
+        {
+          "id": "annotation-1",
+          "type": "point",
+          "position": [
+            6.6084281,
+            36.3641642
+          ],
+          "text": "Repère OSM de la ville — non limite du Centre-ville",
+          "category": "test",
+          "color": "#336699",
+          "width": 3
+        }
+      ],
+      "viewRadius": 400,
+      "scaleDenominator": 2500,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Centre-ville — Quartier / environnement proche",
+      "comments": "Fixture synthétique importable. Centre choisi: point OSM place=city de Constantine (36.3641642, 6.6084281), pas un centre-ville délimité. Tout cercle d’étude est uniquement une géométrie de test, non officielle; aucune limite de quartier, cadastrale ou juridique n’est supposée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; repères observés le 2026-10-18."
+    }
+  ]
+}

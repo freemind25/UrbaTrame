@@ -2,6 +2,7 @@ import { parseGeoJSONText, normalizeCrs, countFeaturePositions, MAX_TOTAL_POSITI
 import {
   MAX_RASTER_BYTES, MAX_RASTER_PIXELS, MAX_TOTAL_RASTER_BYTES, MAX_TOTAL_RASTER_PIXELS
 } from './geotiff-raster.mjs';
+import { normalizeFieldTemplate } from './field-survey.mjs';
 
 export const PROJECT_FORMAT = 'UrbaTrameProject';
 export const PROJECT_VERSION = 1;
@@ -33,8 +34,8 @@ function rasterBytes(layer) {
   fail('PROJECT_RASTER_SOURCE_MISSING');
 }
 
-export function serializeLocalProject(layers, now = new Date()) {
-  return {
+export function serializeLocalProject(layers, now = new Date(), { surveyTemplate = null } = {}) {
+  const project = {
     format: PROJECT_FORMAT, version: PROJECT_VERSION, exportedAt: now.toISOString(),
     coordinateSystem: 'EPSG:4326',
     layers: (layers || []).map(layer => ({
@@ -49,6 +50,11 @@ export function serializeLocalProject(layers, now = new Date()) {
       } } : { kind: 'vector', geojson: layer.geojson })
     }))
   };
+  if (surveyTemplate) {
+    try { project.surveyTemplate = normalizeFieldTemplate(surveyTemplate); }
+    catch { fail('PROJECT_TEMPLATE_INVALID'); }
+  }
+  return project;
 }
 
 function safeLayerStyle(item, index, fileName) {
@@ -103,7 +109,7 @@ function safeLayer(item, index) {
   };
 }
 
-export function parseLocalProject(text) {
+export function parseLocalProject(text, { includeMetadata = false } = {}) {
   if (typeof text !== 'string') fail('PROJECT_INVALID');
   if (text.length > MAX_PROJECT_BYTES) fail('PROJECT_TOO_LARGE');
   let raw;
@@ -119,5 +125,10 @@ export function parseLocalProject(text) {
   if (rasterBytesTotal > MAX_TOTAL_RASTER_BYTES) fail('PROJECT_TOO_MANY_RASTER_BYTES');
   if (rasterLayers.length > MAX_PROJECT_LAYERS || rasterLayers.reduce((sum, layer) => sum + (layer.raster.pixelCount || 0), 0) > MAX_TOTAL_RASTER_PIXELS)
     fail('PROJECT_TOO_MANY_RASTER_PIXELS');
-  return layers;
+  let surveyTemplate = null;
+  if (raw.surveyTemplate !== undefined && raw.surveyTemplate !== null) {
+    try { surveyTemplate = normalizeFieldTemplate(raw.surveyTemplate); }
+    catch { fail('PROJECT_TEMPLATE_INVALID'); }
+  }
+  return includeMetadata ? { layers, surveyTemplate } : layers;
 }

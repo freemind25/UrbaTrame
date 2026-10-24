@@ -8,20 +8,37 @@ import { summarizeFeatures } from './local-analysis.mjs';
 import { buildDashboardSummary } from './dashboard.mjs';
 import { layersTopFirst, moveLayerStack } from './layer-stack.mjs';
 import { parseShapefileBundle, detectShapefileCrs } from './shapefile.mjs';
-import { extractShapefileZip } from './zip-reader.mjs';
+import { extractShapefileZip, extractKmlFromZip } from './zip-reader.mjs';
 import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './project.mjs';
 import { runLocalRecipe } from './automation.mjs';
 import { buildVectorRequestUrl, buildWmtsTileUrl, fetchPaginatedVectorService, MAX_REMOTE_FEATURES, MAX_REMOTE_PAGES } from './remote-services.mjs';
 import { deleteFeature, moveVertex, insertVertex, deleteVertex, setFeatureAttribute, deleteFeatureAttribute, getVertex, canDeleteVertex, canInsertVertex, recordLayerEdit, undoLayerEdit, redoLayerEdit } from './editing.mjs';
 import { parseGeoPackage } from './geopackage.mjs';
 import { parseGeoTiff, MAX_RASTER_BYTES, MAX_RASTER_PIXELS, MAX_TOTAL_RASTER_BYTES, MAX_TOTAL_RASTER_PIXELS } from './geotiff-raster.mjs';
+import { parseKmlText, layersToKml } from './kml.mjs';
+import { createStoredZip } from './zip-writer.mjs';
+import { exportVisibleCsv, normalizeFieldTemplate, defaultFieldTemplate, parseFieldTemplate, serializeFieldTemplate, buildSurveyProperties, MAX_FIELD_TEMPLATE_BYTES, MAX_SURVEY_FIELDS } from './field-survey.mjs';
+import { createGeoPackage } from './geopackage-export.mjs';
+import { parseGtxGrid, interpolateGeoidUndulation, orthometricHeight, MAX_GTX_BYTES } from './geoid-gtx.mjs';
 
 const $ = selector => document.querySelector(selector);
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
-const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null };
+const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null };
+const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
+const MAX_SAVED_SURVEY_TEMPLATES = 20;
+function readSavedSurveyTemplates() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FIELD_TEMPLATES_KEY) || '[]');
+    return Array.isArray(raw) ? raw.slice(0, MAX_SAVED_SURVEY_TEMPLATES).flatMap(value => {
+      try { return [normalizeFieldTemplate(value)]; } catch { return []; }
+    }) : [];
+  } catch { return []; }
+}
+let savedSurveyTemplates = readSavedSurveyTemplates();
+let lastSurveyTemplateStorageSucceeded = true;
 const readerRuntime = { sql: null, sqlPromise: null, geotiff: null, geotiffPromise: null };
 let currentProjector = null;
 const fileInput = $('#fileInput');
@@ -181,6 +198,11 @@ function errorMessage(error) {
   if (code === 'DBF_INVALID') return 'Table DBF invalide ou trop volumineuse.';
   if (code === 'ZIP_INVALID') return 'Archive ZIP invalide ou tronquée.';
   if (code === 'ZIP_NO_SHP') return 'Aucun Shapefile .shp trouvé dans l’archive.';
+  if (code === 'ZIP_NO_KML') return 'Aucun fichier .kml trouvé dans l’archive KMZ.';
+  if (code === 'KML_XML_UNSAFE') return 'KML refusé : les DTD et entités externes sont désactivés pour protéger les fichiers locaux.';
+  if (code === 'KML_NO_PLACEMARKS' || code === 'KML_NO_GEOMETRIES') return 'Le KML ne contient aucune géométrie Placemark prise en charge.';
+  if (code.startsWith('KML_')) return 'KML invalide ou incomplet. Vérifiez les géométries, coordonnées et le XML.';
+  if (code.startsWith('GPKG_EXPORT_')) return `Export GeoPackage impossible (${code.replace('GPKG_EXPORT_', '').replaceAll('_', ' ').toLowerCase()}).`;
   if (code === 'ZIP_ENCRYPTED') return 'Les archives ZIP chiffrées ne sont pas prises en charge.';
   if (code === 'ZIP_COMPRESSION_UNSUPPORTED') return 'Compression ZIP non prise en charge; choisissez ZIP standard (deflate) ou les fichiers séparés.';
   if (code === 'ZIP_ENTRY_TOO_LARGE') return 'Une entrée de l’archive dépasse 15 Mo.';
@@ -189,6 +211,7 @@ function errorMessage(error) {
   if (code === 'PROJECT_TOO_MANY_LAYERS') return 'Un projet peut contenir au plus 12 couches.';
   if (code === 'PROJECT_TOO_MANY_FEATURES') return 'Le projet dépasse 60 000 entités au total.';
   if (code === 'PROJECT_TOO_MANY_POSITIONS') return 'Le projet dépasse 300 000 positions au total.';
+  if (code === 'PROJECT_TEMPLATE_INVALID') return 'Le gabarit de relevé intégré au projet est invalide.';
   if (code === 'PROJECT_RASTER_INVALID') return 'Le GeoTIFF intégré au projet est invalide, trop volumineux ou mal encodé.';
   if (code === 'PROJECT_RASTER_SOURCE_MISSING') return 'Le projet ne contient plus les données source de ce GeoTIFF; réimportez le fichier original.';
   if (code === 'PROJECT_TOO_MANY_RASTER_BYTES') return 'Les GeoTIFF du projet dépassent la limite cumulée de 15 Mo.';
@@ -221,7 +244,7 @@ function errorMessage(error) {
   if (code === 'REMOTE_PAGINATION_STALLED') return 'Le service annonce des résultats supplémentaires mais renvoie une page vide; import arrêté.';
   if (code === 'SERVICE_TIMEOUT') return 'Le service distant n’a pas répondu dans les 30 secondes; réessayez ou choisissez une réponse plus légère.';
   if (code === 'CSV_COLUMN_COUNT_MISMATCH') return `Le nombre de colonnes ne correspond pas à l’en-tête (ligne ${error.message.split(':').pop()}).`;
-  if (code === 'UNSUPPORTED_FILE') return 'Format non pris en charge. Choisissez GeoJSON, CSV/TSV, Shapefile, GeoPackage (.gpkg) ou GeoTIFF (.tif/.tiff).';
+  if (code === 'UNSUPPORTED_FILE') return 'Format non pris en charge. Choisissez GeoJSON, CSV/TSV, Shapefile, GeoPackage, GeoTIFF ou KML/KMZ.';
   return 'Import impossible. Vérifiez le fichier puis réessayez.';
 }
 
@@ -292,6 +315,20 @@ function addLayer(geojson, fileName, sourceReference = '') {
   return addLayers([{ geojson, fileName, name: geojson.name || fileName }], sourceReference);
 }
 
+function createSurveyLayer() {
+  const lat = Number($('#surveyCenterLat').value), lon = Number($('#surveyCenterLon').value), spanMeters = Number($('#surveyViewSpan').value);
+  if (!Number.isFinite(lat) || Math.abs(lat) > 85 || !Number.isFinite(lon) || Math.abs(lon) > 180 || !Number.isFinite(spanMeters) || spanMeters < 100 || spanMeters > 3_000) {
+    surveyStatus('Centre invalide : latitude −85…85, longitude −180…180 et largeur 100…3 000 m.', 'error'); return false;
+  }
+  state.surveyView = { lat, lon, spanMeters };
+  const fileName = 'releve-terrain.geojson';
+  state.surveyViewEnabled = true;
+  const geojson = { type: 'FeatureCollection', name: 'Relevé terrain', crs: 'EPSG:4326', sourceCrs: 'EPSG:4326', features: [] };
+  const added = addLayers([{ geojson, fileName, name: 'Relevé terrain' }], 'Saisie locale UrbaTrame · utilisateur');
+  if (added) status('Couche terrain vide créée. Ajoutez un point GNSS, ou activez un fond XYZ/WMS et dessinez des points, lignes et polygones.', 'success');
+  return added;
+}
+
 function addRasterLayer(raster, sourceBytes, sourceReference = '') {
   const bytes = sourceBytes instanceof Uint8Array ? sourceBytes : new Uint8Array(sourceBytes);
   const rasterLayers = state.layers.filter(layer => layer.kind === 'raster');
@@ -333,15 +370,15 @@ function mercator(lon, lat) {
   return [lon * rad, Math.log(Math.tan(Math.PI / 4 + safeLat * rad / 2))];
 }
 
-function buildProjector(features) {
+function buildProjector(features, { minPadding = 0.006 } = {}) {
   const extent = extentOfFeatures(features);
   if (!extent) return null;
   const a = mercator(extent.west, extent.south);
   const b = mercator(extent.east, extent.north);
   let minX = Math.min(a[0], b[0]), maxX = Math.max(a[0], b[0]);
   let minY = Math.min(a[1], b[1]), maxY = Math.max(a[1], b[1]);
-  const padX = Math.max((maxX - minX) * 0.06, 0.006);
-  const padY = Math.max((maxY - minY) * 0.06, 0.006);
+  const padX = Math.max((maxX - minX) * 0.06, minPadding);
+  const padY = Math.max((maxY - minY) * 0.06, minPadding);
   minX -= padX; maxX += padX; minY -= padY; maxY += padY;
   const width = 1000, height = 600, margin = 30;
   const dx = maxX - minX, dy = maxY - minY;
@@ -359,6 +396,17 @@ function buildProjector(features) {
     return [x * 180 / Math.PI, (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI];
   };
   return project;
+}
+
+function buildSurveyProjector() {
+  const lat = Number(state.surveyView.lat), lon = Number(state.surveyView.lon), span = Number(state.surveyView.spanMeters);
+  if (!Number.isFinite(lat) || Math.abs(lat) > 85 || !Number.isFinite(lon) || Math.abs(lon) > 180 || !Number.isFinite(span) || span < 100) return null;
+  const halfLat = span / (2 * 6378137) * 180 / Math.PI;
+  const halfLon = halfLat / Math.max(0.08, Math.cos(lat * Math.PI / 180));
+  const west = Math.max(-180, lon - halfLon), east = Math.min(180, lon + halfLon);
+  const south = Math.max(-84.9, lat - halfLat), north = Math.min(84.9, lat + halfLat);
+  const ring = [[west, south], [east, south], [east, north], [west, north], [west, south]];
+  return buildProjector([{ geometry: { type: 'Polygon', coordinates: [ring] } }], { minPadding: Math.max(0.00001, span / 6378137 * 0.01) });
 }
 
 function pathForLine(coords, project, close = false) {
@@ -554,7 +602,9 @@ function renderMap() {
   const entries = renderEntries.filter(entry => entry.layer.kind !== 'raster');
   const allFeatures = entries.flatMap(entry => entry.items.map(item => item.feature));
   const rasterExtentPoints = rasterLayers.flatMap(layer => (layer.raster?.cornersWgs84 || []).map(coordinates => ({ geometry: { type: 'Point', coordinates } })));
-  const project = buildProjector([...allFeatures, ...rasterExtentPoints]);
+  let project = state.surveyViewEnabled ? buildSurveyProjector() : null;
+  if (!project) project = buildProjector([...allFeatures, ...rasterExtentPoints]);
+  const hasFeatureGeometry = allFeatures.some(feature => !!feature.geometry);
   currentProjector = project;
   $('#mapAttribution').textContent = state.basemap ? `Fond externe · ${state.basemap.attribution}` : '';
   mapEmpty.hidden = !!project;
@@ -565,6 +615,10 @@ function renderMap() {
     return;
   }
   appendExternalBasemap(project);
+  if (!hasFeatureGeometry && state.surveyViewEnabled) {
+    svg.append(createSvgElement('circle', { cx: 500, cy: 300, r: 8, fill: '#fff', stroke: '#b7603e', 'stroke-width': 2, class: 'survey-center-mark', 'pointer-events': 'none' }));
+    svg.append(createSvgElement('path', { d: 'M488 300h24M500 288v24', stroke: '#b7603e', 'stroke-width': 1.5, class: 'survey-center-mark', 'pointer-events': 'none' }));
+  }
   let rendered = 0;
   let truncated = false;
   const budget = { count: 0, truncated: false, labels: 0 };
@@ -614,7 +668,7 @@ function renderLayerList() {
   if (!hasLayers) {
     const empty = document.createElement('p');
     empty.className = 'empty-layers';
-    empty.textContent = 'Ajoutez un GeoJSON, CSV/TSV, Shapefile, GeoPackage ou GeoTIFF pour commencer.';
+    empty.textContent = 'Ajoutez un GeoJSON, CSV/TSV, KML/KMZ, Shapefile, GeoPackage ou GeoTIFF pour commencer.';
     layerList.append(empty);
   }
   const topFirst = layersTopFirst(state.layers);
@@ -940,18 +994,47 @@ function startDrawing(mode) {
   updateEditControls();
 }
 
-function addEditedFeature(layer, geometry) {
+function surveyPropertiesFromForm() {
+  let template;
+  try { template = fieldTemplateFromEditor(); state.surveyTemplate = template; }
+  catch (error) {
+    const labels = {
+      FIELD_TEMPLATE_KEY_INVALID: 'clé invalide', FIELD_TEMPLATE_KEY_DUPLICATE: 'clé en double',
+      FIELD_TEMPLATE_LABEL_REQUIRED: 'libellé manquant', FIELD_TEMPLATE_OPTIONS_INVALID: 'liste de choix vide ou invalide',
+      FIELD_TEMPLATE_NAME_REQUIRED: 'nom de gabarit manquant', FIELD_TEMPLATE_TYPE_INVALID: 'type de champ invalide'
+    };
+    return { ok: false, error: 'FIELD_TEMPLATE_INVALID', field: 'template', label: `Gabarit invalide : ${labels[error?.code] || 'vérifiez les champs'}` };
+  }
+  const values = Object.create(null);
+  for (const field of template.fields) {
+    const input = $(`#survey-value-${field.key}`);
+    if (!input) continue;
+    values[field.key] = field.type === 'boolean' ? input.checked : input.value;
+  }
+  return buildSurveyProperties(template, values);
+}
+
+function addEditedFeature(layer, geometry, { surveyProperties = null, captureProperties = {}, captureMetadata = {} } = {}) {
+  const validated = surveyProperties ? { ok: true, properties: surveyProperties } : surveyPropertiesFromForm();
+  if (!validated.ok) {
+    status(`Champ requis ou valeur invalide : ${validated.label || validated.field}.`, 'error');
+    return false;
+  }
   const totalFeatures = state.layers.reduce((sum, item) => sum + item.geojson.features.length, 0);
   const totalPositions = state.layers.reduce((sum, item) => sum + (item.positionCount ?? countFeaturePositions(item.geojson.features)), 0);
   const addedPositions = countFeaturePositions([{ geometry }]);
   const currentLayerPositions = layer.positionCount ?? countFeaturePositions(layer.geojson.features);
   if (layer.geojson.features.length >= MAX_FEATURES || totalFeatures >= MAX_TOTAL_FEATURES) { status('Limite d’entités atteinte; supprimez ou exportez des couches avant de dessiner.', 'error'); return; }
   if (totalPositions + addedPositions > MAX_TOTAL_POSITIONS) { status('Limite de positions atteinte; simplifiez les données avant de dessiner.', 'error'); return; }
-  const createdAt = new Date().toISOString();
+  const createdAt = String(captureMetadata.capturedAt || new Date().toISOString());
   const feature = {
     type: 'Feature',
     id: `${layer.id}-edit-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-    properties: { _urbaTrame: { source: 'Dessin local dans UrbaTrame', createdAt } },
+    properties: {
+      ...validated.properties,
+      ...(captureProperties && typeof captureProperties === 'object' ? captureProperties : {}),
+      _urbaTrame: { source: captureMetadata.method || 'Dessin local dans UrbaTrame', createdAt, ...captureMetadata }
+    },
     geometry
   };
   const index = layer.geojson.features.length;
@@ -962,7 +1045,8 @@ function addEditedFeature(layer, geometry) {
   layer.filter = null;
   state.selectedFeature = { layerId: layer.id, index };
   renderAll();
-  status(`Entité dessinée ajoutée à « ${layer.name} »; elle sera incluse dans l’export GeoJSON.`, 'success');
+  status(`Entité dessinée ajoutée à « ${layer.name} »; elle sera incluse dans les exports.`, 'success');
+  return true;
 }
 
 function finishDrawing() {
@@ -971,6 +1055,8 @@ function finishDrawing() {
   if (state.pendingCoordinates.length < min) return;
   const layer = selectedLayer();
   if (!layer) return;
+  const survey = surveyPropertiesFromForm();
+  if (!survey.ok) { status(`Champ requis ou valeur invalide : ${survey.label || survey.field}. Complétez la fiche avant de terminer.`, 'error'); return; }
   let coordinates = state.pendingCoordinates.map(point => [...point]);
   let geometry;
   if (state.drawMode === 'Polygon') {
@@ -1274,11 +1360,13 @@ $('#exportMapPng').addEventListener('click', () => {
 $('#printMap').addEventListener('click', () => window.print());
 $('#exportProjectJson').addEventListener('click', () => {
   try {
-    const project = JSON.stringify(serializeLocalProject(state.layers), null, 2);
+    const template = fieldTemplateFromEditor();
+    state.surveyTemplate = template;
+    const project = JSON.stringify(serializeLocalProject(state.layers, new Date(), { surveyTemplate: template }), null, 2);
     const blob = new Blob([project], { type: 'application/json;charset=utf-8' });
     if (blob.size > MAX_PROJECT_BYTES) { status('Projet supérieur à 30 Mo. Exportez certaines couches séparément en GeoJSON ou retirez un GeoTIFF.', 'error'); return; }
     downloadBlob(blob, 'urbatrame-projet-local.urbatrame.json');
-    status('Projet local exporté avec styles, filtres, provenance et sources GeoTIFF originales. Le fond externe n’est pas inclus.', 'success');
+    status('Projet local exporté avec styles, filtres, provenance, gabarit de relevé et sources GeoTIFF. Les valeurs saisies restent dans les entités; le fond externe et le modèle GTX ne sont pas intégrés.', 'success');
   } catch (error) { status(error?.code ? errorMessage(error) : 'Projet local impossible à préparer.', 'error'); }
 });
 $('#projectFile').addEventListener('change', async () => {
@@ -1286,7 +1374,8 @@ $('#projectFile').addEventListener('change', async () => {
   if (!file) return;
   if (file.size > MAX_PROJECT_BYTES) { status('Projet trop volumineux; limite de 30 Mo.', 'error'); $('#projectFile').value = ''; return; }
   try {
-    const loaded = parseLocalProject(await file.text()).map(layer => ({ ...layer, id: id(), name: layerTitle(layer.name) }));
+    const project = parseLocalProject(await file.text(), { includeMetadata: true });
+    const loaded = project.layers.map(layer => ({ ...layer, id: id(), name: layerTitle(layer.name) }));
     const rasterLayers = loaded.filter(layer => layer.kind === 'raster');
     if (rasterLayers.length) {
       status(`Restauration locale de ${rasterLayers.length} GeoTIFF(s) depuis le projet…`);
@@ -1305,8 +1394,11 @@ $('#projectFile').addEventListener('change', async () => {
       }
     }
     state.layers = loaded; state.selectedLayerId = loaded[0]?.id || null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
+    setSurveyTemplate(project.surveyTemplate || defaultFieldTemplate());
+    state.surveyViewEnabled = false;
+    state.gpsFix = null;
     state.basemap = null; $('#removeService').disabled = true; $('#serviceStatus').textContent = 'Projet chargé; le fond externe n’est pas restauré.';
-    renderAll(); status(`${loaded.length} couche(s) du projet importée(s) localement.`, 'success');
+    renderAll(); status(`${loaded.length} couche(s) du projet importée(s) localement avec gabarit de relevé.`, 'success');
   } catch (error) { status(error?.code ? errorMessage(error) : 'Projet invalide.', 'error'); }
   finally { $('#projectFile').value = ''; }
 });
@@ -1585,15 +1677,299 @@ function updateAiControls() {
   $('#acceptAiResult').hidden = !state.pendingAiGeoJSON;
   $('#aiValidationRow').hidden = !state.pendingAiGeoJSON;
 }
+function localIsoDate(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function surveyStatus(message, kind = '') {
+  const statusNode = $('#surveyGpsStatus');
+  if (!statusNode) return;
+  statusNode.textContent = message;
+  statusNode.dataset.state = kind;
+}
+
+function fieldTemplateFromEditor() {
+  const fields = [...document.querySelectorAll('.survey-field-row')].map(row => {
+    const key = row.querySelector('.survey-field-key')?.value.trim() || '';
+    const label = row.querySelector('.survey-field-label')?.value.trim() || '';
+    const type = row.querySelector('.survey-field-type')?.value || 'text';
+    const required = !!row.querySelector('.survey-field-required')?.checked;
+    const rawOptions = row.querySelector('.survey-field-options')?.value || '';
+    return { key, label, type, required, options: type === 'select' ? rawOptions.split('|').map(value => value.trim()).filter(Boolean) : [] };
+  });
+  return normalizeFieldTemplate({
+    name: $('#surveyTemplateName').value,
+    geometryTypes: ['Point', 'LineString', 'Polygon'],
+    fields
+  });
+}
+
+function renderSurveyForm() {
+  const host = $('#surveyFormFields');
+  if (!host) return;
+  const preserved = new Map([...host.querySelectorAll('input,select,textarea')].map(input => [input.id, input.type === 'checkbox' ? input.checked : input.value]));
+  host.replaceChildren();
+  for (const field of state.surveyTemplate.fields) {
+    const label = document.createElement('label');
+    label.htmlFor = `survey-value-${field.key}`;
+    label.append(document.createTextNode(`${field.label}${field.required ? ' · obligatoire' : ''}`));
+    let input;
+    if (field.type === 'select') {
+      input = document.createElement('select');
+      const blank = document.createElement('option'); blank.value = ''; blank.textContent = field.required ? 'Choisir…' : '—'; input.append(blank);
+      for (const value of field.options) { const option = document.createElement('option'); option.value = value; option.textContent = value; input.append(option); }
+    } else if (field.type === 'text' && field.label.length > 40) {
+      input = document.createElement('textarea'); input.maxLength = 2000;
+    } else {
+      input = document.createElement('input');
+      input.type = field.type === 'boolean' ? 'checkbox' : field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text';
+      if (field.type === 'number') input.step = 'any';
+      if (field.type === 'date') input.value = localIsoDate();
+      if (field.type === 'text') input.maxLength = 2000;
+    }
+    input.id = `survey-value-${field.key}`;
+    if (field.required) input.required = true;
+    if (preserved.has(input.id)) {
+      const oldValue = preserved.get(input.id);
+      if (input.type === 'checkbox') input.checked = oldValue === true;
+      else input.value = String(oldValue ?? '');
+    }
+    label.append(input); host.append(label);
+  }
+  if (!state.surveyTemplate.fields.length) {
+    const note = document.createElement('p'); note.className = 'source-footnote';
+    note.textContent = 'Aucun attribut personnalisé; les métadonnées de capture UrbaTrame sont conservées.';
+    host.append(note);
+  }
+}
+
+function renderSurveyFieldDefinitions() {
+  const host = $('#surveyFieldDefinitions');
+  if (!host) return;
+  host.replaceChildren();
+  state.surveyTemplate.fields.forEach((field, index) => {
+    const row = document.createElement('div'); row.className = 'survey-field-row';
+    const key = document.createElement('input'); key.className = 'survey-field-key'; key.type = 'text'; key.maxLength = 40; key.value = field.key; key.placeholder = 'cle_champ'; key.setAttribute('aria-label', 'Clé du champ');
+    const label = document.createElement('input'); label.className = 'survey-field-label'; label.type = 'text'; label.maxLength = 80; label.value = field.label; label.placeholder = 'Libellé'; label.setAttribute('aria-label', 'Libellé du champ');
+    const type = document.createElement('select'); type.className = 'survey-field-type'; type.setAttribute('aria-label', 'Type du champ');
+    for (const [value, title] of [['text', 'Texte'], ['number', 'Nombre'], ['date', 'Date'], ['boolean', 'Oui / non'], ['select', 'Liste']]) {
+      const option = document.createElement('option'); option.value = value; option.textContent = title; type.append(option);
+    }
+    type.value = field.type;
+    const requiredLabel = document.createElement('label'); requiredLabel.className = 'survey-required';
+    const required = document.createElement('input'); required.type = 'checkbox'; required.className = 'survey-field-required'; required.checked = field.required;
+    requiredLabel.append(required, document.createTextNode('Obligatoire'));
+    const options = document.createElement('input'); options.className = 'survey-field-options'; options.type = 'text'; options.maxLength = 2000;
+    options.value = field.options.join(' | '); options.placeholder = 'Choix séparés par |'; options.hidden = field.type !== 'select'; options.setAttribute('aria-label', 'Choix séparés par une barre verticale');
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button-secondary survey-remove-field'; remove.textContent = 'Supprimer';
+    remove.addEventListener('click', () => {
+      const updated = state.surveyTemplate.fields.filter((_, fieldIndex) => fieldIndex !== index);
+      state.surveyTemplate = normalizeFieldTemplate({ ...state.surveyTemplate, fields: updated });
+      renderSurveyFieldDefinitions(); renderSurveyForm();
+    });
+    const sync = () => {
+      options.hidden = type.value !== 'select';
+      try {
+        state.surveyTemplate = fieldTemplateFromEditor();
+        renderSurveyForm();
+      } catch { /* Le gabarit reste en édition; la validation est affichée à l'enregistrement. */ }
+    };
+    for (const input of [key, label, type, required, options]) input.addEventListener('change', sync);
+    for (const input of [key, label, options]) input.addEventListener('input', sync);
+    row.append(key, label, type, requiredLabel, options, remove); host.append(row);
+  });
+}
+
+function updateSurveyTemplateSelect() {
+  const select = $('#surveyTemplateLibrary');
+  if (!select) return;
+  select.replaceChildren();
+  const empty = document.createElement('option'); empty.value = ''; empty.textContent = savedSurveyTemplates.length ? 'Choisir un gabarit enregistré' : 'Aucun gabarit enregistré'; select.append(empty);
+  savedSurveyTemplates.forEach((template, index) => {
+    const option = document.createElement('option'); option.value = String(index); option.textContent = template.name; select.append(option);
+  });
+}
+
+function setSurveyTemplate(value) {
+  $('#surveyFormFields').replaceChildren();
+  state.surveyTemplate = normalizeFieldTemplate(value);
+  $('#surveyTemplateName').value = state.surveyTemplate.name;
+  renderSurveyFieldDefinitions(); renderSurveyForm();
+}
+
+function storeSurveyTemplate() {
+  let template;
+  try { template = fieldTemplateFromEditor(); }
+  catch (error) { surveyStatus(`Gabarit invalide (${error.code || 'champs à vérifier'}). Vérifiez les clés, libellés et choix.`, 'error'); return null; }
+  state.surveyTemplate = template;
+  const existing = savedSurveyTemplates.findIndex(item => item.name.toLocaleLowerCase('fr-FR') === template.name.toLocaleLowerCase('fr-FR'));
+  if (existing >= 0) savedSurveyTemplates[existing] = template;
+  else if (savedSurveyTemplates.length < MAX_SAVED_SURVEY_TEMPLATES) savedSurveyTemplates.push(template);
+  else { surveyStatus(`Limite de ${MAX_SAVED_SURVEY_TEMPLATES} gabarits sur cet appareil. Supprimez-en un avant d’en enregistrer un autre.`, 'error'); return null; }
+  try { localStorage.setItem(FIELD_TEMPLATES_KEY, JSON.stringify(savedSurveyTemplates)); lastSurveyTemplateStorageSucceeded = true; }
+  catch { lastSurveyTemplateStorageSucceeded = false; surveyStatus('Gabarit utilisé pour cet onglet, mais stockage local indisponible. Exportez-le en fichier pour le conserver.', 'error'); }
+  updateSurveyTemplateSelect();
+  return template;
+}
+
+function downloadSurveyTemplate() {
+  const template = storeSurveyTemplate();
+  if (!template) return;
+  const file = serializeFieldTemplate(template);
+  downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json;charset=utf-8' }), `${template.name.toLocaleLowerCase('fr-FR').replace(/[^a-z0-9]+/g, '-') || 'gabarit'}.uttemplate.json`);
+  surveyStatus(`Gabarit « ${template.name} » exporté. Les valeurs des relevés ne sont pas incluses dans ce fichier.`, 'success');
+}
+
+function applySurveyViewInputs() {
+  const lat = Number($('#surveyCenterLat').value), lon = Number($('#surveyCenterLon').value), spanMeters = Number($('#surveyViewSpan').value);
+  if (!Number.isFinite(lat) || Math.abs(lat) > 85 || !Number.isFinite(lon) || Math.abs(lon) > 180 || !Number.isFinite(spanMeters) || spanMeters < 100 || spanMeters > 3_000) {
+    surveyStatus('Centre invalide : latitude −85…85, longitude −180…180 et largeur 100…3 000 m (plafond actuel conservé).', 'error'); return false;
+  }
+  state.surveyView = { lat, lon, spanMeters };
+  state.surveyViewEnabled = true;
+  renderMap();
+  surveyStatus(`Vue centrée sur ${lat.toFixed(6)}, ${lon.toFixed(6)} · largeur ${Math.round(spanMeters).toLocaleString('fr-FR')} m.`, 'success');
+  return true;
+}
+
+function zoomSurveyView(factor) {
+  const span = Math.max(100, Math.min(3_000, state.surveyView.spanMeters * factor));
+  $('#surveyViewSpan').value = String(Math.round(span));
+  state.surveyView.spanMeters = span;
+  state.surveyViewEnabled = true;
+  renderMap();
+}
+
+function geolocationPosition() {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.reject(Object.assign(new Error('GEOLOCATION_UNAVAILABLE'), { code: 'GEOLOCATION_UNAVAILABLE' }));
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, error => {
+    const code = error?.code === 1 ? 'GEOLOCATION_DENIED' : error?.code === 3 ? 'GEOLOCATION_TIMEOUT' : 'GEOLOCATION_FAILED';
+    reject(Object.assign(new Error(code), { code }));
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 }));
+}
+
+function geolocationErrorText(error) {
+  if (error?.code === 'GEOLOCATION_UNAVAILABLE') return 'Ce navigateur ne donne pas accès à une position GNSS. Utilisez une page HTTPS et un appareil compatible.';
+  if (error?.code === 'GEOLOCATION_DENIED') return 'Autorisation de localisation refusée. Autorisez-la dans le navigateur si vous souhaitez utiliser le GNSS.';
+  if (error?.code === 'GEOLOCATION_TIMEOUT') return 'Le récepteur n’a pas fourni de position avant le délai. Réessayez dehors ou vérifiez le service de localisation.';
+  return 'Position indisponible. Vérifiez le GPS, l’autorisation du navigateur et réessayez.';
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+async function readGpsPosition() {
+  const button = $('#readGps'); button.disabled = true; button.textContent = 'Lecture en cours…';
+  try {
+    const position = await geolocationPosition();
+    const coords = position.coords;
+    const lat = Number(coords.latitude), lon = Number(coords.longitude), accuracy = Number(coords.accuracy);
+    if (!Number.isFinite(lat) || Math.abs(lat) > 85 || !Number.isFinite(lon) || Math.abs(lon) > 180 || !Number.isFinite(accuracy) || accuracy < 0) throw new Error('GEOLOCATION_FAILED');
+    const timestamp = Number(position.timestamp) > 0 ? Number(position.timestamp) : Date.now();
+    state.gpsFix = {
+      lat, lon, accuracyM: accuracy,
+      altitudeM: optionalNumber(coords.altitude),
+      altitudeAccuracyM: optionalNumber(coords.altitudeAccuracy),
+      headingDeg: optionalNumber(coords.heading),
+      speedMs: optionalNumber(coords.speed),
+      timestamp
+    };
+    state.surveyView = { ...state.surveyView, lat, lon };
+    state.surveyViewEnabled = true;
+    $('#surveyCenterLat').value = lat.toFixed(7); $('#surveyCenterLon').value = lon.toFixed(7);
+    renderMap(); updateSurveyLayerControls();
+    const altitude = state.gpsFix.altitudeM === null ? 'altitude non fournie' : `h navigateur ${state.gpsFix.altitudeM.toFixed(2)} m`;
+    surveyStatus(`Position lue : ${lat.toFixed(7)}, ${lon.toFixed(7)} · précision annoncée ±${accuracy.toFixed(1)} m · ${altitude}. La précision dépend de l’appareil et n’est pas certifiée.`, 'success');
+    return state.gpsFix;
+  } catch (error) {
+    state.gpsFix = null; updateSurveyLayerControls();
+    surveyStatus(geolocationErrorText(error), 'error');
+    return null;
+  } finally { button.disabled = false; button.textContent = 'Lire ma position GNSS'; }
+}
+
+function captureGpsPoint() {
+  const fix = state.gpsFix;
+  if (!fix) { surveyStatus('Lisez d’abord une position GNSS, puis vérifiez sa précision.', 'error'); return; }
+  const layer = selectedLayer();
+  if (!layer || layer.kind === 'raster') { surveyStatus('Créez une couche terrain ou sélectionnez une couche vectorielle avant la capture.', 'error'); return; }
+  const form = surveyPropertiesFromForm();
+  if (!form.ok) { surveyStatus(`Champ requis ou valeur invalide : ${form.label || form.field}.`, 'error'); $(`#survey-value-${form.field}`)?.focus(); return; }
+  if (!layer.visible) layer.visible = true;
+  state.surveyView = { ...state.surveyView, lat: fix.lat, lon: fix.lon };
+  state.surveyViewEnabled = true;
+  $('#surveyCenterLat').value = fix.lat.toFixed(7); $('#surveyCenterLon').value = fix.lon.toFixed(7);
+  const capturedAt = new Date(fix.timestamp).toISOString();
+  const captureProperties = {
+    gps_accuracy_m: fix.accuracyM,
+    gps_altitude_ellipsoidal_m: fix.altitudeM,
+    gps_altitude_accuracy_m: fix.altitudeAccuracyM,
+    gps_heading_deg: fix.headingDeg,
+    gps_speed_m_s: fix.speedMs
+  };
+  const captureMetadata = { method: 'API de géolocalisation du navigateur · WGS 84', capturedAt, horizontalAccuracyM: fix.accuracyM };
+  if (state.geoidGrid && $('#confirmGeoidUse').checked && fix.altitudeM !== null) {
+    const undulation = interpolateGeoidUndulation(state.geoidGrid, fix.lon, fix.lat);
+    if (undulation !== null) {
+      captureProperties.geoid_undulation_m = undulation;
+      captureProperties.height_orthometric_m = orthometricHeight(fix.altitudeM, undulation);
+      captureProperties.height_model = state.geoidGrid.fileName;
+      captureProperties.height_operation = 'H = h − N';
+      captureMetadata.geoidModel = state.geoidGrid.fileName;
+      captureMetadata.geoidUndulationM = undulation;
+    } else surveyStatus('Le point est hors couverture du modèle GTX : seule la hauteur ellipsoïdale du navigateur sera conservée.', 'error');
+  }
+  const added = addEditedFeature(layer, { type: 'Point', coordinates: [fix.lon, fix.lat] }, {
+    surveyProperties: form.properties, captureProperties, captureMetadata
+  });
+  if (added) surveyStatus(`Point GPS capturé dans « ${layer.name} » · ${capturedAt} · précision annoncée ±${fix.accuracyM.toFixed(1)} m.`, 'success');
+  else surveyStatus('Point non ajouté. Consultez le message de l’Atelier (limite de couche, d’entités ou d’historique).', 'error');
+}
+
+async function loadGeoidFile(file) {
+  if (!file) return;
+  if (file.size > MAX_GTX_BYTES) { $('#geoidStatus').textContent = `Modèle GTX trop volumineux; maximum ${(MAX_GTX_BYTES / (1024 * 1024)).toLocaleString('fr-FR')} Mo.`; $('#geoidFile').value = ''; return; }
+  $('#geoidStatus').textContent = 'Lecture locale du modèle GTX…';
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    state.geoidGrid = parseGtxGrid(bytes, { fileName: file.name });
+    $('#removeGeoid').disabled = false;
+    $('#confirmGeoidUse').checked = false;
+    $('#geoidStatus').textContent = `${state.geoidGrid.fileName} · ${state.geoidGrid.rows.toLocaleString('fr-FR')} × ${state.geoidGrid.columns.toLocaleString('fr-FR')} cellules · longitudes ${state.geoidGrid.west.toFixed(4)}…${state.geoidGrid.east.toFixed(4)}°, latitudes ${state.geoidGrid.south.toFixed(4)}…${state.geoidGrid.north.toFixed(4)}°. Chargé uniquement dans cet onglet.`;
+    $('#geoidConfirmRow').hidden = false;
+    if (state.gpsFix) {
+      const value = interpolateGeoidUndulation(state.geoidGrid, state.gpsFix.lon, state.gpsFix.lat);
+      $('#geoidStatus').textContent += value === null ? ' · position GNSS hors couverture.' : ` · N local ≈ ${value.toFixed(3)} m (aperçu).`;
+    }
+  } catch (error) {
+    state.geoidGrid = null; $('#removeGeoid').disabled = true; $('#geoidConfirmRow').hidden = true;
+    $('#geoidStatus').textContent = error?.code === 'GTX_TOO_LARGE' ? 'Modèle GTX trop volumineux.' : 'GTX illisible ou format non pris en charge; aucun modèle n’a été chargé.';
+  } finally { $('#geoidFile').value = ''; }
+}
+
+function updateSurveyLayerControls() {
+  const layer = selectedLayer();
+  $('#captureGpsPoint').disabled = !state.gpsFix || !layer || layer.kind === 'raster';
+  $('#createSurveyLayer').disabled = state.layers.length >= MAX_LAYERS;
+}
+
 function updateActions() {
   const hasVisible = state.layers.some(layer => layer.visible);
   const hasVisibleVector = state.layers.some(layer => layer.visible && layer.kind !== 'raster');
   $('#exportGeoJSON').disabled = !hasVisibleVector;
+  $('#exportCsv').disabled = !hasVisibleVector;
+  $('#exportKml').disabled = !hasVisibleVector;
+  $('#exportKmz').disabled = !hasVisibleVector;
+  $('#exportGpkg').disabled = !hasVisibleVector;
   $('#exportMapSvg').disabled = !hasVisible;
   $('#exportMapPng').disabled = !hasVisible;
   $('#exportProjectJson').disabled = !state.layers.length;
   $('#printMap').disabled = !hasVisible;
   $('#clearLayers').disabled = !state.layers.length;
+  updateSurveyLayerControls();
 }
 
 function renderAll() {
@@ -1701,6 +2077,18 @@ async function handleFile(file) {
       if (!added) fileInput.value = '';
       return;
     }
+    if (extension === 'kmz') {
+      status('Lecture locale de l’archive KMZ; aucun NetworkLink ne sera suivi…');
+      const archive = await file.arrayBuffer();
+      if (request !== state.importRequest) return;
+      const kmlFile = await extractKmlFromZip(archive);
+      const kmlText = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(kmlFile.buffer));
+      const geojson = parseKmlText(kmlText, { fileName: kmlFile.name });
+      if (request !== state.importRequest) return;
+      addLayer(geojson, file.name, `${$('#sourceReference').value || file.name} · KML interne « ${kmlFile.path} »; liens réseau non suivis`);
+      fileInput.value = '';
+      return;
+    }
     if (extension === 'tif' || extension === 'tiff') {
       status('Chargement du lecteur GeoTIFF; le fichier est traité uniquement dans ce navigateur…');
       const GeoTIFFApi = await loadGeoTiffRuntime();
@@ -1718,6 +2106,9 @@ async function handleFile(file) {
     if (extension === 'csv' || extension === 'tsv') {
       addCsvOptions(parseDelimitedText(text), file.name);
       fileInput.value = '';
+    } else if (extension === 'kml') {
+      const geojson = parseKmlText(text, { fileName: file.name });
+      addLayer(geojson, file.name, $('#sourceReference').value);
     } else if (['geojson', 'json'].includes(extension)) {
       const geojson = parseGeoJSONText(text, { fileName: file.name });
       addLayer(geojson, file.name, $('#sourceReference').value);
@@ -1771,10 +2162,112 @@ $('#exportGeoJSON').addEventListener('click', () => {
   status(`${collection.features.length.toLocaleString('fr-FR')} entité(s) exportée(s) en GeoJSON avec les références de source${rasterNote}.`, 'success');
 });
 
+$('#exportCsv').addEventListener('click', () => {
+  try {
+    const csv = exportVisibleCsv(state.layers);
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'urbatrame-releve.csv');
+    const count = state.layers.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
+    status(`${count.toLocaleString('fr-FR')} entité(s) exportée(s) en CSV avec géométrie WKT, attributs, source et date.`, 'success');
+  } catch { status('Export CSV impossible; vérifiez les attributs de vos couches.', 'error'); }
+});
+$('#exportKml').addEventListener('click', () => {
+  try {
+    const kml = layersToKml(state.layers);
+    downloadBlob(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8' }), 'urbatrame-releve.kml');
+    status('KML EPSG:4326 exporté localement; les propriétés sont incluses comme données étendues.', 'success');
+  } catch { status('Export KML impossible; vérifiez les géométries et attributs.', 'error'); }
+});
+$('#exportKmz').addEventListener('click', () => {
+  try {
+    const kml = layersToKml(state.layers);
+    const archive = createStoredZip([{ name: 'doc.kml', data: kml }]);
+    downloadBlob(new Blob([archive], { type: 'application/vnd.google-earth.kmz' }), 'urbatrame-releve.kmz');
+    status('KMZ autonome créé localement avec doc.kml; aucun fichier ni fond externe n’est ajouté.', 'success');
+  } catch (error) { status(error?.code ? errorMessage(error) : 'Export KMZ impossible.', 'error'); }
+});
+$('#exportGpkg').addEventListener('click', async () => {
+  const button = $('#exportGpkg'); button.disabled = true;
+  status('Préparation du GeoPackage EPSG:4326 dans ce navigateur…');
+  try {
+    const SQL = await loadSqlRuntime();
+    const bytes = createGeoPackage(state.layers, SQL);
+    downloadBlob(new Blob([bytes], { type: 'application/geopackage+sqlite3' }), 'urbatrame-releve.gpkg');
+    const count = state.layers.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
+    status(`GeoPackage EPSG:4326 exporté localement · ${count.toLocaleString('fr-FR')} entité(s). Les couches raster ne sont pas incluses.`, 'success');
+  } catch (error) { status(error?.code ? errorMessage(error) : 'Export GeoPackage impossible.', 'error'); }
+  finally { updateActions(); }
+});
+
 $('#clearLayers').addEventListener('click', () => {
   state.layers = []; state.selectedLayerId = null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
   $('#aiValidateResult').checked = false;
   renderAll(); status('Toutes les couches ont été retirées de cet onglet.', 'success');
 });
 
+$('#createSurveyLayer').addEventListener('click', createSurveyLayer);
+$('#applySurveyView').addEventListener('click', applySurveyViewInputs);
+$('#fitSurveyData').addEventListener('click', () => { state.surveyViewEnabled = false; renderMap(); });
+$('#surveyZoomIn').addEventListener('click', () => zoomSurveyView(0.5));
+$('#surveyZoomOut').addEventListener('click', () => zoomSurveyView(2));
+$('#readGps').addEventListener('click', readGpsPosition);
+$('#captureGpsPoint').addEventListener('click', captureGpsPoint);
+$('#geoidFile').addEventListener('change', () => loadGeoidFile($('#geoidFile').files?.[0]));
+$('#removeGeoid').addEventListener('click', () => {
+  state.geoidGrid = null; $('#removeGeoid').disabled = true; $('#geoidConfirmRow').hidden = true; $('#confirmGeoidUse').checked = false;
+  $('#geoidStatus').textContent = 'Modèle retiré de la mémoire de cet onglet. Les hauteurs ellipsoïdales déjà capturées ne sont pas modifiées.';
+});
+$('#confirmGeoidUse').addEventListener('change', () => {
+  if ($('#confirmGeoidUse').checked) {
+    const fix = state.gpsFix;
+    if (!state.geoidGrid || !fix || interpolateGeoidUndulation(state.geoidGrid, fix.lon, fix.lat) === null) {
+      $('#confirmGeoidUse').checked = false;
+      surveyStatus('Impossible de valider le géoïde : chargez un modèle couvrant une position connue et vérifiez son datum vertical.', 'error');
+    } else surveyStatus('Vous avez confirmé le modèle et le datum vertical. Les prochaines captures calculeront H = h − N lorsque l’altitude GNSS est disponible.', 'success');
+  } else surveyStatus('Conversion verticale désactivée. Les captures conserveront seulement la hauteur ellipsoïdale si elle est fournie.', '');
+});
+$('#surveyTemplateName').addEventListener('input', () => {
+  try { state.surveyTemplate = fieldTemplateFromEditor(); } catch { /* saisie en cours */ }
+});
+$('#addSurveyField').addEventListener('click', () => {
+  if (state.surveyTemplate.fields.length >= MAX_SURVEY_FIELDS) { surveyStatus(`Limite de ${MAX_SURVEY_FIELDS} champs par gabarit.`, 'error'); return; }
+  let index = state.surveyTemplate.fields.length + 1, key = `champ_${index}`;
+  const used = new Set(state.surveyTemplate.fields.map(field => field.key.toLowerCase()));
+  while (used.has(key.toLowerCase())) key = `champ_${++index}`;
+  state.surveyTemplate = normalizeFieldTemplate({ ...state.surveyTemplate, fields: [...state.surveyTemplate.fields, { key, label: 'Nouveau champ', type: 'text', required: false, options: [] }] });
+  renderSurveyFieldDefinitions(); renderSurveyForm();
+});
+$('#saveSurveyTemplate').addEventListener('click', () => {
+  const template = storeSurveyTemplate();
+  if (template) surveyStatus(lastSurveyTemplateStorageSucceeded ? `Gabarit « ${template.name} » enregistré sur cet appareil. Aucun relevé n’est inclus.` : `Gabarit « ${template.name} » reste utilisable dans cet onglet mais n’a pas pu être enregistré; exportez-le en fichier.`, lastSurveyTemplateStorageSucceeded ? 'success' : 'error');
+});
+$('#exportSurveyTemplate').addEventListener('click', downloadSurveyTemplate);
+$('#deleteSurveyTemplate').addEventListener('click', () => {
+  const index = Number($('#surveyTemplateLibrary').value);
+  if (!Number.isInteger(index) || index < 0 || !savedSurveyTemplates[index]) { surveyStatus('Choisissez le gabarit enregistré à supprimer.', 'error'); return; }
+  const [removed] = savedSurveyTemplates.splice(index, 1);
+  try { localStorage.setItem(FIELD_TEMPLATES_KEY, JSON.stringify(savedSurveyTemplates)); surveyStatus(`Gabarit « ${removed.name} » supprimé de cet appareil. Les couches/projets déjà enregistrés ne sont pas modifiés.`, 'success'); }
+  catch { surveyStatus('Gabarit retiré de la liste de cet onglet, mais le navigateur n’a pas pu mettre à jour le stockage local.', 'error'); }
+  updateSurveyTemplateSelect();
+});
+$('#loadSurveyTemplate').addEventListener('click', () => {
+  const index = Number($('#surveyTemplateLibrary').value);
+  if (!Number.isInteger(index) || index < 0 || !savedSurveyTemplates[index]) { surveyStatus('Choisissez d’abord un gabarit enregistré.', 'error'); return; }
+  setSurveyTemplate(savedSurveyTemplates[index]);
+  surveyStatus(`Gabarit « ${state.surveyTemplate.name} » chargé.`, 'success');
+});
+$('#surveyTemplateFile').addEventListener('change', async () => {
+  const file = $('#surveyTemplateFile').files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > MAX_FIELD_TEMPLATE_BYTES) throw Object.assign(new Error(), { code: 'FIELD_TEMPLATE_TOO_LARGE' });
+    const template = parseFieldTemplate(await file.text());
+    setSurveyTemplate(template);
+    surveyStatus(`Gabarit « ${template.name} » importé. Il n’inclut pas les valeurs d’un relevé.`, 'success');
+  } catch (error) { surveyStatus(error?.code === 'FIELD_TEMPLATE_TOO_LARGE' ? 'Fichier de gabarit trop volumineux (128 Ko max).' : 'Gabarit invalide ou format UrbaTrame non reconnu.', 'error'); }
+  finally { $('#surveyTemplateFile').value = ''; }
+});
+
+updateSurveyTemplateSelect();
+renderSurveyFieldDefinitions();
+renderSurveyForm();
 renderAll();

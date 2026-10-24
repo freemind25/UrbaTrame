@@ -14,9 +14,11 @@ import { createLicence, keysFromEnv } from './licence.mjs';
 import { createQuota } from './quota.mjs';
 import { createRunStore } from './runs.mjs';
 import { COOLDOWN_MS } from './config.mjs';
+import { createStudentAuthRuntime } from './student-auth-runtime.mjs';
 
-export function createRuntime({ mode = 'node', dataDir, cooldownMs } = {}) {
+export function createRuntime({ mode = 'node', dataDir, cooldownMs, studentAuthOptions = {} } = {}) {
   const quotaOpts = typeof cooldownMs === 'number' ? { cooldownMs } : {};
+  const studentAuth = createStudentAuthRuntime({ mode, ...studentAuthOptions });
 
   if (mode === 'vercel')
     return {
@@ -24,7 +26,8 @@ export function createRuntime({ mode = 'node', dataDir, cooldownMs } = {}) {
       licence: createLicence({ keys: keysFromEnv(), stateless: true }),
       quota: createQuota(quotaOpts),
       runs: createRunStore(),
-      storage: 'aucun (sessions signées, quota en mémoire)'
+      studentAuth,
+      storage: 'aucun (sessions signées, quota en mémoire; authentification étudiante PostgreSQL si configurée)'
     };
 
   return {
@@ -32,6 +35,7 @@ export function createRuntime({ mode = 'node', dataDir, cooldownMs } = {}) {
     licence: createLicence({ dataDir }),
     quota: createQuota(quotaOpts),
     runs: createRunStore(),
+    studentAuth,
     storage: 'data/keys.json + mémoire (' + (COOLDOWN_MS / 1000) + ' s de refroidissement)'
   };
 }

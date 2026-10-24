@@ -1,0 +1,271 @@
+{
+  "type": "urbatrame-spatial-framing-project",
+  "version": 1,
+  "exportedAt": 1792322955000,
+  "cadrages": [
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "sidi-mabrouk-niveau-1",
+      "name": "Test cadrage spatial – Constantine – Sidi Mabrouk — Wilaya / pays",
+      "createdAt": 1792322955000,
+      "updatedAt": 1792322955000,
+      "level": "wilaya-country",
+      "center": {
+        "lat": 36.3577414,
+        "lon": 6.6305719,
+        "name": "Sidi Mabrouk — OSM place=neighbourhood (point, non limite)"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Sidi Mabrouk",
+      "studyName": "Sidi Mabrouk — repère OSM; cercle d’essai non officiel",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": null,
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [],
+      "viewRadius": 3000,
+      "scaleDenominator": 0,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Sidi Mabrouk — Wilaya / pays",
+      "comments": "Point de référence: objet OSM place=neighbourhood « Sidi Mabrouk », 36.3577414, 6.6305719. Les cercles de 300 m et 250 m sont des périmètres synthétiques pour l’essai; l’objet OSM est un point et ne fournit pas une limite officielle du quartier. Aucune limite cadastrale ou juridique n’est créée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; essai local consulté le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "sidi-mabrouk-niveau-2",
+      "name": "Test cadrage spatial – Constantine – Sidi Mabrouk — Ville / wilaya",
+      "createdAt": 1792322955000,
+      "updatedAt": 1792322955000,
+      "level": "city-wilaya",
+      "center": {
+        "lat": 36.3577414,
+        "lon": 6.6305719,
+        "name": "Sidi Mabrouk — OSM place=neighbourhood (point, non limite)"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Sidi Mabrouk",
+      "studyName": "Sidi Mabrouk — repère OSM; cercle d’essai non officiel",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": null,
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [],
+      "viewRadius": 3000,
+      "scaleDenominator": 0,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Sidi Mabrouk — Ville / wilaya",
+      "comments": "Point de référence: objet OSM place=neighbourhood « Sidi Mabrouk », 36.3577414, 6.6305719. Les cercles de 300 m et 250 m sont des périmètres synthétiques pour l’essai; l’objet OSM est un point et ne fournit pas une limite officielle du quartier. Aucune limite cadastrale ou juridique n’est créée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; essai local consulté le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "sidi-mabrouk-niveau-3",
+      "name": "Test cadrage spatial – Constantine – Sidi Mabrouk — Quartier / ville",
+      "createdAt": 1792322955000,
+      "updatedAt": 1792322955000,
+      "level": "neighborhood-city",
+      "center": {
+        "lat": 36.3577414,
+        "lon": 6.6305719,
+        "name": "Sidi Mabrouk — OSM place=neighbourhood (point, non limite)"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Sidi Mabrouk",
+      "studyName": "Sidi Mabrouk — repère OSM; cercle d’essai non officiel",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": {
+        "type": "circle",
+        "center": [
+          6.6305719,
+          36.3577414
+        ],
+        "radiusMeters": 300
+      },
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [
+        {
+          "id": "annotation-1",
+          "type": "point",
+          "position": [
+            6.6305719,
+            36.3577414
+          ],
+          "text": "Sidi Mabrouk — repère OSM, pas une frontière",
+          "category": "test",
+          "color": "#b24d3b",
+          "width": 3
+        }
+      ],
+      "viewRadius": 500,
+      "scaleDenominator": 5000,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Sidi Mabrouk — Quartier / ville",
+      "comments": "Point de référence: objet OSM place=neighbourhood « Sidi Mabrouk », 36.3577414, 6.6305719. Les cercles de 300 m et 250 m sont des périmètres synthétiques pour l’essai; l’objet OSM est un point et ne fournit pas une limite officielle du quartier. Aucune limite cadastrale ou juridique n’est créée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; essai local consulté le 2026-10-18."
+    },
+    {
+      "type": "urbatrame-spatial-framing",
+      "version": 1,
+      "id": "sidi-mabrouk-niveau-4",
+      "name": "Test cadrage spatial – Constantine – Sidi Mabrouk — Quartier / environnement proche",
+      "createdAt": 1792322955000,
+      "updatedAt": 1792322955000,
+      "level": "neighborhood-environment",
+      "center": {
+        "lat": 36.3577414,
+        "lon": 6.6305719,
+        "name": "Sidi Mabrouk — OSM place=neighbourhood (point, non limite)"
+      },
+      "projectName": "Test cadrage spatial – Constantine – Sidi Mabrouk",
+      "studyName": "Sidi Mabrouk — repère OSM; cercle d’essai non officiel",
+      "countryCode": "DZA",
+      "wilayaGid": "DZA.15_1",
+      "wilayaName": "Constantine",
+      "communeGid": "DZA.15.6_1",
+      "communeName": "Constantine",
+      "perimeter": {
+        "type": "circle",
+        "center": [
+          6.6305719,
+          36.3577414
+        ],
+        "radiusMeters": 250
+      },
+      "layerVisibility": {
+        "country": true,
+        "wilaya": true,
+        "commune": true,
+        "study": true,
+        "roadsMain": true,
+        "roadsSecondary": true,
+        "roadsLocal": true,
+        "pedestrian": true,
+        "buildings": true,
+        "centralities": true,
+        "neighborhoods": true,
+        "equipment": true,
+        "transport": true,
+        "green": true,
+        "water": true,
+        "rail": true,
+        "barriers": false,
+        "relief": false,
+        "local": true,
+        "annotations": true
+      },
+      "annotations": [
+        {
+          "id": "annotation-1",
+          "type": "point",
+          "position": [
+            6.6305719,
+            36.3577414
+          ],
+          "text": "Sidi Mabrouk — repère OSM, pas une frontière",
+          "category": "test",
+          "color": "#b24d3b",
+          "width": 3
+        }
+      ],
+      "viewRadius": 350,
+      "scaleDenominator": 3500,
+      "layout": {
+        "pageSize": "A4",
+        "orientation": "landscape",
+        "dpi": 150
+      },
+      "localSnapshot": null,
+      "title": "Test cadrage spatial – Constantine – Sidi Mabrouk — Quartier / environnement proche",
+      "comments": "Point de référence: objet OSM place=neighbourhood « Sidi Mabrouk », 36.3577414, 6.6305719. Les cercles de 300 m et 250 m sont des périmètres synthétiques pour l’essai; l’objet OSM est un point et ne fournit pas une limite officielle du quartier. Aucune limite cadastrale ou juridique n’est créée.",
+      "sourceAttribution": "GADM 4.1 · © GADM · © OpenStreetMap contributors, ODbL; essai local consulté le 2026-10-18."
+    }
+  ]
+}
