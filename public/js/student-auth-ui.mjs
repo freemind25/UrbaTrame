@@ -158,12 +158,22 @@ function showGate({ ready, error = false } = {}) {
         credentials: 'same-origin', cache: 'no-store', body: JSON.stringify({ email: selectedEmail, code })
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.ok) throw new Error(result.error || 'INVALID_OR_EXPIRED_CODE');
+      if (!response.ok || !result.ok) {
+        const error = new Error(result.error || 'INVALID_OR_EXPIRED_CODE');
+        /* Le serveur ne fournit debug que sur Preview; ne montrer que stage/code
+           assainis, jamais le message SQL, l’adresse, l’OTP ou les secrets. */
+        error.debug = result.debug && typeof result.debug === 'object' ? result.debug : null;
+        throw error;
+      }
       setMessage(codeMessage, copy('Connexion réussie. Ouverture d’UrbaTrame…', 'Signed in. Opening UrbaTrame…'));
       window.location.reload();
     } catch (error) {
-      const message = error.message === 'STUDENT_AUTH_UNAVAILABLE'
-        ? copy('Service momentanément indisponible.', 'Service temporarily unavailable.')
+      const unavailable = error.message === 'STUDENT_AUTH_UNAVAILABLE';
+      const stage = typeof error.debug?.stage === 'string' ? error.debug.stage : '';
+      const diagnosticCode = typeof error.debug?.code === 'string' ? error.debug.code : '';
+      const diagnostic = stage ? ` (${stage}${diagnosticCode ? `/${diagnosticCode}` : ''})` : '';
+      const message = unavailable
+        ? copy(`Service momentanément indisponible${diagnostic}.`, `Service temporarily unavailable${diagnostic}.`)
         : copy('Code incorrect ou expiré. Vérifiez-le ou demandez-en un nouveau.', 'The code is incorrect or expired. Check it or request a new one.');
       setMessage(codeMessage, message, true);
       codeInput.select();

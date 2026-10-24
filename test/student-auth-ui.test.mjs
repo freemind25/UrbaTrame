@@ -23,6 +23,14 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.doesNotMatch(ui, /localStorage|sessionStorage|sessionToken/);
   });
 
+  test('l’erreur de vérification peut afficher uniquement le diagnostic assaini fourni en Preview', () => {
+    const ui = read('public/js/student-auth-ui.mjs');
+    assert.match(ui, /error\.debug = result\.debug/);
+    assert.match(ui, /error\.debug\?\.stage/);
+    assert.match(ui, /error\.debug\?\.code/);
+    assert.doesNotMatch(ui, /error\.debug\?\.message/);
+  });
+
   test('le mode étudiant bloque le repli Overpass direct et attribue le niveau Max', () => {
     const app = read('public/js/app.js');
     assert.match(app, /studentAuthRequired/);
