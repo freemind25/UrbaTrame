@@ -3,12 +3,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
 
 const root = new URL('../', import.meta.url);
 const read = file => fs.readFileSync(new URL(file, root), 'utf8');
 
-await import(pathToFileURL(new URL('../public/js/catalog.js', import.meta.url).pathname));
+/* L'objet URL sert directement d'identifiant d'import : transmettre son
+   `pathname` (préfixé d'un `/` sous Windows) produisait `file:///C:/C:/…`. */
+await import(new URL('../public/js/catalog.js', import.meta.url));
 const catalog = globalThis.FMCatalog;
 
 describe('matrice Pro/Max', () => {

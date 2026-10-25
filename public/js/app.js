@@ -118,29 +118,48 @@ const b64uToBytes = s => {
 };
 let PUB_KEY = null;
 let ISSUER_PUBLIC_KEY = null;
+/* WebCrypto Ed25519 absente sur certains postes (Electron/Chromium < 137,
+   navigateurs anciens). La détection ne se fait qu'une fois : on n'essaie pas
+   d'importer une clé que le navigateur ne saurait pas manipuler, le journal
+   dit alors ce qui se passe réellement, et la vérification de signature est
+   déléguée au serveur (action `check`), seul endroit décédé aujourd'hui. */
+let ed25519Unsupported = false;
+async function importEd25519Key(base64) {
+  if (ed25519Unsupported) return null;
+  try {
+    return await crypto.subtle.importKey(
+      'raw', b64uToBytes(base64), { name: 'Ed25519' }, false, ['verify']);
+  } catch (e) {
+    if (/unrecognized|unsupported|not supported/i.test(String(e?.message || '')))
+      ed25519Unsupported = true;
+    return null;
+  }
+}
 async function loadPublicKey() {
   let status = null;
   try {
     status = await (await fetch('/api/status')).json();
+  } catch (e) { log('statut du serveur indisponible : ' + e.message); }
+  if (status) {
     S.pub = status.pub;
     S.licenseFileActivation = status.licenses?.signedFileActivation === true;
     /* Mode d'accès : `open` = toutes les analyses ouvertes (période d'essai). */
     if (status.access === 'open' || status.access === 'licence') S.access = status.access;
-    if (status.pub) {
-      PUB_KEY = await crypto.subtle.importKey(
-        'raw', b64uToBytes(status.pub), { name: 'Ed25519' }, false, ['verify']);
-      log(`clé de session Ed25519 chargée (${status.pub.slice(0, 12)}…)`);
-    }
     if (status.licenses?.publicKey) store.set('licensePubB64', status.licenses.publicKey);
-  } catch (e) { log('statut du serveur indisponible : ' + e.message); }
+    if (status.pub) {
+      PUB_KEY = await importEd25519Key(status.pub);
+      if (PUB_KEY) log(`clé de session Ed25519 chargée (${status.pub.slice(0, 12)}…)`);
+      else if (ed25519Unsupported)
+        log('signature Ed25519 non prise en charge par ce navigateur : licences vérifiées par le serveur');
+      else log('clé de session illisible : vérification locale des licences impossible');
+    }
+  }
 
   const issuerB64 = status?.licenses?.publicKey || store.get('licensePubB64', '');
   if (issuerB64) {
-    try {
-      ISSUER_PUBLIC_KEY = await crypto.subtle.importKey(
-        'raw', b64uToBytes(issuerB64), { name: 'Ed25519' }, false, ['verify']);
-      log('clé publique de licence signée chargée');
-    } catch (e) { log('clé publique de licence indisponible : ' + e.message); }
+    ISSUER_PUBLIC_KEY = await importEd25519Key(issuerB64);
+    if (ISSUER_PUBLIC_KEY) log('clé publique de licence signée chargée');
+    else if (!ed25519Unsupported) log('clé publique de licence illisible : vérification .utlic déléguée au serveur');
   }
 }
 /* Vérifie le jeton signé : signature + version + niveau + appareil + expiration. */
