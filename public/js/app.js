@@ -1563,9 +1563,14 @@ function wireLicenceActivation(host) {
 function openPlans() {
   const p = $('#planBody');
   if (S.studentAuthRequired) {
-    p.innerHTML = `<div class="plans-open"><h3>${T('Accès universitaire', 'University access')}</h3><p>${S.studentUser
-      ? T('Votre adresse universitaire est vérifiée. Vous disposez automatiquement de Max, y compris toutes les fonctions Pro.', 'Your university address is verified. Max is included automatically, together with all Pro features.')
-      : T('Connectez-vous avec une adresse ajoutée à la liste autorisée pour recevoir automatiquement Max, qui inclut Pro.', 'Sign in with an address on the approved list to receive Max automatically; Max includes Pro.')}</p></div>`;
+    const owner = S.studentUser?.isOwner === true && S.studentUser?.role === 'admin';
+    const title = owner ? T('Accès propriétaire', 'Owner access') : T('Accès universitaire', 'University access');
+    const detail = !S.studentUser
+      ? T('Connectez-vous avec une adresse ajoutée à la liste autorisée pour recevoir automatiquement Max, qui inclut Pro.', 'Sign in with an address on the approved list to receive Max automatically; Max includes Pro.')
+      : owner
+        ? T('Session propriétaire authentifiée. Vous disposez du rôle administrateur et du niveau Max, incluant Pro.', 'Owner session authenticated. You have the administrator role and Max, including Pro.')
+        : T('Votre adresse universitaire est vérifiée. Vous disposez automatiquement de Max, y compris toutes les fonctions Pro.', 'Your university address is verified. Max is included automatically, together with all Pro features.');
+    p.innerHTML = `<div class="plans-open"><h3>${title}</h3><p>${detail}</p></div>`;
     openModal('plans');
     return;
   }
@@ -1836,7 +1841,9 @@ async function init() {
     setTimeout(doSearch, 400);
   }
   if (S.studentAuthRequired)
-    log(S.studentUser ? `session étudiante active · palier MAX (Pro inclus)` : 'authentification universitaire requise');
+    log(S.studentUser?.isOwner === true
+      ? 'session propriétaire active · rôle administrateur · palier MAX'
+      : S.studentUser ? 'session étudiante active · palier MAX (Pro inclus)' : 'authentification universitaire requise');
   else log(isOpenAccess()
     ? `prêt · ${T('accès libre — toutes les analyses, sans filigrane', 'open access — every analysis, no watermark')}`
     : `prêt · ${T('essai gratuit = 5 analyses filigranées', 'free trial = 5 watermarked analyses')}`);

@@ -15,10 +15,14 @@ import { createQuota } from './quota.mjs';
 import { createRunStore } from './runs.mjs';
 import { COOLDOWN_MS } from './config.mjs';
 import { createStudentAuthRuntime } from './student-auth-runtime.mjs';
+import { createOwnerAuthRuntime } from './owner-auth.mjs';
 
 export function createRuntime({ mode = 'node', dataDir, cooldownMs, studentAuthOptions = {} } = {}) {
   const quotaOpts = typeof cooldownMs === 'number' ? { cooldownMs } : {};
-  const studentAuth = createStudentAuthRuntime({ mode, ...studentAuthOptions });
+  const studentAuthBase = createStudentAuthRuntime({ mode, ...studentAuthOptions });
+  const ownerAuth = studentAuthOptions.dependencies?.ownerAuth
+    || createOwnerAuthRuntime({ env: studentAuthOptions.env || process.env });
+  const studentAuth = Object.freeze({ ...studentAuthBase, ownerAuth });
 
   if (mode === 'vercel')
     return {

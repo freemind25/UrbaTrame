@@ -28,6 +28,7 @@ desktop.ini
 
 # ── Divers ──────────────────────────────────────────────────────
 *.log
+.owner-password-verifier*
 .env
 .env.*
 !.env.example

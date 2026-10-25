@@ -23,6 +23,17 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.doesNotMatch(ui, /localStorage|sessionStorage|sessionToken/);
   });
 
+  test('l’accès propriétaire est séparé et utilise un POST mot de passe, sans changer le parcours OTP étudiant', () => {
+    const ui = read('public/js/student-auth-ui.mjs');
+    const sessionFunction = read('api/auth/session.js');
+    assert.match(ui, /ownerLoginReady/);
+    assert.match(ui, /Mot de passe propriétaire/);
+    assert.match(ui, /\/api\/auth\/session/);
+    assert.match(ui, /body: JSON\.stringify\(\{ password: ownerInput\.value \}\)/);
+    assert.match(sessionFunction, /req\.method === 'POST'.*ownerLogin/);
+    assert.match(sessionFunction, /req\.method === 'POST'.*clientIp/);
+  });
+
   test('l’erreur de vérification peut afficher uniquement le diagnostic assaini fourni en Preview', () => {
     const ui = read('public/js/student-auth-ui.mjs');
     assert.match(ui, /error\.debug = result\.debug/);

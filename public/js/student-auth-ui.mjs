@@ -54,7 +54,7 @@ function setMessage(node, text, error = false) {
   node.classList.toggle('error', error);
 }
 
-function showGate({ ready, error = false } = {}) {
+function showGate({ ready, error = false, ownerLoginReady = false } = {}) {
   appendStyle();
   if ($('#utStudentGate')) return $('#utStudentGate');
   const overlay = make('section', { id: 'utStudentGate', class: 'ut-student-gate', 'aria-modal': 'true', role: 'dialog', 'aria-labelledby': 'utStudentTitle' });
@@ -65,10 +65,14 @@ function showGate({ ready, error = false } = {}) {
   card.append(brand);
   card.append(make('h1', { id: 'utStudentTitle' }, ready
     ? copy('Accès étudiant', 'Student access')
-    : copy('Accès temporairement indisponible', 'Access temporarily unavailable')));
+    : ownerLoginReady
+      ? copy('Accès propriétaire', 'Owner access')
+      : copy('Accès temporairement indisponible', 'Access temporarily unavailable')));
   const intro = make('p', {}, ready
     ? copy('Connectez-vous avec l’adresse universitaire qui a été ajoutée à la liste autorisée. Un code à usage unique sera envoyé si elle y figure.', 'Sign in with the university address added to the approved list. A one-time code will be sent if it is on that list.')
-    : copy('Le service d’authentification n’est pas encore configuré. Aucun accès n’est accordé pour le moment.', 'The authentication service is not configured yet. Access is not granted at this time.'));
+    : ownerLoginReady
+      ? copy('Le service étudiant est indisponible. Le propriétaire peut se connecter avec son mot de passe dédié, sans adresse e-mail ni code OTP.', 'Student sign-in is unavailable. The owner can use the dedicated password, without an email address or OTP.')
+      : copy('Le service d’authentification n’est pas encore configuré. Aucun accès n’est accordé pour le moment.', 'The authentication service is not configured yet. Access is not granted at this time.'));
   card.append(intro);
 
   const emailForm = make('form', { id: 'utStudentEmailForm', hidden: !ready });
@@ -89,8 +93,41 @@ function showGate({ ready, error = false } = {}) {
   codeActions.append(resend, changeEmail);
   codeForm.append(codeLabel, codeInput, codeButton, codeMessage, codeActions);
 
+  let ownerForm = null, ownerInput = null, ownerButton = null, ownerMessage = null;
+  let ownerChoice = null, ownerActions = null;
+  if (ownerLoginReady) {
+    ownerActions = make('div', { class: 'ut-student-actions' });
+    ownerChoice = make('button', { class: 'ut-secondary', type: 'button', id: 'utOwnerAccess' }, copy('Accès propriétaire / administrateur', 'Owner / administrator access'));
+    ownerActions.append(ownerChoice);
+
+    ownerForm = make('form', { id: 'utOwnerPasswordForm', hidden: true });
+    const ownerLabel = make('label', { for: 'utOwnerPassword' }, copy('Mot de passe propriétaire', 'Owner password'));
+    ownerInput = make('input', { id: 'utOwnerPassword', type: 'password', name: 'password', autocomplete: 'current-password', maxlength: '512', required: true });
+    ownerButton = make('button', { type: 'submit' }, copy('Se connecter comme administrateur', 'Sign in as administrator'));
+    ownerMessage = make('p', { class: 'ut-student-message', id: 'utOwnerPasswordMessage', 'aria-live': 'polite' });
+    const ownerFormActions = make('div', { class: 'ut-student-actions' });
+    const ownerBack = make('button', { class: 'ut-secondary', type: 'button' }, copy('Retour à l’accès étudiant', 'Back to student access'));
+    ownerBack.addEventListener('click', () => {
+      ownerForm.hidden = true;
+      ownerActions.hidden = false;
+      emailForm.hidden = !ready;
+      codeForm.hidden = true;
+      if (ready) emailInput.focus();
+    });
+    ownerFormActions.append(ownerBack);
+    ownerForm.append(ownerLabel, ownerInput, ownerButton, ownerMessage, ownerFormActions);
+    ownerChoice.addEventListener('click', () => {
+      emailForm.hidden = true;
+      codeForm.hidden = true;
+      ownerActions.hidden = true;
+      ownerForm.hidden = false;
+      ownerInput.focus();
+    });
+  }
+
   const note = make('p', { class: 'ut-student-note' }, copy('Les étudiants autorisés bénéficient automatiquement du niveau Max, incluant Pro. Le code n’est jamais demandé par l’équipe UrbaTrame.', 'Approved students automatically receive Max, including Pro. The UrbaTrame team will never ask you for this code.'));
   card.append(emailForm, codeForm);
+  if (ownerActions) card.append(ownerActions, ownerForm);
   if (!ready) {
     const retry = make('button', { type: 'button' }, copy('Réessayer', 'Try again'));
     retry.addEventListener('click', () => window.location.reload());
@@ -179,6 +216,35 @@ function showGate({ ready, error = false } = {}) {
       codeInput.select();
     } finally { codeButton.disabled = false; }
   });
+  if (ownerForm) ownerForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!ownerInput.reportValidity()) return;
+    ownerButton.disabled = true;
+    setMessage(ownerMessage, '');
+    try {
+      const response = await fetch('/api/auth/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin', cache: 'no-store', body: JSON.stringify({ password: ownerInput.value })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) {
+        const failure = new Error(result.error || 'OWNER_AUTH_UNAVAILABLE');
+        failure.status = response.status;
+        throw failure;
+      }
+      ownerInput.value = '';
+      setMessage(ownerMessage, copy('Connexion réussie. Ouverture d’UrbaTrame…', 'Signed in. Opening UrbaTrame…'));
+      window.location.reload();
+    } catch (failure) {
+      const message = failure.status === 429
+        ? copy('Trop de tentatives. Réessayez dans 15 minutes.', 'Too many attempts. Try again in 15 minutes.')
+        : failure.status === 401
+          ? copy('Mot de passe incorrect.', 'Incorrect password.')
+          : copy('La connexion propriétaire est temporairement indisponible.', 'Owner sign-in is temporarily unavailable.');
+      setMessage(ownerMessage, message, true);
+      ownerInput.select();
+    } finally { ownerButton.disabled = false; }
+  });
   resend.addEventListener('click', () => { if (!resend.disabled) requestCode(); });
   changeEmail.addEventListener('click', () => {
     clearInterval(resendTimer);
@@ -192,9 +258,10 @@ function showGate({ ready, error = false } = {}) {
 function showUser(user) {
   if ($('#utStudentUser') || !user) return;
   appendStyle();
-  const badge = make('div', { id: 'utStudentUser', class: 'ut-student-user', 'aria-label': copy('Session étudiante', 'Student session') });
-  badge.append(make('strong', {}, user.email || ''));
-  badge.append(make('small', {}, 'MAX · PRO'));
+  const owner = user.isOwner === true && user.role === 'admin';
+  const badge = make('div', { id: 'utStudentUser', class: 'ut-student-user', 'aria-label': owner ? copy('Session propriétaire', 'Owner session') : copy('Session étudiante', 'Student session') });
+  badge.append(make('strong', {}, owner ? copy('Propriétaire', 'Owner') : (user.email || '')));
+  badge.append(make('small', {}, owner ? 'ADMIN · MAX' : 'MAX · PRO'));
   const logout = make('button', { type: 'button' }, copy('Déconnexion', 'Sign out'));
   logout.addEventListener('click', async () => {
     logout.disabled = true;
@@ -220,13 +287,14 @@ export const studentAuthReady = (async () => {
     const required = status.auth?.required === true;
     if (!required) return { required: false, ready: status.auth?.ready !== false, user: null };
     const ready = status.auth?.ready === true;
-    if (!ready) {
+    const ownerLoginReady = status.auth?.ownerLoginReady === true;
+    if (!ready && !ownerLoginReady) {
       showGate({ ready: false });
       return { required: true, ready: false, authenticated: false, user: null };
     }
     const sessionResponse = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
     if (!sessionResponse.ok) {
-      showGate({ ready: false, error: true });
+      showGate({ ready: false, error: true, ownerLoginReady });
       return { required: true, ready: false, authenticated: false, user: null };
     }
     const session = await sessionResponse.json();
@@ -234,8 +302,8 @@ export const studentAuthReady = (async () => {
       showUser(session.user);
       return { required: true, ready: true, authenticated: true, user: session.user };
     }
-    showGate({ ready: true });
-    return { required: true, ready: true, authenticated: false, user: null };
+    showGate({ ready, ownerLoginReady });
+    return { required: true, ready, authenticated: false, user: null };
   } catch {
     showGate({ ready: false });
     return { required: true, ready: false, authenticated: false, user: null };

@@ -25,6 +25,7 @@ export function createStatusHandler({ licence, studentAuth = null }) {
       required: Boolean(studentAuth?.required),
       ready: studentAuth?.ready !== false
     };
+    if (studentAuth?.ownerAuth?.required) auth.ownerLoginReady = studentAuth.ownerAuth.ready === true;
     /* Aperçu seulement (VERCEL_ENV=preview) : expose l'étape et le code d'un
        échec de connexion — jamais l'URL, l'identifiant ni le mot de passe —
        pour diagnostiquer sans journaux. Aucune fonction serverless n'est
@@ -120,6 +121,21 @@ export function createAnalysisHandler({ licence, quota, runs }) {
       let p;
       try { p = plan(ids, Number(body.radius), Number(body.lat), Number(body.lon)); }
       catch (e) { return send(res, 400, { error: e.message }); }
+
+      /* Le compte propriétaire garde son rôle admin distinct : Max sans
+         quota étudiant ni dépendance à la base d'identités. */
+      if (studentUser?.isOwner === true && studentUser.role === 'admin') {
+        const run = runs.open({
+          groups: p.groups.map(group => ({ id: group.id, query: group.query, keys: group.keys })),
+          tier: 'max', device, ip, slot: null,
+          radius: body.radius, lat: body.lat, lon: body.lon
+        });
+        log('begin propriétaire', run.slice(0, 8), 'max', p.selected.length + ' analyse(s)');
+        return send(res, 200, {
+          ok: true, run, tier: 'max', access: 'owner',
+          groups: p.groups.map(group => ({ id: group.id, fr: group.fr, en: group.en }))
+        });
+      }
 
       /* Toute adresse active de la liste reçoit automatiquement Max, lequel
          inclut Pro. L'identité est déjà vérifiée par le cookie serveur; aucun
@@ -329,7 +345,10 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/status') return status(req, res);
     if (url.pathname === '/api/auth/request-otp') return authHandlers.requestOtp(req, res, ip);
     if (url.pathname === '/api/auth/verify-otp') return authHandlers.verifyOtp(req, res);
-    if (url.pathname === '/api/auth/session') return authHandlers.session(req, res);
+    if (url.pathname === '/api/auth/session') {
+      if (req.method === 'POST') return authHandlers.ownerLogin(req, res, ip);
+      return authHandlers.session(req, res);
+    }
     if (url.pathname === '/api/auth/logout') return authHandlers.logout(req, res);
 
     let studentUser = null;

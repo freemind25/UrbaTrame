@@ -6,7 +6,7 @@ commun à l'instance, qui permet de rattacher un incident à un journal serveur.
 
 ## `GET /api/status`
 
-État du service et paramètres publics. Le champ `access` dit le régime de licences en vigueur (`open` ou `licence`). Le champ `auth` indique si la barrière universitaire est requise et prête. Quand `FM_STUDENT_AUTH=required`, les API d’application exigent un cookie de session étudiant valide; les utilisateurs autorisés reçoivent automatiquement Max (Pro inclus). Voir `docs/ACCES.md` et `docs/ACCES-ETUDIANTS-OTP.md`.
+État du service et paramètres publics. Le champ `access` dit le régime de licences en vigueur (`open` ou `licence`). Le champ `auth` indique si la barrière universitaire est requise et prête; `ownerLoginReady` peut indiquer que l’accès propriétaire est configuré, sans divulguer de secret. Quand `FM_STUDENT_AUTH=required`, les API d’application exigent une session étudiante OTP ou une session propriétaire valide. Les étudiants autorisés reçoivent automatiquement Max (Pro inclus); le propriétaire conserve le rôle `admin`. Voir `docs/ACCES.md` et `docs/ACCES-ETUDIANTS-OTP.md`.
 
 ```json
 {
@@ -38,7 +38,11 @@ Corps JSON `{ "email": "...", "code": "123456" }`. Réponse de succès `{ ok, us
 
 ### `GET /api/auth/session` et `POST /api/auth/logout`
 
-La première route renvoie `{ required, ready, authenticated, user }`; la seconde révoque la session et efface le cookie. Le jeton aléatoire brut n’est connu que du navigateur via le cookie HttpOnly et du serveur à la création; la base ne conserve que son empreinte SHA-256.
+La première route renvoie `{ required, ready, authenticated, user }`. La seconde révoque la session étudiante et efface les cookies étudiant et propriétaire. Le jeton étudiant n’est connu que du cookie HttpOnly et du serveur à la création; la base ne conserve que son empreinte SHA-256. La session propriétaire est signée sans état, dure 8 heures et est effacée du navigateur à la déconnexion; changer son vérificateur invalide les cookies déjà émis.
+
+### `POST /api/auth/session` (propriétaire/admin, facultatif)
+
+Cette méthode est activée uniquement si `FM_OWNER_AUTH=required` et que le vérificateur `FM_OWNER_PASSWORD_HASH` est valide. Corps JSON `{ "password": "…" }`; aucune adresse ni OTP n’est demandé. Une réussite pose un cookie distinct `ut_owner_session` (`HttpOnly; SameSite=Strict; Secure` en HTTPS) et renvoie un utilisateur `role: "admin"`, distinct du rôle étudiant. Les étudiants continuent d’utiliser exclusivement les routes OTP. Mot de passe erroné : `401 INVALID_CREDENTIALS`; configuration absente : `404` ou `503`; limite de tentatives : `429 RATE_LIMITED`. Le contrôle local limite à cinq essais par IP et par fenêtre de 15 minutes; sur Vercel cette limite est en mémoire par instance et n’est pas un compteur global persistant. La configuration et le format du vérificateur sont décrits dans `docs/ACCES-ETUDIANTS-OTP.md`.
 
 ## `POST /analysis/2d`
 
