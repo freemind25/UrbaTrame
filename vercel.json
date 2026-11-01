@@ -13,7 +13,7 @@
     }
   ],
   "functions": {
-    "api/**/*.js": {
+    "server/api.mjs": {
       "maxDuration": 60,
       "memory": 512
     }
