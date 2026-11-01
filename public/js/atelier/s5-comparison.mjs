@@ -579,8 +579,8 @@ function setProviderUI() {
   elements.customEndpointField.hidden = provider !== 'custom';
   elements.customModelField.hidden = provider !== 'custom';
   elements.customConfirmRow.hidden = provider !== 'custom';
-  elements.modelSelectField.hidden = !['openrouter', 'apinex'].includes(provider);
-  elements.loadModels.hidden = !['openrouter', 'apinex'].includes(provider);
+  elements.modelSelectField.hidden = !['openrouter', 'apinex', 'codecraft'].includes(provider);
+  elements.loadModels.hidden = !['openrouter', 'apinex', 'codecraft'].includes(provider);
   elements.apiKey.disabled = !provider;
   elements.clearKey.disabled = !provider || !elements.apiKey.value;
   elements.loadModels.disabled = !provider || !elements.apiKey.value;
@@ -598,6 +598,7 @@ function setProviderUI() {
 function normalizedBaseUrl() {
   const provider = elements.provider.value;
   if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
+  if (provider === 'codecraft') return 'https://codecraftapi.com/v1';
   if (provider === 'apinex') return 'https://api.apinex.bond/v1';
   if (provider !== 'custom') throw new Error('Choisissez un fournisseur.');
   const input = elements.customEndpoint.value.trim();
@@ -626,8 +627,8 @@ function updateAiControls() {
   const provider = elements.provider.value;
   const hasKey = Boolean(elements.apiKey.value.trim());
   elements.clearKey.disabled = !hasKey;
-  elements.loadModels.disabled = !hasKey || !['openrouter', 'apinex'].includes(provider);
-  let endpointOk = provider === 'openrouter' || provider === 'apinex';
+  elements.loadModels.disabled = !hasKey || !['openrouter', 'apinex', 'codecraft'].includes(provider);
+  let endpointOk = provider === 'openrouter' || provider === 'codecraft' || provider === 'apinex';
   if (provider === 'custom') {
     try { normalizedBaseUrl(); endpointOk = true; } catch { endpointOk = false; }
   }
@@ -641,7 +642,7 @@ function updateAiControls() {
 
 async function loadModels() {
   const provider = elements.provider.value;
-  if (!['openrouter', 'apinex'].includes(provider)) return;
+  if (!['openrouter', 'apinex', 'codecraft'].includes(provider)) return;
   const key = elements.apiKey.value.trim();
   if (!key) { setStatus(elements.aiStatus, 'Saisissez votre clé API avant de charger le catalogue.', 'warning'); return; }
   let endpoint;
@@ -649,7 +650,7 @@ async function loadModels() {
   catch (error) { setStatus(elements.aiStatus, error.message, 'error'); return; }
   elements.loadModels.disabled = true;
   elements.loadModels.textContent = 'Chargement…';
-  setStatus(elements.aiStatus, `Requête authentifiée vers ${provider === 'openrouter' ? 'OpenRouter' : 'APInex'}; aucune image n’est jointe à cette requête.`, '');
+  setStatus(elements.aiStatus, `Requête authentifiée vers ${provider === 'openrouter' || provider === 'codecraft' ? 'OpenRouter' : 'APInex'}; aucune image n’est jointe à cette requête.`, '');
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -742,7 +743,7 @@ async function runAi() {
 
   elements.runAi.disabled = true;
   elements.runAi.textContent = 'Analyse en cours…';
-  setStatus(elements.aiStatus, `Envoi direct de deux images JPEG réduites et des métadonnées à ${provider === 'openrouter' ? 'OpenRouter' : provider === 'apinex' ? 'APInex' : 'l’endpoint choisi'}; aucune bascule vers un modèle payant.`, 'warning');
+  setStatus(elements.aiStatus, `Envoi direct de deux images JPEG réduites et des métadonnées à ${provider === 'openrouter' || provider === 'codecraft' ? 'OpenRouter' : provider === 'apinex' ? 'APInex' : 'l’endpoint choisi'}; aucune bascule vers un modèle payant.`, 'warning');
   try {
     const oldData = resizeImageDataUrl(state.maps.old.image);
     const currentData = resizeImageDataUrl(state.maps.current.image);
@@ -764,7 +765,7 @@ async function runAi() {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          ...(provider === 'openrouter' ? { 'HTTP-Referer': window.location.origin, 'X-Title': 'UrbaTrame S5' } : {})
+          ...(provider === 'openrouter' || provider === 'codecraft' ? { 'HTTP-Referer': window.location.origin, 'X-Title': 'UrbaTrame S5' } : {})
         },
         referrerPolicy: 'no-referrer',
         credentials: 'omit',

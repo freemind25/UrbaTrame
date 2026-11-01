@@ -97,7 +97,7 @@ export function transformPixel(transform, xValue, yValue) {
 
 export function isFreeModel(model, provider = '') {
   const id = String(model?.id || model?.name || '');
-  const idDeclaresFree = /:free$/i.test(id) || /^openrouter\/free$/i.test(id) || (provider === 'apinex' && /^free\//i.test(id));
+  const idDeclaresFree = /:free$/i.test(id) || /^openrouter\/free$/i.test(id) || (provider === 'apinex' && /^free\//i.test(id)) || (provider === 'codecraft' && /^codecraft\//i.test(id));
   const pricing = model?.pricing && typeof model.pricing === 'object' ? model.pricing : {};
   const prices = Object.values(pricing).filter(value => value !== null && value !== undefined);
   // Reject a model if any declared input/output/image/request price is nonzero

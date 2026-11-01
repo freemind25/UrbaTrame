@@ -287,7 +287,7 @@
           <div class="panel-heading"><div><span class="step">07 / IA FACULTATIVE</span><h2 id="ai-title">Synthèse assistée</h2></div></div>
           <p class="service-warning">Désactivée par défaut. Vous choisissez un fournisseur et un modèle, fournissez votre propre clé, vérifiez ses tarifs/quotas/rétention, puis confirmez l’envoi. Seules les couches choisies (20 premières entités chacune, attributs et coordonnées) et votre consigne quittent l’onglet vers le service indiqué; OpenRouter les route vers un fournisseur d’inférence, un endpoint personnalisé peut aussi les retransmettre. Aucune géométrie IA n’est ajoutée sans validation étudiante.</p>
           <label class="field-label" for="aiProvider">Fournisseur
-            <select id="aiProvider"><option value="">Choisir — IA inactive</option><option value="openrouter">OpenRouter (routage ZDR demandé)</option><option value="custom">Endpoint OpenAI-compatible fourni par vous</option></select>
+            <select id="aiProvider"><option value="">Choisir — IA inactive</option><option value="openrouter">OpenRouter (routage ZDR demandé)</option><option value="apinex">APInex</option><option value="codecraft">CodeCraft</option><option value="custom">Endpoint OpenAI-compatible fourni par vous</option></select>
           </label>
           <label id="aiEndpointField" class="field-label" for="aiEndpoint" hidden>Endpoint HTTPS personnalisé
             <input id="aiEndpoint" type="url" maxlength="500" placeholder="https://votre-fournisseur/v1/chat/completions">
