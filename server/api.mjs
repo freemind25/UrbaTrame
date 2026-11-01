@@ -376,29 +376,50 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
       if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });
       const model = params.get('model') || '';
       const prompt = params.get('prompt') || '';
+      const route = params.get('route') || 'chat';
       if (!model) return send(res, 400, { error: 'MISSING_MODEL' });
       try {
-        const codecraftResponse = await fetch('https://codecraftapi.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 800,
-            temperature: 0.2
-          }),
-          timeout: 30000
-        });
-        const data = await codecraftResponse.json();
-        if (!codecraftResponse.ok) {
-          return send(res, codecraftResponse.status || 500, {
-            error: data?.error?.message || 'CodeCraft API error'
+        // Determine target endpoint based on route
+        if (route === 'catalog') {
+          // For catalog: forward to /models endpoint (GET)
+          const codecraftResponse = await fetch('https://codecraftapi.com/v1/models', {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            },
+            timeout: 30000
           });
+          const data = await codecraftResponse.json();
+          if (!codecraftResponse.ok) {
+            return send(res, codecraftResponse.status || 500, {
+              error: data?.error?.message || 'CodeCraft API error'
+            });
+          }
+          return send(res, 200, { ok: true, response: data });
+        } else {
+          // For chat: forward to /chat/completions endpoint (POST)
+          const codecraftResponse = await fetch('https://codecraftapi.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 800,
+              temperature: 0.2
+            }),
+            timeout: 30000
+          });
+          const data = await codecraftResponse.json();
+          if (!codecraftResponse.ok) {
+            return send(res, codecraftResponse.status || 500, {
+              error: data?.error?.message || 'CodeCraft API error'
+            });
+          }
+          return send(res, 200, { ok: true, response: data });
         }
-        return send(res, 200, { ok: true, response: data });
       } catch (error) {
         return send(res, 504, { error: 'CODECRAFT_REQUEST_FAILED', detail: error.message });
       }

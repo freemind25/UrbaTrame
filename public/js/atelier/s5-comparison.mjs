@@ -656,13 +656,26 @@ async function loadModels() {
     const timeout = setTimeout(() => controller.abort(), 30000);
     let response;
     try {
-      response = await fetch(`${endpoint}/models`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
-        credentials: 'omit',
-        signal: controller.signal,
-        referrerPolicy: 'no-referrer'
-      });
+      // Use server relay for CodeCraft to keep the key secret
+      if (provider === 'codecraft') {
+        response = await fetch('/api/util/codecraft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=codecraft&model=' + encodeURIComponent(endpoint) +
+            '&prompt=' + encodeURIComponent('load catalog') +'&route=catalog',
+          credentials: 'omit',
+          signal: controller.signal,
+          referrerPolicy: 'no-referrer'
+        })
+      } else {
+        response = await fetch(`${endpoint}/models`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+          credentials: 'omit',
+          signal: controller.signal,
+          referrerPolicy: 'no-referrer'
+        })
+      }
     } finally { clearTimeout(timeout); }
     if (!response.ok) throw new Error(`Le catalogue a répondu HTTP ${response.status}. Vérifiez la clé, l’accès API et les conditions du fournisseur.`);
     const payload = await response.json();
@@ -759,32 +772,45 @@ async function runAi() {
     const timeout = setTimeout(() => controller.abort(), 90000);
     let response;
     try {
-      response = await fetch(`${endpoint}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...(provider === 'openrouter' || provider === 'codecraft' ? { 'HTTP-Referer': window.location.origin, 'X-Title': 'UrbaTrame S5' } : {})
-        },
-        referrerPolicy: 'no-referrer',
-        credentials: 'omit',
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: model.id,
-          temperature: 0.15,
-          max_tokens: 1100,
-          messages: [{ role: 'user', content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: oldData } },
-            { type: 'image_url', image_url: { url: currentData } }
-          ] }]
+      // Use server relay for CodeCraft to keep the key secret
+      if (provider === 'codecraft') {
+        const promptText = prompt.slice(0, 1000); // truncate for relay
+        response = await fetch('/api/util/codecraft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=codecraft&model=' + encodeURIComponent(model.id) + '&prompt=' + encodeURIComponent(promptText) +'&route=chat',
+          credentials: 'omit',
+          signal: controller.signal,
+          referrerPolicy: 'no-referrer'
         })
-      });
+      } else {
+        response = await fetch(`${endpoint}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...(provider === 'openrouter' || provider === 'codecraft' ? { 'HTTP-Referer': window.location.origin, 'X-Title': 'UrbaTrame S5' } : {})
+          },
+          referrerPolicy: 'no-referrer',
+          credentials: 'omit',
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: model.id,
+            temperature: 0.15,
+            max_tokens: 1100,
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: oldData } },
+              { type: 'image_url', image_url: { url: currentData } }
+            ] }]
+          })
+        })
+      }
     } finally { clearTimeout(timeout); }
     if (!response.ok) throw new Error(`Le fournisseur a répondu HTTP ${response.status}. Vérifiez ses quotas, sa politique et la compatibilité image du modèle.`);
-    const payload = await response.json();
-    const rawText = contentText(payload?.choices?.[0]?.message?.content);
+    const data = await response.json();
+    const rawText = contentText(data?.choices?.[0]?.message?.content || data?.text || '');
     const normalized = validateAiSynthesis(parseAiJson(rawText));
     state.observations = state.observations.filter(item => item.origin !== 'IA' || item.confirmed);
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
