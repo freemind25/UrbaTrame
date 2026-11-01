@@ -365,6 +365,44 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
+    if (req.method === 'POST' && url.pathname === '/api/util/codecraft') {
+      const body = await readBody(req, 1_000_000);
+      const text = body.toString('utf8');
+      const params = new URLSearchParams(text);
+      if (!params.has('action') || params.get('action') !== 'codecraft') {
+        return send(res, 400, { error: 'INVALID_ACTION' });
+      }
+      const key = process.env.CODECRAFT_API_KEY;
+      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });
+      const model = params.get('model') || '';
+      const prompt = params.get('prompt') || '';
+      if (!model) return send(res, 400, { error: 'MISSING_MODEL' });
+      try {
+        const codecraftResponse = await fetch('https://codecraftapi.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 800,
+            temperature: 0.2
+          }),
+          timeout: 30000
+        });
+        const data = await codecraftResponse.json();
+        if (!codecraftResponse.ok) {
+          return send(res, codecraftResponse.status || 500, {
+            error: data?.error?.message || 'CodeCraft API error'
+          });
+        }
+        return send(res, 200, { ok: true, response: data });
+      } catch (error) {
+        return send(res, 504, { error: 'CODECRAFT_REQUEST_FAILED', detail: error.message });
+      }
+    }
     if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip, studentUser);
     if (req.method === 'GET') return serveStatic(req, res, url.pathname, publicDir);
 

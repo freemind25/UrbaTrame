@@ -1508,7 +1508,7 @@ $('#runAi').addEventListener('click', async () => {
   if (provider === 'openrouter' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d'abord le tarif live de ce modèle.'; return; }
   if (provider === 'codecraft' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d'abord le tarif live du modèle CodeCraft.'; return; }
   let endpoint;
-  try { endpoint = provider === 'openrouter' ? new URL('https://openrouter.ai/api/v1/chat/completions') : provider === 'codecraft' ? new URL('https://codecraftapi.com/v1/chat/completions') : validateAiEndpoint($('#aiEndpoint').value.trim()); }
+  try { endpoint = provider === 'openrouter' ? new URL('https://openrouter.ai/api/v1/chat/completions') : provider === 'codecraft' ? new URL('/api/util/codecraft') : validateAiEndpoint($('#aiEndpoint').value.trim()); }
   catch (error) { $('#aiOutput').textContent = error.message; return; }
   const data = {
     task: prompt.slice(0, 1500),
@@ -1528,13 +1528,19 @@ $('#runAi').addEventListener('click', async () => {
   $('#aiOutput').textContent = `Envoi explicite en cours à ${endpoint.host}…\n${disclosure}`;
   const systemPrompt = `Tu aides à une analyse urbaine SIG avec les seules données fournies. N’invente jamais de parcelles, limites cadastrales ou juridiques, zonages, faits ou sources. N’infère pas de vérité officielle. Tu peux proposer une synthèse ou un overlay indicatif uniquement à partir des entités fournies. Si tu produis des entités dérivées, indique leur caractère indicatif et cite les couches, identifiants et dates sources dans les propriétés. Le géoréférencement doit rester en WGS 84 / EPSG:4326 longitude-latitude. Réponds uniquement par un objet JSON: {"summary":"...","sources":[...],"limitations":"...","geojson":<FeatureCollection ou null>}. L’étudiant doit vérifier chaque sortie.`;
   const requestBody = { model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], max_tokens: 800, temperature: 0.2 };
+  let bodyString = JSON.stringify(requestBody);
+  let headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  if (provider === 'codecraft') {
+    bodyString = 'action=codecraft&model=' + encodeURIComponent(model) + '&prompt=' + encodeURIComponent(userContent);
+    headers = { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' };
+  }
   if (provider === 'openrouter') requestBody.provider = { zdr: true, data_collection: 'deny', sort: 'price', allow_fallbacks: false };
-  if (provider === 'codecraft') requestBody.provider = { name: model, key: key };
+  if (provider === 'codecraft') requestBody.provider = { name: model };
   const headers = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' };
   $('#aiApiKey').value = ''; $('#aiConsent').checked = false; updateAiControls();
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 90_000);
   try {
-    const response = await fetch(endpoint.href, { method: 'POST', mode: 'cors', credentials: 'omit', redirect: 'error', cache: 'no-store', headers, body: JSON.stringify(requestBody), signal: controller.signal });
+    const response = await fetch(endpoint.href, { method: 'POST', mode: 'cors', credentials: 'omit', redirect: 'error', cache: 'no-store', headers: headers, body: bodyString, signal: controller.signal });
     if (!response.ok) throw new Error(`Fournisseur IA · HTTP ${response.status}. Vérifiez clé, modèle, CORS, quota et solde.`);
     const responseJson = JSON.parse(await readResponseTextLimited(response, 512 * 1024, 'AI_RESPONSE_TOO_LARGE'));
     const content = responseJson?.choices?.[0]?.message?.content;
