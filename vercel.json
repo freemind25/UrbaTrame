@@ -2,16 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/util/codecraft",
-      "destination": "/api/util/codecraft"
-    },
-    {
-      "source": "/api/util",
-      "destination": "/api/util"
-    }
-  ],
   "functions": {
     "server/api.mjs": {
       "maxDuration": 60,
