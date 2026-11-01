@@ -4,8 +4,8 @@
   "framework": null,
   "rewrites": [
     {
-      "source": "/analysis/2d",
-      "destination": "/api/analysis/2d"
+      "source": "/api/util/codecraft",
+      "destination": "/api/util/codecraft"
     },
     {
       "source": "/api/util",
