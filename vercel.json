@@ -4,10 +4,20 @@
   "framework": null,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/util/$1"
+      "source": "/analysis/2d",
+      "destination": "/api/analysis/2d"
+    },
+    {
+      "source": "/api/util",
+      "destination": "/api/util"
     }
   ],
+  "functions": {
+    "server/api.mjs": {
+      "maxDuration": 60,
+      "memory": 512
+    }
+  },
   "headers": [
     {
       "source": "/data/(.*)",
