@@ -3,9 +3,8 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "api/api.mjs": {
-      "maxDuration": 60,
-      "memory": 512
+    "server/api.mjs": {
+      "maxDuration": 60
     }
   },
   "headers": [
