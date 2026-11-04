@@ -1,5 +1,4 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
+{"$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
   "framework": null,
   "functions": {
@@ -7,6 +6,12 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/util/codecraft",
+      "destination": "api/util/codecraft.js"
+    }
+  ],
   "headers": [
     {
       "source": "/data/(.*)",
