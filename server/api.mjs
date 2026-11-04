@@ -365,7 +365,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
-    if (req.method === 'POST' && url.pathname === '/api/util/codecraft') {
+    if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft')) {
       const body = await readBody(req, 1_000_000);
       const text = body.toString('utf8');
       const params = new URLSearchParams(text);
