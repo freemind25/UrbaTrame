@@ -365,7 +365,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
-    if (req.method === 'POST' && url.pathname === '/api/util/codecraft') {
+    if (req.method === 'POST' && (url.pathname === '/api/util/codecraft' || url.pathname === '/api/util/codecraft/')) {
       const body = await readBody(req, 1_000_000);
       const text = body.toString('utf8');
       const params = new URLSearchParams(text);
@@ -373,8 +373,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
         return send(res, 400, { error: 'INVALID_ACTION' });
       }
       const key = process.env.CODECRAFT_API_KEY;
-      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });
-      const model = params.get('model') || '';
+      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });      const model = params.get('model') || '';
       const prompt = params.get('prompt') || '';
       const route = params.get('route') || 'chat';
       if (!model) return send(res, 400, { error: 'MISSING_MODEL' });
