@@ -22,11 +22,15 @@ const STYLE = `
 .ut-student-message{min-height:22px;margin:12px 0 0!important;color:#3f6754!important;font-size:12px!important}
 .ut-student-message.error{color:#9c342e!important}
 .ut-student-note{margin:20px 0 0!important;padding-top:13px;border-top:1px solid #e5eae4;color:#758078!important;font-size:11px!important}
-.ut-student-user{position:fixed;z-index:99998;top:10px;right:12px;display:flex;align-items:center;gap:9px;max-width:min(92vw,520px);padding:7px 9px 7px 12px;border:1px solid rgba(208,225,215,.35);border-radius:999px;background:rgba(16,42,35,.94);color:#eff6f0;box-shadow:0 5px 20px rgba(0,0,0,.18);font:12px system-ui,sans-serif}
-.ut-student-user strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650}
-.ut-student-user small{flex:none;color:#c1dfc7;font:700 9px ui-monospace,monospace;letter-spacing:.05em}
+.ut-auth-header{height:auto!important;flex-wrap:wrap!important}
+.ut-auth-header>nav{min-width:0;flex-wrap:wrap;row-gap:4px}
+.ut-student-user{position:static;z-index:auto;display:flex;align-items:center;gap:9px;flex:0 1 auto;min-width:0;max-width:min(92vw,520px);margin-left:auto;padding:7px 9px 7px 12px;border:1px solid rgba(208,225,215,.35);border-radius:999px;background:rgba(16,42,35,.94);color:#eff6f0;box-shadow:0 5px 20px rgba(0,0,0,.18);font:12px system-ui,sans-serif}
+.ut-auth-header>.ut-student-user{margin-left:auto}
+.ut-student-user strong{min-width:0;max-width:min(36vw,220px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650}
+.ut-student-user small{flex:none;color:#c1dfc7;font:700 9px ui-monospace,monospace;letter-spacing:.05em;white-space:nowrap}
 .ut-student-user button{flex:none;padding:5px 8px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:transparent;color:#fff;font:11px system-ui,sans-serif;cursor:pointer}
-@media(max-width:520px){.ut-student-card{padding:22px}.ut-student-user{top:auto;right:8px;bottom:8px;max-width:calc(100vw - 16px)}}
+@media(max-width:900px){.ut-auth-header>nav{order:3;flex:1 0 100%;width:100%;justify-content:flex-start}.ut-auth-header>.ut-student-user{order:2;max-width:min(100%,520px)}}
+@media(max-width:520px){.ut-student-card{padding:22px}.ut-student-user{max-width:calc(100vw - 24px);gap:6px;padding:6px 8px}.ut-student-user strong{max-width:32vw}.ut-student-user small{font-size:8px}.ut-student-user button{padding:5px 7px;font-size:10px}}
 `;
 
 function appendStyle() {
@@ -273,7 +277,11 @@ function showUser(user) {
     } finally { window.location.reload(); }
   });
   badge.append(logout);
-  document.body.append(badge);
+  const header = document.querySelector('header');
+  if (header) {
+    header.classList.add('ut-auth-header');
+    header.append(badge);
+  } else document.body.append(badge);
 }
 
 export const studentAuthReady = (async () => {

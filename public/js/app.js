@@ -21,6 +21,7 @@ import {
   createWorkspaceProject, createWorkspaceTemplate, makeWorkspaceId,
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
+import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -73,6 +74,7 @@ S.routes = new Routes('', m => log(m));
 let latestAssistantResult = null;
 let dataPreviewTimer = null;
 let dataPreviewRevision = 0;
+let siteSearchRevision = 0;
 
 /* ─────────── i18n minimal ─────────── */
 const T = (fr, en) => (S.lang === 'en' ? en : fr);
@@ -1239,10 +1241,15 @@ async function generate() {
    Extrait réel capturé depuis OpenStreetMap + NASA POWER + Terrarium :
    permet d'utiliser l'application sans dépendre d'Overpass au premier essai. */
 async function loadSample() {
+  resetSearchFeedback();
+  const requestId = siteSearchRevision;
   try {
     log('chargement de l\'exemple (El Khroub, Constantine)…');
     const d = await (await fetch('data/sample-elkhroub.json')).json();
-    S.windrose = await fetch('data/windrose-elkhroub.json').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (requestId !== siteSearchRevision) return;
+    const windrose = await fetch('data/windrose-elkhroub.json').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (requestId !== siteSearchRevision) return;
+    S.windrose = windrose;
     S.site.lat = d.site.lat; S.site.lon = d.site.lon; S.site.R = d.site.R; S.site.name = d.site.name;
     $('#q').value = d.site.name;
     $('#radius').value = d.site.R; $('#radiusOut').textContent = d.site.R + ' m';
@@ -1262,25 +1269,133 @@ async function loadSample() {
         + (S.climate ? ' · climat NASA POWER' : '')
         + (S.windrose ? ' · rose NASA POWER/MERRA-2' : ''));
     toast(isOpenAccess() ? T('Exemple chargé.', 'Sample loaded.') : T('Exemple chargé — changez de palier pour voir les analyses Pro.', 'Sample loaded — switch tier to see the Pro analyses.'));
-  } catch (e) { toast(T('Exemple indisponible', 'Sample unavailable'), false); log('exemple : ' + e.message); }
+  } catch (e) {
+    if (requestId !== siteSearchRevision) return;
+    toast(T('Exemple indisponible', 'Sample unavailable'), false);
+    log('exemple : ' + e.message);
+  }
 }
 
 /* ═══════════════ recherche & site ═══════════════ */
-async function doSearch() {
+function setSearchStatus(message, state = '') {
+  const status = $('#searchStatus');
+  if (!status) return;
+  status.textContent = message;
+  status.hidden = !message;
+  if (state) status.dataset.state = state;
+  else delete status.dataset.state;
+}
+function hideSearchResults() {
+  const results = $('#searchResults');
+  if (results) results.hidden = true;
+  $('#search')?.setAttribute('aria-expanded', 'false');
+}
+function clearSearchResults() {
+  $('#searchResults')?.replaceChildren();
+  hideSearchResults();
+}
+function resetSearchFeedback() {
+  siteSearchRevision++;
+  clearSearchResults();
+  setSearchStatus('');
+}
+function compactPlaceName(name) {
+  return String(name || '').split(',').map(part => part.trim()).filter(Boolean).slice(0, 3).join(', ');
+}
+function renderSearchResults(places) {
+  const results = $('#searchResults');
+  const fragment = document.createDocumentFragment();
+  for (const place of places) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'search-result';
+    button.setAttribute('aria-label', T(`Choisir ${place.name}`, `Select ${place.name}`));
+    const title = document.createElement('span');
+    title.textContent = place.name;
+    const coordinates = document.createElement('small');
+    coordinates.textContent = `${place.lat.toFixed(5)}°, ${place.lon.toFixed(5)}°`;
+    button.append(title, coordinates);
+    button.addEventListener('click', () => selectSearchedPlace(place));
+    fragment.append(button);
+  }
+  results.replaceChildren(fragment);
+  results.hidden = false;
+  $('#search').setAttribute('aria-expanded', 'true');
+}
+function selectSearchedPlace(place) {
+  siteSearchRevision++;
+  const locationChanged = S.site.lat == null || S.site.lon == null ||
+    Math.abs(Number(S.site.lat) - place.lat) > 1e-6 || Math.abs(Number(S.site.lon) - place.lon) > 1e-6;
+  const name = compactPlaceName(place.name) || `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`;
+
+  if (locationChanged) {
+    clearWorkspaceResults();
+    S.poly = null;
+    if (S.shape === 'poly') {
+      S.shape = 'circle';
+      store.set('shape', S.shape);
+      $('#shape').value = S.shape;
+      const radiusWrap = $('#radiusWrap');
+      if (radiusWrap) radiusWrap.style.opacity = '1';
+    }
+  }
+
+  $('#q').value = name;
+  setSite(place.lat, place.lon, name);
+  if (locationChanged) {
+    renderCards();
+    renderMiniMap();
+  }
+  clearSearchResults();
+  setSearchStatus(locationChanged
+    ? T(`Lieu sélectionné : ${name}. Les données de l’exemple précédent sont effacées; cliquez sur « Générer les analyses » pour charger ce site.`,
+        `Selected place: ${name}. Previous example data were cleared; click “Generate analyses” to load this site.`)
+    : T(`Lieu sélectionné : ${name}.`, `Selected place: ${name}.`), 'success');
+}
+async function doSearch(event) {
+  event?.preventDefault();
   const q = $('#q').value.trim();
-  if (!q) return;
-  if (/^-?\d+(\.\d+)?\s*[,;]\s*-?\d+(\.\d+)?$/.test(q)) {
-    const [lat, lon] = q.split(/[,;]/).map(Number);
-    setSite(lat, lon, `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+  const requestId = ++siteSearchRevision;
+  clearSearchResults();
+  setSearchStatus('');
+  if (!q) {
+    setSearchStatus(T('Saisissez une ville, une adresse ou des coordonnées.', 'Enter a city, address or coordinates.'), 'error');
     return;
   }
+
+  const coordinates = parseCoordinateQuery(q);
+  if (coordinates.matched) {
+    if (!coordinates.valid) {
+      setSearchStatus(T('Coordonnées invalides : latitude entre −85 et 85°, longitude entre −180 et 180°.',
+        'Invalid coordinates: latitude must be between −85 and 85°, longitude between −180 and 180°.'), 'error');
+      return;
+    }
+    selectSearchedPlace({ lat: coordinates.lat, lon: coordinates.lon, name: `${coordinates.lat.toFixed(4)}, ${coordinates.lon.toFixed(4)}` });
+    return;
+  }
+
   log('géocodage · ' + q);
+  setSearchStatus(T('Recherche en cours…', 'Searching…'), 'loading');
   try {
-    const d = await S.routes.geocode(q);
-    if (!d.length) { toast(T('Lieu introuvable', 'Place not found'), false); return; }
-    const it = d[0];
-    setSite(parseFloat(it.lat), parseFloat(it.lon), (it.display_name || '').split(',').slice(0, 3).join(', '));
-  } catch (e) { toast(T('Géocodage en échec', 'Geocoding failed'), false); log('géocodage : ' + (e.message || e)); }
+    const payload = await S.routes.geocode(q);
+    if (requestId !== siteSearchRevision) return;
+    if (payload?.error) throw new Error(String(payload.error));
+    const places = normalizeGeocodeResults(payload);
+    if (!places.length) {
+      setSearchStatus(T(`Aucun lieu trouvé pour « ${q} ». Essayez un nom plus précis ou saisissez lat,lon.`,
+        `No places found for “${q}”. Try a more specific name or enter lat,lon.`), 'error');
+      return;
+    }
+    renderSearchResults(places);
+    setSearchStatus(T(`${places.length} résultat${places.length > 1 ? 's' : ''}. Cliquez sur le lieu voulu pour le sélectionner.`,
+      `${places.length} result${places.length > 1 ? 's' : ''}. Click the place you want to select.`), 'success');
+  } catch (error) {
+    if (requestId !== siteSearchRevision) return;
+    const detail = String(error?.message || '').slice(0, 120);
+    setSearchStatus(T(`Recherche impossible${detail ? ` (${detail})` : ''}. Le site actuel est conservé.`,
+      `Search failed${detail ? ` (${detail})` : ''}. The current site is unchanged.`), 'error');
+    log('géocodage : ' + (error.message || error));
+  }
 }
 function setSite(lat, lon, name) {
   const locationChanged = S.site.lat !== lat || S.site.lon !== lon;
@@ -1684,7 +1799,14 @@ function wireUI() {
   });
   $('#search').addEventListener('click', doSearch);
   $('#sample')?.addEventListener('click', loadSample);
-  $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  $('#q').addEventListener('input', resetSearchFeedback);
+  $('#q').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(e); }
+    else if (e.key === 'Escape') hideSearchResults();
+  });
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#searchResults, #q, #search')) hideSearchResults();
+  });
   $('#radius').addEventListener('input', e => {
     S.site.R = +e.target.value;
     $('#radiusOut').textContent = S.site.R + ' m';
@@ -1752,6 +1874,7 @@ function wireUI() {
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    if (!$('#searchResults').hidden) { hideSearchResults(); return; }
     if ($('#siteReport').classList.contains('on')) closeSiteReport();
     else {
       const modal = $$('.modal.on').at(-1);

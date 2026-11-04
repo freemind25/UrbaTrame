@@ -14,6 +14,15 @@ describe('garde d’accès étudiant — interface et routes', () => {
     ]) assert.match(read(file), /student-auth-ui\.mjs/, file);
   });
 
+  test('la session authentifiée reste dans le bandeau et ne recouvre pas les liens de navigation', () => {
+    const ui = read('public/js/student-auth-ui.mjs');
+    assert.match(ui, /header\.classList\.add\('ut-auth-header'\);\s*header\.append\(badge\)/);
+    assert.match(ui, /\.ut-auth-header\{height:auto!important;flex-wrap:wrap!important\}/);
+    assert.match(ui, /\.ut-student-user\{position:static/);
+    assert.match(ui, /@media\(max-width:900px\)\{\.ut-auth-header>nav\{order:3;flex:1 0 100%/);
+    assert.doesNotMatch(ui, /\.ut-student-user\{position:fixed/);
+  });
+
   test('le navigateur utilise une session cookie HttpOnly, pas un jeton en localStorage', () => {
     const ui = read('public/js/student-auth-ui.mjs');
     assert.match(ui, /credentials: 'same-origin'/);

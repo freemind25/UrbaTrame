@@ -48,9 +48,11 @@
     <section class="panel">
       <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
       <div class="row">
-        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon">
-        <button id="search" class="primary ut-glow" data-fr="Chercher" data-en="Search">Chercher</button>
+        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon" autocomplete="off" aria-controls="searchResults">
+        <button id="search" class="primary ut-glow" type="button" aria-controls="searchResults" aria-expanded="false" data-fr="Chercher" data-en="Search">Chercher</button>
       </div>
+      <p id="searchStatus" class="search-status" role="status" aria-live="polite" hidden></p>
+      <div id="searchResults" class="search-results" role="group" aria-label="Résultats de recherche" hidden></div>
       <div class="row" style="margin-top:8px">
         <button id="sample" data-fr="Exemple (El Khroub, 600 m)" data-en="Sample (El Khroub, 600 m)">Exemple (El Khroub, 600 m)</button>
       </div>
