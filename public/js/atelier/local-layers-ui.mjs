@@ -1505,8 +1505,8 @@ $('#runAi').addEventListener('click', async () => {
   const layers = selectedAiLayers(), key = $('#aiApiKey').value.trim();
   if (!provider || !model || !key || !prompt || !$('#aiConsent').checked || !layers.length) { updateAiControls(); return; }
   if (layers.length > 4) { $('#aiOutput').textContent = 'Sélectionnez au plus 4 couches par demande.'; return; }
-  if (provider === 'openrouter' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d'abord le tarif live de ce modèle.'; return; }
-  if (provider === 'codecraft' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d'abord le tarif live du modèle CodeCraft.'; return; }
+  if (provider === 'openrouter' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d\'abord le tarif live de ce modèle.'; return; }
+  if (provider === 'codecraft' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d\'abord le tarif live du modèle CodeCraft.'; return; }
   let endpoint;
   try { endpoint = provider === 'openrouter' ? new URL('https://openrouter.ai/api/v1/chat/completions') : provider === 'codecraft' ? new URL('/api/util/codecraft') : validateAiEndpoint($('#aiEndpoint').value.trim()); }
   catch (error) { $('#aiOutput').textContent = error.message; return; }
@@ -1522,7 +1522,7 @@ $('#runAi').addEventListener('click', async () => {
   const userContent = JSON.stringify(data);
   if (userContent.length > 80_000) { $('#aiOutput').textContent = 'Données sélectionnées trop volumineuses (80 Ko). Choisissez moins de couches ou simplifiez les attributs.'; return; }
   const transport = endpoint.protocol === 'https:' ? 'HTTPS' : 'HTTP sur localhost uniquement';
-  const disclosure = `Service ${provider === 'openrouter' ? 'OpenRouter + fournisseur d'inférence routé' : provider === 'codecraft' ? 'CodeCraft (serveur relais)' : endpoint.host} · modèle ${model}\n${layers.map(layer => `${layer.name}: ${Math.min(20, layer.geojson.features.length)}/${layer.geojson.features.length} entité(s), attributs et coordonnées; source ${layer.source}; import ${layer.importedAt}`).join('\n')}\nVotre consigne (${prompt.length} caractères), modèle et clé sont transmis par ${transport}.\n${estimateAiCost(userContent.length + 2000, model)}\nAucun fichier supplémentaire ni autre couche n’est inclus. Continuer ?`;
+  const disclosure = `Service ${provider === 'openrouter' ? 'OpenRouter + fournisseur d\'inférence routé' : provider === 'codecraft' ? 'CodeCraft (serveur relais)' : endpoint.host} · modèle ${model}\n${layers.map(layer => `${layer.name}: ${Math.min(20, layer.geojson.features.length)}/${layer.geojson.features.length} entité(s), attributs et coordonnées; source ${layer.source}; import ${layer.importedAt}`).join('\n')}\nVotre consigne (${prompt.length} caractères), modèle et clé sont transmis par ${transport}.\n${estimateAiCost(userContent.length + 2000, model)}\nAucun fichier supplémentaire ni autre couche n’est inclus. Continuer ?`;
   if (!window.confirm(disclosure)) return;
   state.pendingAiGeoJSON = null; $('#aiValidateResult').checked = false; updateAiControls();
   $('#aiOutput').textContent = `Envoi explicite en cours à ${endpoint.host}…\n${disclosure}`;
@@ -1536,7 +1536,7 @@ $('#runAi').addEventListener('click', async () => {
   }
   if (provider === 'openrouter') requestBody.provider = { zdr: true, data_collection: 'deny', sort: 'price', allow_fallbacks: false };
   if (provider === 'codecraft') requestBody.provider = { name: model };
-  const headers = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' };
+  headers = { ...headers, Authorization: `Bearer ${key}` };
   $('#aiApiKey').value = ''; $('#aiConsent').checked = false; updateAiControls();
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 90_000);
   try {
