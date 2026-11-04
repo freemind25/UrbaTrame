@@ -22,7 +22,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      # Aucune dépendance npm : rien à installer.
+      # Les tests de runtime importent pg et nodemailer; installation reproductible depuis le lockfile.
+      - name: Installer les dépendances
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Contrôle de syntaxe
         run: npm run lint
 
