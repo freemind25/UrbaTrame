@@ -3,17 +3,11 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "api/index.mjs": {
+    "api/api.mjs": {
       "maxDuration": 60,
       "memory": 512
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/util/codecraft",
-      "destination": "/api/util/codecraft"
-    }
-  ],
   "headers": [
     {
       "source": "/data/(.*)",
