@@ -3,16 +3,10 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "server/api.mjs": {
+    "api/api.mjs": {
       "maxDuration": 60
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/util/codecraft",
-      "destination": "server/api.mjs"
-    }
-  ],
   "headers": [
     {
       "source": "/data/(.*)",
