@@ -3,7 +3,7 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "api/api.mjs": {
+    "server/api.mjs": {
       "maxDuration": 60
     }
   },
