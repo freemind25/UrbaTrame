@@ -8,6 +8,8 @@
 import { cacheGet, cachePut } from './persist.mjs';
 
 const PUBLIC_OPS = [
+  'https://z.overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
@@ -30,7 +32,10 @@ export const ERR = {
   GENERATION_IN_PROGRESS: ['Une génération est déjà en cours.', 'A generation is already running.'],
   LICENCE_REQUIRED: ['Cette analyse nécessite une licence.', 'This analysis needs a licence.'],
   RUN_EXPIRED: ['Session de génération expirée.', 'Generation session expired.'],
-  MAP_SOURCE_UNAVAILABLE: ['Source cartographique injoignable.', 'Map source unreachable.'],
+  MAP_SOURCE_UNAVAILABLE: [
+    'Sources OSM/Overpass temporairement injoignables. Aucune analyse OSM n’a été chargée; réessayez dans quelques minutes.',
+    'OSM/Overpass sources are temporarily unreachable. No OSM analysis was loaded; please retry in a few minutes.'
+  ],
   RADIUS_200_3000: ['Le rayon doit être compris entre 200 et 3000 m.', 'Radius must be 200–3000 m.'],
   INVALID_LOCATION: ['Coordonnées invalides.', 'Invalid coordinates.'],
   SITE_CROSSES_DATELINE: ['Le site traverse l\'antiméridien.', 'Site crosses the dateline.'],
@@ -127,9 +132,8 @@ export class Routes {
         failures++;
         break;
       }
-      const mirrorsLeft = PUBLIC_OPS.length - i - 1;
-      const reserve = Math.min(1_500 * mirrorsLeft, Math.max(0, remaining - 1_000));
-      const attemptBudget = Math.min(15_000, Math.max(1_000, remaining - reserve));
+      const mirrorsRemaining = PUBLIC_OPS.length - i;
+      const attemptBudget = Math.min(8_000, Math.max(1_000, Math.floor(remaining / mirrorsRemaining)));
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), attemptBudget);
       try {

@@ -35,6 +35,8 @@ export const SOURCES = {
      parfois (surcharge, 504). On les essaie dans l'ordre, en s'arrêtant au
      premier résultat exploitable. Surchargeable par FM_OVERPASS_ENDPOINTS. */
   overpass: (process.env.FM_OVERPASS_ENDPOINTS || [
+    'https://z.overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
     'https://overpass-api.de/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter'

@@ -24,6 +24,10 @@ test('les listes par défaut n’utilisent que des miroirs Overpass à couvertur
   const browserRoutes = fs.readFileSync(new URL('../public/js/routes.mjs', import.meta.url), 'utf8');
   assert.equal(serverConfig.includes('https://overpass.osm.ch/'), false);
   assert.equal(browserRoutes.includes('https://overpass.osm.ch/'), false);
+  assert.ok(serverConfig.includes('https://z.overpass-api.de/api/interpreter'));
+  assert.ok(browserRoutes.includes('https://z.overpass-api.de/api/interpreter'));
+  assert.ok(serverConfig.includes('https://lz4.overpass-api.de/api/interpreter'));
+  assert.ok(browserRoutes.includes('https://lz4.overpass-api.de/api/interpreter'));
   assert.ok(serverConfig.includes('https://overpass.private.coffee/'));
   assert.ok(browserRoutes.includes('https://overpass.private.coffee/'));
   assert.ok(browserRoutes.includes('this.log(`overpass direct · ${new URL(ep).host} · 0 éléments (essai d’un autre miroir)`);\n          continue;'));

@@ -3,11 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from '../tools/kernel.mjs';
-import { Routes } from '../public/js/routes.mjs';
+import { Routes, errText } from '../public/js/routes.mjs';
 
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 describe('carte préalable de la page Analyses urbaines', () => {
+  test('l’échec des miroirs Overpass indique clairement que les analyses ne sont pas chargées', () => {
+    assert.match(errText('MAP_SOURCE_UNAVAILABLE', 'fr'), /Aucune analyse OSM n’a été chargée/);
+    assert.match(errText('MAP_SOURCE_UNAVAILABLE', 'en'), /No OSM analysis was loaded/);
+  });
+
   test('la carte interactive est prête à s’afficher après la sélection d’un lieu', () => {
     const html = read('public/index.html');
     const app = read('public/js/app.js');
@@ -58,8 +63,8 @@ describe('carte préalable de la page Analyses urbaines', () => {
         error => error.error === 'MAP_SOURCE_UNAVAILABLE'
       );
       assert.equal(calls, 2, 'la deadline globale arrête les tentatives avant un troisième délai complet');
-      assert.ok(delays.every(delay => delay <= 15_000), 'aucun miroir n’a de délai individuel démesuré');
-      assert.deepEqual(delays, [12_000, 6_499]);
+      assert.ok(delays.every(delay => delay <= 8_000), 'aucun miroir ne monopolise le budget global');
+      assert.deepEqual(delays, [3_000, 1_999]);
     } finally {
       globalThis.fetch = oldFetch;
       Date.now = oldNow;

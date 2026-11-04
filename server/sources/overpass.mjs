@@ -24,9 +24,9 @@ export function orderedEndpoints(list = SOURCES.overpass) {
 export async function overpass(query, opt = {}) {
   const list = opt.endpoints || orderedEndpoints();
   const budget = opt.budget ?? TIMEOUTS.overpass;
-  const perAttempt = opt.perAttempt ?? 20_000;  // temps maximal pour un essai
+  const perAttempt = opt.perAttempt ?? 8_000;   // éviter qu'un miroir monopolise le budget
   const minAttempt = opt.minAttempt ?? 1_500;   // en dessous : inutile d'essayer
-  const minSlice = opt.minSlice ?? 4_000;       // part réservée à chaque miroir restant
+  const minSlice = opt.minSlice ?? 1_500;       // part réservée à chaque miroir restant
   const reserve = opt.reserve ?? 3_000;         // temps gardé pour répondre proprement
   const started = Date.now();
   let last;

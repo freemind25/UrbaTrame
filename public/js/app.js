@@ -1316,7 +1316,9 @@ async function generate() {
   } catch (e) {
     if (e.error) toast(errText(e.error, S.lang), false);
     else toast(String(e.message || e), false);
-    log('échec : ' + (e.error || e.message));
+    const detail = e.body?.detail || e.cause?.message;
+    const suffix = detail ? ` · ${String(detail).replace(/[\r\n]+/g, ' ').slice(0, 120)}` : '';
+    log('échec : ' + (e.error || e.message) + suffix);
   } finally {
     clearInterval(tick);
     state.render = state.render || 'done';
