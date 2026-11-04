@@ -3,7 +3,7 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "api.mjs": {
+    "api/index.mjs": {
       "maxDuration": 60,
       "memory": 512
     }
