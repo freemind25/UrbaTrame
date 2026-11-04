@@ -17,6 +17,14 @@ import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
 
+function mapSourceUnavailable(res, error) {
+  const retryAfter = Math.max(0, Math.ceil(Number(error?.retryAfter) || 0));
+  return send(res, 502, {
+    error: 'MAP_SOURCE_UNAVAILABLE', detail: error?.message || 'OVERPASS',
+    ...(retryAfter ? { retryAfter } : {})
+  }, 'application/json; charset=utf-8', retryAfter ? { 'Retry-After': String(retryAfter) } : {});
+}
+
 /* Chaque route est exportée séparément : le serveur Node les compose,
    les fonctions Vercel en exposent une chacune. */
 export function createStatusHandler({ licence, studentAuth = null }) {
@@ -228,7 +236,7 @@ export function createAnalysisHandler({ licence, quota, runs }) {
         return send(res, 200, { ok: true, group: g.id, elements: d.elements });
       } catch (e) {
         log('query échec', g.id, e.message);
-        return send(res, 502, { error: 'MAP_SOURCE_UNAVAILABLE', detail: e.message });
+        return mapSourceUnavailable(res, e);
       }
     }
 
@@ -257,7 +265,7 @@ export function createAnalysisHandler({ licence, quota, runs }) {
         return send(res, 200, { ok: true, elements: d.elements, source: 'overpass' });
       } catch (e) {
         log('buildings échec', e.message);
-        return send(res, 502, { error: 'MAP_SOURCE_UNAVAILABLE', detail: e.message });
+        return mapSourceUnavailable(res, e);
       }
     }
 

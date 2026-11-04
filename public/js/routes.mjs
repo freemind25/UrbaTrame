@@ -6,6 +6,7 @@
      • cache IndexedDB par requête, réutilisé si le réseau échoue ;
      • messages d'erreur typés, traduits. */
 import { cacheGet, cachePut } from './persist.mjs';
+import { OverpassRotation } from './overpass-rotation.mjs';
 
 const PUBLIC_OPS = [
   'https://z.overpass-api.de/api/interpreter',
@@ -14,6 +15,7 @@ const PUBLIC_OPS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
+const publicOverpassRotation = new OverpassRotation();
 
 export const ERR = {
   INVALID_DEVICE: ['Appareil non identifié.', 'Unknown device.'],
@@ -48,7 +50,12 @@ export const ERR = {
 export const errText = (code, lang) => (ERR[code] || [code, code])[lang === 'en' ? 1 : 0];
 
 export class Routes {
-  constructor(base = '', onLog = () => {}) { this.base = base; this.log = onLog; }
+  constructor(base = '', onLog = () => {}, { overpassEndpoints = PUBLIC_OPS, overpassRotation = publicOverpassRotation } = {}) {
+    this.base = base;
+    this.log = onLog;
+    this.overpassEndpoints = overpassEndpoints;
+    this.overpassRotation = overpassRotation;
+  }
 
   async post2d(body, { timeout = 15_000, publicCall = false } = {}) {
     const ac = new AbortController();
@@ -120,46 +127,89 @@ export class Routes {
         return { ...hit.d, _cache: true, _age: hit.t };
       }
     }
+    const configured = [...new Set(this.overpassEndpoints || PUBLIC_OPS)];
+    const endpoints = this.overpassRotation.order(configured);
+    const skipped = configured.length - endpoints.length;
     const deadline = Date.now() + Math.max(0, Number(budget) || 0);
     let last;
     let failures = 0;
     let empty = null;
-    for (let i = 0; i < PUBLIC_OPS.length; i++) {
-      const ep = PUBLIC_OPS[i];
+
+    if (!endpoints.length) {
+      last = new Error('ALL_OVERPASS_MIRRORS_COOLING');
+      const wait = this.overpassRotation.retryAfterMs(configured);
+      if (wait) last.retryAfter = Math.max(1, Math.ceil(wait / 1000));
+      this.log('overpass direct · tous les miroirs publics sont en pause; aucune requête répétée');
+    }
+
+    for (let i = 0; i < endpoints.length; i++) {
+      const ep = endpoints[i];
       const remaining = deadline - Date.now();
       if (remaining < 1_000) {
         last ||= new Error('OVERPASS_BUDGET_EXHAUSTED');
         failures++;
         break;
       }
-      const mirrorsRemaining = PUBLIC_OPS.length - i;
+      const mirrorsRemaining = endpoints.length - i;
       const attemptBudget = Math.min(8_000, Math.max(1_000, Math.floor(remaining / mirrorsRemaining)));
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), attemptBudget);
       try {
-        this.log(`overpass direct · miroir ${i + 1}/${PUBLIC_OPS.length} · ${new URL(ep).host}…`);
+        this.log(`overpass direct · miroir ${i + 1}/${endpoints.length} · ${new URL(ep).host}…`);
         const r = await fetch(ep, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
           body: 'data=' + encodeURIComponent(query),
           signal: ac.signal
         });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const d = await r.json();
-        if (!Array.isArray(d.elements)) throw new Error('INVALID_MAP_DATA');
-        if (!d.elements.length && d.remark && /runtime error|timed out|out of memory|rate_limited|parse error/i.test(d.remark))
-          throw new Error('OVERPASS_REMARK');
+        if (!r.ok) {
+          const detail = await r.text().catch(() => '');
+          throw Object.assign(new Error('HTTP ' + r.status), {
+            status: r.status, detail, headers: r.headers
+          });
+        }
+        let d;
+        try { d = await r.json(); }
+        catch (e) {
+          throw Object.assign(new Error('INVALID_MAP_DATA'), {
+            status: r.status, detail: e.message, headers: r.headers, providerFault: true
+          });
+        }
+        if (d && typeof d.remark === 'string' && d.remark.trim()) {
+          throw Object.assign(new Error('OVERPASS_REMARK'), {
+            status: r.status, detail: d.remark, headers: r.headers, providerFault: true
+          });
+        }
+        if (!Array.isArray(d?.elements)) {
+          throw Object.assign(new Error('INVALID_MAP_DATA'), {
+            status: r.status, detail: 'Réponse sans tableau elements', headers: r.headers, providerFault: true
+          });
+        }
         if (!d.elements.length) {
+          const health = this.overpassRotation.noteSuccess(ep, r.headers, { prefer: false });
+          if (health.quotaExhausted)
+            this.log(`overpass direct · ${new URL(ep).host} · réponse vide valide, quota épuisé; pause ${Math.ceil(health.cooldownMs / 1000)} s`);
           if (!empty) empty = d;
           this.log(`overpass direct · ${new URL(ep).host} · 0 éléments (essai d’un autre miroir)`);
           continue;
         }
+        const health = this.overpassRotation.noteSuccess(ep, r.headers);
+        if (health.quotaExhausted)
+          this.log(`overpass direct · ${new URL(ep).host} · résultat valide; quota épuisé, pause ${Math.ceil(health.cooldownMs / 1000)} s`);
         await cachePut(query, d);
         return d;
       } catch (e) {
         last = e;
         failures++;
-        this.log(`overpass direct · ${new URL(ep).host} indisponible (${e.name === 'AbortError' ? 'délai dépassé' : e.message})`);
+        const status = Number(e.status) || 0;
+        const policy = this.overpassRotation.noteFailure(ep, {
+          status, detail: e.detail || e.message, headers: e.headers,
+          network: !status, providerFault: e.providerFault
+        });
+        const reason = status >= 400 ? 'HTTP ' + status : e.name === 'AbortError' ? 'délai dépassé' : e.message;
+        const pause = policy.retry ? `; rotation, pause ${Math.ceil(policy.cooldownMs / 1000)} s` : '; requête non réessayable';
+        this.log(`overpass direct · ${new URL(ep).host} indisponible (${reason}${pause})`);
+        if (!policy.retry) break;
       } finally { clearTimeout(timer); }
     }
     const hit = await cacheGet(query);
@@ -167,10 +217,18 @@ export class Routes {
       this.log('réseau en échec · cache réutilisé');
       return { ...hit.d, _cache: true, _age: hit.t };
     }
-    if (empty && failures === 0) {
+    if (empty && failures === 0 && skipped === 0) {
       this.log('overpass direct · tous les miroirs valides sont vides');
       return empty;
     }
-    throw Object.assign(new Error('MAP_SOURCE_UNAVAILABLE'), { error: 'MAP_SOURCE_UNAVAILABLE', cause: last });
+    if (empty && (failures > 0 || skipped > 0))
+      this.log('overpass direct · réponse vide mêlée à des miroirs indisponibles; aucune donnée partielle affichée');
+    const error = Object.assign(new Error('MAP_SOURCE_UNAVAILABLE'), {
+      error: 'MAP_SOURCE_UNAVAILABLE', cause: last
+    });
+    const wait = this.overpassRotation.order(configured).length === 0
+      ? this.overpassRotation.retryAfterMs(configured) : 0;
+    if (wait) error.retryAfter = Math.max(1, Math.ceil(wait / 1000));
+    throw error;
   }
 }

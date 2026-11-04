@@ -5,6 +5,15 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté — rotation et pause automatique des miroirs Overpass publics
+
+- Rotation immédiate vers un autre miroir en cas de `429`, quota épuisé, surcharge `5xx`, délai dépassé, erreur réseau ou `remark` d'erreur; prise en compte de `Retry-After` et des en-têtes de quota disponibles.
+- Pause temporaire par URL après erreur afin de ne pas retenter sans cesse le miroir occupé ou limité. Réponse `200` avec quota restant à zéro conservée pour l'analyse en cours, puis miroir évité aux requêtes suivantes.
+- Si tous les miroirs sont en pause, aucun appel externe n'est relancé; les routes Overpass renvoient `Retry-After` et `retryAfter` quand le délai de reprise est connu.
+- Même politique dans le chemin serveur et l'essai gratuit exécuté directement par le navigateur. Seuls les miroirs publics déjà configurés restent utilisés; aucun fournisseur à clé, payant ou conditionnel n'est ajouté.
+- Les erreurs de syntaxe sont arrêtées sans consommer une requête sur chaque miroir; une réponse vide n'est pas présentée comme certaine si des miroirs sont indisponibles ou en pause.
+- Tests hors ligne dédiés aux réponses `429`, aux quotas épuisés, aux réponses partielles `remark`, au basculement navigateur/serveur et à l'absence de répétition quand tous les miroirs sont en pause.
+
 ### Corrigé — diagnostic de disponibilité de l'authentification étudiante
 
 - Sonde `SELECT 1` bornée (4 s ; cache de 15 s sur succès, 3 s sur échec) avant chaque route qui touche la base : une base injoignable est désormais détectée avant toute tentative d'envoi, réponse `503` avec `Retry-After` et journal `UT_AUTH_DB_UNAVAILABLE` limité à l'étape et au code (jamais l'URL, l'identifiant ni une adresse).

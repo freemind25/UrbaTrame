@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
 import { overpass, orderedEndpoints } from '../server/sources/overpass.mjs';
+import { OverpassRotation } from '../public/js/overpass-rotation.mjs';
 
 const QUERY = '[out:json][timeout:25];way(around:300,36.2642,6.6969)["highway"];out count;';
 
@@ -46,9 +47,17 @@ function mirror(behaviour) {
       const mode = typeof behaviour === 'function' ? behaviour(seen) : behaviour;
       if (mode === 'hang') return;                       // ne répond jamais
       if (mode === '504') { res.writeHead(504).end('Gateway Timeout'); return; }
-      if (mode === 'remark') {
+      if (mode === 'remark' || mode === 'partial-remark') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ elements: [], remark: 'runtime error: Query timed out' }));
+        res.end(JSON.stringify({
+          elements: mode === 'partial-remark' ? [{ type: 'way', id: 1 }] : [],
+          remark: 'runtime error: Query timed out'
+        }));
+        return;
+      }
+      if (mode && typeof mode === 'object' && Number.isInteger(mode.status)) {
+        res.writeHead(mode.status, mode.headers || {});
+        res.end(mode.body ?? (mode.json === undefined ? '' : JSON.stringify(mode.json)));
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -71,12 +80,91 @@ describe('repli entre miroirs Overpass', () => {
   test('un premier miroir en 504 n’empêche pas l’analyse', async () => {
     const bad = await open('504');
     const good = await open({ elements: [{ type: 'way', id: 42 }] });
-    const d = await overpass(QUERY, { endpoints: [bad.url, good.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
+    const state = new OverpassRotation();
+    const d = await overpass(QUERY, { endpoints: [bad.url, good.url], rotation: state, budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 });
     assert.equal(d.elements[0].id, 42);
     assert.equal(bad.seen.requests, 1);
     assert.equal(good.seen.requests, 1);
     /* le miroir qui a répondu passe en tête pour la requête suivante */
-    assert.equal(orderedEndpoints([bad.url, good.url])[0], good.url);
+    assert.equal(orderedEndpoints([bad.url, good.url], Date.now(), state)[0], good.url);
+  });
+
+  test('un 429 consomme le quota du miroir: repli immédiat et pause aux appels suivants', async () => {
+    const limited = await open({
+      status: 429,
+      headers: { 'Content-Type': 'text/plain', 'Retry-After': '120' },
+      body: 'Too Many Requests'
+    });
+    const good = await open({ elements: [{ type: 'way', id: 84 }] });
+    const state = new OverpassRotation();
+    const d = await overpass(QUERY, {
+      endpoints: [limited.url, good.url], rotation: state, budget: 8_000, perAttempt: 800,
+      minSlice: 200, minAttempt: 200, reserve: 200
+    });
+    assert.equal(d.elements[0].id, 84);
+    assert.equal(limited.seen.requests, 1);
+    assert.equal(good.seen.requests, 1);
+    assert.deepEqual(orderedEndpoints([limited.url, good.url], Date.now(), state), [good.url]);
+
+    const again = await overpass(QUERY + ' ', {
+      endpoints: [limited.url, good.url], rotation: state, budget: 8_000, perAttempt: 800,
+      minSlice: 200, minAttempt: 200, reserve: 200
+    });
+    assert.equal(again.elements[0].id, 84);
+    assert.equal(limited.seen.requests, 1, 'un miroir en pause ne reçoit pas de nouvelle requête');
+    assert.equal(good.seen.requests, 2);
+    const coolingError = await overpass(QUERY + '  ', {
+      endpoints: [limited.url], rotation: state, budget: 3_000
+    }).then(() => null, error => error);
+    assert.match(coolingError.message, /ALL_OVERPASS_MIRRORS_COOLING/);
+    assert.equal(coolingError.retryAfter, 120, 'le délai Retry-After du fournisseur est remonté');
+    assert.equal(limited.seen.requests, 1, 'si tous les miroirs fournis sont en pause, on échoue sans les marteler');
+
+    const empty = await open({ elements: [] });
+    await assert.rejects(
+      () => overpass(QUERY + ' empty', {
+        endpoints: [limited.url, empty.url], rotation: state, budget: 5_000
+      }),
+      /OVERPASS_MIRRORS_COOLING/
+    );
+    assert.equal(empty.seen.requests, 1);
+    assert.equal(limited.seen.requests, 1, 'un résultat vide ne masque pas un miroir encore en pause');
+  });
+
+  test('un en-tête quota à zéro met en pause le miroir même si sa réponse est bonne', async () => {
+    const depleted = await open({
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': '0', 'Retry-After': '120' },
+      json: { elements: [{ type: 'way', id: 85 }] }
+    });
+    const other = await open({ elements: [{ type: 'way', id: 86 }] });
+    const state = new OverpassRotation();
+    const first = await overpass(QUERY, { endpoints: [depleted.url], rotation: state, budget: 3_000, minAttempt: 200, reserve: 200 });
+    assert.equal(first.elements[0].id, 85, 'la réponse déjà acquise reste exploitable');
+    const second = await overpass(QUERY + ' ', { endpoints: [depleted.url, other.url], rotation: state, budget: 5_000 });
+    assert.equal(second.elements[0].id, 86);
+    assert.equal(depleted.seen.requests, 1);
+    assert.equal(other.seen.requests, 1);
+  });
+
+  test('un échec HTTP de requête ne provoque pas cinq appels identiques', async () => {
+    const invalid = await open({ status: 400, headers: { 'Content-Type': 'text/plain' }, body: 'parse error' });
+    const unused = await open({ elements: [{ id: 87 }] });
+    await assert.rejects(
+      () => overpass(QUERY, { endpoints: [invalid.url, unused.url], budget: 5_000 }),
+      /HTTP 400/
+    );
+    assert.equal(invalid.seen.requests, 1);
+    assert.equal(unused.seen.requests, 0);
+  });
+
+  test('un remark d’erreur invalide aussi une réponse partielle avec éléments', async () => {
+    const partial = await open('partial-remark');
+    const good = await open({ elements: [{ type: 'way', id: 88 }] });
+    const d = await overpass(QUERY, { endpoints: [partial.url, good.url], budget: 5_000 });
+    assert.equal(d.elements[0].id, 88);
+    assert.equal(partial.seen.requests, 1);
+    assert.equal(good.seen.requests, 1);
   });
 
   test('la requête part bien en formulaire, avec l’en-tête User-Agent', async () => {

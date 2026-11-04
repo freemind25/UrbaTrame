@@ -20,7 +20,7 @@ commun à l'instance, qui permet de rattacher un incident à un journal serveur.
   "max": ["mappingboard", "…"],
   "limits": { "roads": 3000, "poiheat": 1500, "…" },
   "licenses": { "signedFileActivation": false, "publicKey": "" },
-  "sources": { "overpass": "4 miroirs", "nominatim": true, "nasa": true, "windrose": true, "terrain": true, "openBuildingMap": true }
+  "sources": { "overpass": "5 miroirs par défaut", "nominatim": true, "nasa": true, "windrose": true, "terrain": true, "openBuildingMap": true }
 }
 ```
 
@@ -274,7 +274,7 @@ Le serveur compose les sélecteurs Overpass; le client ne fournit pas de requêt
 | `RATE_LIMITED` | 429 | refroidissement en cours (`Retry-After`) |
 | `GENERATION_IN_PROGRESS` | 429 | une génération est déjà en vol (compte en régime étudiant, IP dans l’ancien mode licence) |
 | `EMPTY_PLAN` | 500 | lot sans requête exploitable (garde-fou interne) |
-| `MAP_SOURCE_UNAVAILABLE` | 502 | Overpass injoignable ou en erreur |
+| `MAP_SOURCE_UNAVAILABLE` | 502 | Overpass injoignable ou en erreur; si tous les miroirs sont en pause, `Retry-After` et le champ `retryAfter` indiquent l'attente minimale en secondes |
 | `TERRAIN_UNAVAILABLE` | 502 | tuiles d'altitude indisponibles |
 | `NO_CLIMATE` | 502 | série climatique indisponible |
 | `NO_WINDROSE` | 502 | rose des vents régionale indisponible |

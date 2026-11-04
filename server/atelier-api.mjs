@@ -107,8 +107,13 @@ export function createAtelierHandlers(deps = {}) {
       body.terrain === false ? Promise.resolve(null) : terrainSource(lat, lon, radius, n)
     ]);
     if (osm.status === 'rejected') {
-      logger(cadrage ? 'cadrage extract failed' : 'atelier extract failed', osm.reason?.message || 'OVERPASS');
-      return send(res, 502, { ok: false, error: 'MAP_DATA_UNAVAILABLE', detail: String(osm.reason?.message || '') });
+      const error = osm.reason;
+      const retryAfter = Math.max(0, Math.ceil(Number(error?.retryAfter) || 0));
+      logger(cadrage ? 'cadrage extract failed' : 'atelier extract failed', error?.message || 'OVERPASS');
+      return send(res, 502, {
+        ok: false, error: 'MAP_DATA_UNAVAILABLE', detail: String(error?.message || ''),
+        ...(retryAfter ? { retryAfter } : {})
+      }, 'application/json; charset=utf-8', retryAfter ? { 'Retry-After': String(retryAfter) } : {});
     }
 
     const warnings = [];

@@ -177,25 +177,43 @@ régulièrement `504` quand elles sont surchargées. Depuis des fonctions Vercel
 le risque est plus élevé qu'en local, car les IP de sortie sont **mutualisées**
 entre tous les utilisateurs de la plateforme, et Overpass limite par IP.
 
-Mesures en place (`server/config.mjs` + `server/sources/overpass.mjs`) :
+Mesures en place (`server/config.mjs`, `server/sources/overpass.mjs` et
+`public/js/routes.mjs`) :
 
-- **quatre miroirs** au lieu de deux, essayés dans l'ordre :
-  `overpass-api.de`, `overpass.osm.ch`, `overpass.kumi.systems`,
-  `maps.mail.ru` ; la liste se remplace sans toucher au code :
+- **cinq URL publiques mondiales sans clé**, conservées sans service payant ni
+  compte conditionnel : les trois URL `z`, `lz4` et principale de
+  `overpass-api.de`, `overpass.private.coffee` et `maps.mail.ru`. Ce sont cinq
+  adresses, pas cinq opérateurs indépendants; la liste reste remplaçable par
   `FM_OVERPASS_ENDPOINTS=url1,url2` ;
-- **budget partagé** : chaque miroir restant garde une part (4 s) du temps
-  disponible, un échec rapide (504 en 1 s) laisse donc le temps plein (20 s)
-  aux suivants, et on rend `MAP_SOURCE_UNAVAILABLE` avant la coupure de 60 s
-  de la plateforme plutôt que d'être interrompu ;
-- **mémoire du dernier miroir qui a répondu** : il passe en tête à la requête
-  suivante (une panne d'instance dure des heures, inutile de la repayer) ;
-- **repli du navigateur** : si le serveur échoue tout de même, le client
-  interroge les mêmes miroirs en direct (`public/js/routes.mjs`), depuis l'IP
-  de l'utilisateur — souvent épargnée quand celle de Vercel est limitée.
+- **rotation au cours de la même requête** après un HTTP `429`, une limite de
+  quota, une surcharge (`5xx`), un délai dépassé, une erreur réseau ou un
+  `remark` Overpass. Le serveur respecte `Retry-After` et les en-têtes de
+  remise à zéro/solde de quota lorsqu'ils sont disponibles. Une erreur de
+  syntaxe de requête est arrêtée sans la renvoyer identiquement à tous les
+  miroirs ;
+- **pause automatique par instance** : à défaut d'indication du serveur,
+  environ 5 min après une limite de quota, 30 s après une surcharge/réseau et
+  15 min après un refus d'accès; les délais fournis par le serveur sont bornés
+  à 24 h. Un miroir en pause n'est pas retenté à chaque analyse. Si tous sont
+  en pause, l'appel échoue proprement au lieu de les marteler ;
+- **préférence du dernier miroir sain** : il est tenté en premier tant qu'il
+  n'est pas en pause. Une réponse HTTP 200 qui annonce un quota nul reste
+  utilisable pour l'analyse en cours, puis ce miroir est évité ;
+- **repli du navigateur** : dans l'essai gratuit, le client applique la même
+  rotation directement depuis l'IP de l'utilisateur si le serveur échoue.
+  Cela peut aider lorsque l'IP de sortie Vercel est limitée ;
+- les pauses sont **en mémoire dans l'onglet ou le processus courant**, pas
+  partagées globalement entre les fonctions serverless Vercel. Le repli dans la
+  requête courante, lui, essaie bien tous les miroirs encore disponibles.
+
+Aucun résultat vide n'est déclaré valide si un ou plusieurs miroirs étaient
+indisponibles ou en pause. Les limites internes d'accès/licence d'UrbaTrame ne
+sont pas contournées par cette rotation.
 
 Ce qui n'est **pas** fait, volontairement : aucune mise en cache de résultats
 OSM côté serveur (les données OpenStreetMap doivent rester fraîches) et aucun
-autre service de repli (Vector tiles, etc.) — hors périmètre.
+autre service de repli (tuiles vectorielles, FairwayMapper, NextGIS, Overpass.ch
+ou service payant) n'est ajouté à cette liste publique.
 
 ## Ce qui ne change pas
 

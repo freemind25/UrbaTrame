@@ -3,6 +3,7 @@
    public/js/plan-2d.mjs : ce n'est pas un proxy Overpass ouvert. */
 import { SOURCES, UA, TIMEOUTS } from '../config.mjs';
 import { log } from '../http.mjs';
+import { OverpassRotation } from '../../public/js/overpass-rotation.mjs';
 
 export function fetchT(url, opt = {}, budget = 60_000) {
   const ac = new AbortController();
@@ -11,18 +12,26 @@ export function fetchT(url, opt = {}, budget = 60_000) {
     .finally(() => clearTimeout(t));
 }
 
-/* Dernier point d'accès qui a fourni des éléments : on le remet en tête la
-   fois suivante. Un miroir qui ne fournit qu'un tableau vide ne devient pas
-   prioritaire, car une autre instance peut avoir une réponse plus complète. */
-let prefer = null;
+/* État de rotation local au processus. Une saturation ou une limite de
+   requêtes met le miroir en pause; les autres restent immédiatement essayés. */
+const rotation = new OverpassRotation();
 
-export function orderedEndpoints(list = SOURCES.overpass) {
-  if (!prefer || !list.includes(prefer)) return list.slice();
-  return [prefer, ...list.filter(e => e !== prefer)];
+export function orderedEndpoints(list = SOURCES.overpass, now = Date.now(), state = rotation) {
+  return state.order(list, now);
+}
+
+function attemptError(message, details = {}) {
+  return Object.assign(new Error(message), details);
 }
 
 export async function overpass(query, opt = {}) {
-  const list = opt.endpoints || orderedEndpoints();
+  const configured = [...new Set(opt.endpoints || SOURCES.overpass)];
+  /* Les listes injectées sont un outil de test; leur état reste isolé à moins
+     que le test fournisse explicitement une rotation à conserver. En service,
+     tous les appels d'une instance partagent le même état. */
+  const state = opt.rotation || (opt.endpoints ? new OverpassRotation() : rotation);
+  const list = state.order(configured);
+  const skipped = configured.length - list.length;
   const budget = opt.budget ?? TIMEOUTS.overpass;
   const perAttempt = opt.perAttempt ?? 8_000;   // éviter qu'un miroir monopolise le budget
   const minAttempt = opt.minAttempt ?? 1_500;   // en dessous : inutile d'essayer
@@ -33,6 +42,15 @@ export async function overpass(query, opt = {}) {
   let failures = 0;
   let empty = null;
 
+  if (!list.length) {
+    const wait = state.retryAfterMs(configured);
+    last = attemptError('ALL_OVERPASS_MIRRORS_COOLING', {
+      retryAfter: wait ? Math.max(1, Math.ceil(wait / 1000)) : undefined
+    });
+    log('overpass · tous les miroirs publics sont en pause; aucune requête répétée');
+    throw last;
+  }
+
   for (let i = 0; i < list.length; i++) {
     const endpoint = list[i];
     const left = budget - (Date.now() - started) - reserve;
@@ -41,8 +59,8 @@ export async function overpass(query, opt = {}) {
     if (left < minAttempt) { last = last || new Error('BUDGET_EXHAUSTED'); break; }
 
     /* Chaque miroir restant garde une part (minSlice) : ainsi un premier
-       essai lent ne consomme pas tout. Un échec rapide (504 en 1 s) laisse au
-       contraire le temps plein (perAttempt) aux suivants. */
+       essai lent ne consomme pas tout. Un échec rapide laisse plus de temps
+       au suivant. */
     const restants = list.length - i - 1;
     const garde = Math.min(minSlice * restants, Math.max(0, left - minAttempt));
     const slice = Math.min(left, Math.max(minAttempt, Math.min(perAttempt, left - garde)));
@@ -53,54 +71,88 @@ export async function overpass(query, opt = {}) {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': UA,
-          Accept: 'application/json'          // sans ces deux en-têtes : 406 Apache
+          Accept: 'application/json'
         },
         body: 'data=' + encodeURIComponent(query)
       }, slice);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        const detail = await r.text().catch(() => '');
+        throw attemptError('HTTP ' + r.status, { status: r.status, detail, headers: r.headers });
+      }
 
-      const d = await r.json();
-      if (!Array.isArray(d.elements)) throw new Error('INVALID_MAP_DATA');
-      /* Une réponse vide accompagnée d'un « remark » est une erreur, pas un
-         résultat : Overpass renvoie 200 + tableau vide sur dépassement de
-         temps, surcharge ou requête invalide. Sans ce contrôle, l'application
-         affiche un plan vide en croyant avoir réussi. */
-      if (!d.elements.length && d.remark &&
-          /runtime error|timed out|out of memory|rate_limited|parse error/i.test(d.remark))
-        throw new Error('OVERPASS_REMARK: ' + d.remark);
+      let d;
+      try { d = await r.json(); }
+      catch (e) {
+        throw attemptError('INVALID_MAP_DATA', {
+          status: r.status, detail: e.message, headers: r.headers, providerFault: true
+        });
+      }
+      if (d && typeof d.remark === 'string' && d.remark.trim()) {
+        throw attemptError('OVERPASS_REMARK', {
+          status: r.status, detail: d.remark, headers: r.headers, providerFault: true
+        });
+      }
+      if (!Array.isArray(d?.elements)) {
+        throw attemptError('INVALID_MAP_DATA', {
+          status: r.status, detail: 'Réponse sans tableau elements', headers: r.headers, providerFault: true
+        });
+      }
 
-      /* Un 200 vide peut être légitime, mais aussi provenir d'un miroir en
-         retard. On essaie les suivants avant de conclure qu'il n'y a rien;
-         si aucun ne fournit d'éléments, on conserve la première réponse vide
-         au lieu de transformer ce résultat valable en erreur. */
+      /* Un 200 vide reste un résultat possible, mais on interroge les autres
+         miroirs avant de le retenir. Un en-tête de quota à zéro met quand
+         même ce serveur en pause pour les requêtes suivantes. */
       if (!d.elements.length) {
+        const health = state.noteSuccess(endpoint, r.headers, { prefer: false });
+        if (health.quotaExhausted)
+          log('overpass ' + new URL(endpoint).host + ' · réponse vide valide, quota épuisé; miroir en pause ' +
+              Math.ceil(health.cooldownMs / 1000) + ' s');
         if (!empty) empty = { endpoint, data: d };
         log('overpass ' + new URL(endpoint).host + ' · 0 éléments' +
             (i + 1 < list.length ? ' (essai du miroir suivant)' : ''));
         continue;
       }
 
-      prefer = endpoint;
+      const health = state.noteSuccess(endpoint, r.headers);
+      if (health.quotaExhausted)
+        log('overpass ' + new URL(endpoint).host + ' · résultat valide; quota épuisé, miroir en pause ' +
+            Math.ceil(health.cooldownMs / 1000) + ' s');
       log('overpass ' + new URL(endpoint).host + ' · ' + d.elements.length +
           ' éléments en ' + (Math.round((Date.now() - started) / 100) / 10) + ' s');
       return d;
     } catch (e) {
       last = e;
       failures++;
-      log('overpass ' + new URL(endpoint).host + ' → ' + e.message +
-          ' (' + (Math.round((Date.now() - started) / 100) / 10) + ' s, essai de ' +
-          Math.round(slice / 100) / 10 + ' s)');
+      const status = Number(e.status) || 0;
+      const policy = state.noteFailure(endpoint, {
+        status, detail: e.detail || e.message, headers: e.headers,
+        network: !status, providerFault: e.providerFault
+      });
+      const elapsed = Math.round((Date.now() - started) / 100) / 10;
+      const attempt = Math.round(slice / 100) / 10;
+      const pause = policy.retry ? '; rotation, pause ' + Math.ceil(policy.cooldownMs / 1000) + ' s' : '; erreur de requête, pas de repli';
+      log('overpass ' + new URL(endpoint).host + ' → ' + (status >= 400 ? 'HTTP ' + status : e.message) +
+          ' (' + elapsed + ' s, essai de ' + attempt + ' s' + pause + ')');
+      if (!policy.retry) break;
     }
   }
-  if (empty && failures === 0) {
+  if (empty && failures === 0 && skipped === 0) {
     log('overpass ' + new URL(empty.endpoint).host +
         ' · aucun miroir n’a fourni d’éléments; réponse vide conservée');
     return empty.data;
   }
-  if (empty && failures > 0) {
-    log('overpass · réponse vide mêlée à des échecs de miroirs; source déclarée indisponible');
+  if (empty && (failures > 0 || skipped > 0)) {
+    log('overpass · réponse vide mêlée à des miroirs indisponibles; source déclarée indisponible');
   }
-  throw last || new Error('MAP_SOURCE_UNAVAILABLE');
+  if (!last) {
+    const wait = state.retryAfterMs(configured);
+    last = attemptError(skipped ? 'OVERPASS_MIRRORS_COOLING' : 'MAP_SOURCE_UNAVAILABLE', {
+      retryAfter: wait ? Math.max(1, Math.ceil(wait / 1000)) : undefined
+    });
+  } else if (failures && state.order(configured).length === 0) {
+    const wait = state.retryAfterMs(configured);
+    if (wait) last.retryAfter = Math.max(1, Math.ceil(wait / 1000));
+  }
+  throw last;
 }
 
 /* Nominatim (recherche de lieu). */
