@@ -52,7 +52,7 @@
   "rewrites": [
     {
       "source": "/api/util/codecraft",
-      "destination": "api/api.mjs"
+      "destination": "server/api.mjs"
     }
   ],
   "cleanUrls": false,
