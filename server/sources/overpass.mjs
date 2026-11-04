@@ -30,6 +30,7 @@ export async function overpass(query, opt = {}) {
   const reserve = opt.reserve ?? 3_000;         // temps gardé pour répondre proprement
   const started = Date.now();
   let last;
+  let failures = 0;
   let empty = null;
 
   for (let i = 0; i < list.length; i++) {
@@ -85,15 +86,19 @@ export async function overpass(query, opt = {}) {
       return d;
     } catch (e) {
       last = e;
+      failures++;
       log('overpass ' + new URL(endpoint).host + ' → ' + e.message +
           ' (' + (Math.round((Date.now() - started) / 100) / 10) + ' s, essai de ' +
           Math.round(slice / 100) / 10 + ' s)');
     }
   }
-  if (empty) {
+  if (empty && failures === 0) {
     log('overpass ' + new URL(empty.endpoint).host +
         ' · aucun miroir n’a fourni d’éléments; réponse vide conservée');
     return empty.data;
+  }
+  if (empty && failures > 0) {
+    log('overpass · réponse vide mêlée à des échecs de miroirs; source déclarée indisponible');
   }
   throw last || new Error('MAP_SOURCE_UNAVAILABLE');
 }

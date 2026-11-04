@@ -6,16 +6,28 @@
    - un miroir en panne ne doit pas condamner l'analyse ;
    - le dernier miroir qui a répondu est réessayé en premier ;
    - une réponse 200 + remark d'erreur est un échec, pas un plan vide ;
-   - une réponse vide tente les miroirs suivants, sans invalider un résultat
-     réellement vide si aucun n'a de données ;
+   - une réponse vide tente les miroirs suivants et n'est considérée valide
+     que si tous les miroirs ont répondu sans erreur ;
+   - un miroir vide mêlé à des erreurs ne masque pas une indisponibilité ;
    - le budget total est respecté : on rend la main avant la coupure de la
      plateforme (60 s sur Vercel) au lieu d'être interrompu en plein vol. */
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
 import { overpass, orderedEndpoints } from '../server/sources/overpass.mjs';
 
 const QUERY = '[out:json][timeout:25];way(around:300,36.2642,6.6969)["highway"];out count;';
+
+test('les listes par défaut n’utilisent que des miroirs Overpass à couverture globale', () => {
+  const serverConfig = fs.readFileSync(new URL('../server/config.mjs', import.meta.url), 'utf8');
+  const browserRoutes = fs.readFileSync(new URL('../public/js/routes.mjs', import.meta.url), 'utf8');
+  assert.equal(serverConfig.includes('https://overpass.osm.ch/'), false);
+  assert.equal(browserRoutes.includes('https://overpass.osm.ch/'), false);
+  assert.ok(serverConfig.includes('https://overpass.private.coffee/'));
+  assert.ok(browserRoutes.includes('https://overpass.private.coffee/'));
+  assert.ok(browserRoutes.includes('this.log(`overpass direct · ${new URL(ep).host} · 0 éléments (essai d’un autre miroir)`);\n          continue;'));
+});
 
 /* Un miroir jouet : `behaviour` décide de la réponse. */
 function mirror(behaviour) {
@@ -102,6 +114,17 @@ describe('repli entre miroirs Overpass', () => {
     assert.deepEqual(d.elements, []);
     assert.equal(a.seen.requests, 1);
     assert.equal(b.seen.requests, 1);
+  });
+
+  test('un résultat vide ne masque pas l’échec des autres miroirs', async () => {
+    const empty = await open({ elements: [] });
+    const failed = await open('504');
+    await assert.rejects(
+      () => overpass(QUERY, { endpoints: [empty.url, failed.url], budget: 8_000, perAttempt: 800, minSlice: 200, minAttempt: 200, reserve: 200 }),
+      /HTTP 504/
+    );
+    assert.equal(empty.seen.requests, 1);
+    assert.equal(failed.seen.requests, 1);
   });
 
   test('tous les miroirs en panne → MAP_SOURCE_UNAVAILABLE, jamais un plan vide', async () => {

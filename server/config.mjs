@@ -31,13 +31,12 @@ export const isOpenAccess = () => accessMode() === 'open';
 
 /* Sources de données — plusieurs miroirs pour les services qui en offrent. */
 export const SOURCES = {
-  /* Plusieurs miroirs : les instances publiques tombent souvent (surcharge,
-     504). On les essaie dans l'ordre, en s'arrêtant au premier qui répond.
-     Surchargeable par FM_OVERPASS_ENDPOINTS (liste séparée par des virgules). */
+  /* Plusieurs miroirs à couverture globale : les instances publiques tombent
+     parfois (surcharge, 504). On les essaie dans l'ordre, en s'arrêtant au
+     premier résultat exploitable. Surchargeable par FM_OVERPASS_ENDPOINTS. */
   overpass: (process.env.FM_OVERPASS_ENDPOINTS || [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.osm.ch/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
   ].join(',')).split(',').map(x => x.trim()).filter(Boolean),
   nominatim: 'https://nominatim.openstreetmap.org/search',

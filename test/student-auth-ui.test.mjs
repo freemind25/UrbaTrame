@@ -51,12 +51,13 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.doesNotMatch(ui, /error\.debug\?\.message/);
   });
 
-  test('les sessions propriétaire/étudiante utilisent le serveur même pour les analyses gratuites', () => {
+  test('les sessions propriétaire utilisent les miroirs publics et les étudiants restent sur le serveur', () => {
     const app = read('public/js/app.js');
     assert.match(app, /studentAuthRequired/);
     assert.match(app, /S\.studentUser \? 'max' : 'free'/);
-    assert.match(app, /run = b\.run;[\s\S]*?useServer = S\.studentAuthRequired \|\| isOpenAccess\(\) \|\| !freeRun;/);
-    assert.match(app, /if \(S\.studentAuthRequired\) throw new Error\('STUDENT_AUTH_REQUIRED'\)/);
+    assert.match(app, /const ownerSession = S\.studentUser\?\.isOwner === true && S\.studentUser\?\.role === 'admin'/);
+    assert.match(app, /run = b\.run;[\s\S]*?useServer = !ownerSession && \(S\.studentAuthRequired \|\| isOpenAccess\(\) \|\| !freeRun\);/);
+    assert.match(app, /if \(S\.studentAuthRequired && !ownerSession\) throw new Error\('STUDENT_AUTH_REQUIRED'\)/);
     assert.match(app, /if \(S\.studentAuthRequired\) \{\s*if \(code === 'STUDENT_AUTH_REQUIRED'\)/);
   });
 

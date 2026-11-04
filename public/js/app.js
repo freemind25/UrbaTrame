@@ -1114,6 +1114,7 @@ async function generate() {
   drawLoader(list, state, t0);
 
   const freeRun = p.selected.every(id => FREE_IDS.includes(id));
+  const ownerSession = S.studentUser?.isOwner === true && S.studentUser?.role === 'admin';
   /* En accès libre, l'échec du serveur n'est jamais bloquant : on se rabat
      toujours sur les miroirs publics interrogés par le navigateur. */
   const softTrial = !S.studentAuthRequired && (freeRun || isOpenAccess());
@@ -1126,9 +1127,10 @@ async function generate() {
         { device: S.device, session: S.session, free: freeRun });
       run = b.run;
       log(`session ouverte · ${run.slice(0, 8)} · mode ${b.tier}${b.access === 'open' ? ' (accès libre)' : ''}`);
-      /* Une session propriétaire/étudiante doit aussi interroger le serveur
-         pour les analyses gratuites : les endpoints restent protégés par cookie. */
-      useServer = S.studentAuthRequired || isOpenAccess() || !freeRun;
+      /* Le propriétaire a déjà été vérifié par begin et n'a pas de quota étudiant :
+         ses requêtes OSM passent par les miroirs publics du navigateur (IP réelle).
+         Les sessions étudiantes restent sur le serveur protégé et quota-gaté. */
+      useServer = !ownerSession && (S.studentAuthRequired || isOpenAccess() || !freeRun);
     } catch (e) {
       const code = e.error || e.message;
       if (S.studentAuthRequired) {
@@ -1161,16 +1163,16 @@ async function generate() {
           els = r.elements;
           log(`groupe ${g.id} · ${els.length} éléments (serveur)`);
         } catch (e) {
-          if (S.studentAuthRequired) {
+          if (S.studentAuthRequired && !ownerSession) {
             if (e.error === 'STUDENT_AUTH_REQUIRED') window.location.reload();
             throw e;
           }
           log(`groupe ${g.id} · serveur en échec (${e.error || e.message}) → Overpass public`);
         }
       }
-      if (!els) {
-        if (S.studentAuthRequired) throw new Error('STUDENT_AUTH_REQUIRED');
-        const d = await S.routes.overpassDirect(g.query, 60_000);
+      if (!els || (ownerSession && Array.isArray(els) && els.length === 0)) {
+        if (S.studentAuthRequired && !ownerSession) throw new Error('STUDENT_AUTH_REQUIRED');
+        const d = await S.routes.overpassDirect(g.query, 60_000, ownerSession && els?.length === 0);
         els = d.elements;
         if (d._cache) S.cacheInfo = T('données en cache', 'cached data');
         log(`groupe ${g.id} · ${els.length} éléments (public)`);

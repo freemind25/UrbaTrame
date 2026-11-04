@@ -9,8 +9,7 @@ import { cacheGet, cachePut } from './persist.mjs';
 
 const PUBLIC_OPS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
 
@@ -111,12 +110,14 @@ export class Routes {
   async overpassDirect(query, budget = 60_000, force = false) {
     if (!force) {
       const hit = await cacheGet(query);
-      if (hit) {
+      if (hit && Array.isArray(hit.d?.elements) && hit.d.elements.length > 0) {
         this.log(`cache · ${hit.d.elements.length} éléments (${Math.round((Date.now() - hit.t) / 60000)} min)`);
         return { ...hit.d, _cache: true, _age: hit.t };
       }
     }
     let last;
+    let failures = 0;
+    let empty = null;
     for (const ep of PUBLIC_OPS) {
       try {
         const ac = new AbortController();
@@ -134,12 +135,24 @@ export class Routes {
         if (!Array.isArray(d.elements)) throw new Error('INVALID_MAP_DATA');
         if (!d.elements.length && d.remark && /runtime error|timed out|out of memory|rate_limited|parse error/i.test(d.remark))
           throw new Error('OVERPASS_REMARK');
+        if (!d.elements.length) {
+          if (!empty) empty = d;
+          this.log(`overpass direct · ${new URL(ep).host} · 0 éléments (essai d’un autre miroir)`);
+          continue;
+        }
         await cachePut(query, d);
         return d;
-      } catch (e) { last = e; }
+      } catch (e) { last = e; failures++; }
     }
     const hit = await cacheGet(query);
-    if (hit) { this.log('réseau en échec · cache réutilisé'); return { ...hit.d, _cache: true, _age: hit.t }; }
+    if (hit && Array.isArray(hit.d?.elements) && hit.d.elements.length > 0) {
+      this.log('réseau en échec · cache réutilisé');
+      return { ...hit.d, _cache: true, _age: hit.t };
+    }
+    if (empty && failures === 0) {
+      this.log('overpass direct · tous les miroirs valides sont vides');
+      return empty;
+    }
     throw Object.assign(new Error('MAP_SOURCE_UNAVAILABLE'), { error: 'MAP_SOURCE_UNAVAILABLE', cause: last });
   }
 }
