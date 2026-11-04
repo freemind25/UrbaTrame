@@ -54,6 +54,7 @@ export class Routes {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'same-origin',
         cache: 'no-store',
         signal: ac.signal
       });
@@ -73,6 +74,7 @@ export class Routes {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(params).toString(),
+        credentials: 'same-origin',
         signal: ac.signal
       });
       return await r.json();

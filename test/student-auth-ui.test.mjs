@@ -51,12 +51,19 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.doesNotMatch(ui, /error\.debug\?\.message/);
   });
 
-  test('le mode étudiant bloque le repli Overpass direct et attribue le niveau Max', () => {
+  test('les sessions propriétaire/étudiante utilisent le serveur même pour les analyses gratuites', () => {
     const app = read('public/js/app.js');
     assert.match(app, /studentAuthRequired/);
     assert.match(app, /S\.studentUser \? 'max' : 'free'/);
+    assert.match(app, /run = b\.run;[\s\S]*?useServer = S\.studentAuthRequired \|\| isOpenAccess\(\) \|\| !freeRun;/);
     assert.match(app, /if \(S\.studentAuthRequired\) throw new Error\('STUDENT_AUTH_REQUIRED'\)/);
     assert.match(app, /if \(S\.studentAuthRequired\) \{\s*if \(code === 'STUDENT_AUTH_REQUIRED'\)/);
+  });
+
+  test('les appels géocodage et analyse transmettent le cookie same-origin', () => {
+    const routes = read('public/js/routes.mjs');
+    assert.match(routes, /fetch\(this\.base \+ '\/analysis\/2d',[\s\S]*?credentials: 'same-origin'/);
+    assert.match(routes, /fetch\(this\.base \+ '\/api\/util',[\s\S]*?credentials: 'same-origin'/);
   });
 
   test('le routeur Vercel unifié protège les API sensibles sans protéger le statut public', () => {

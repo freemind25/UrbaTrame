@@ -1126,7 +1126,9 @@ async function generate() {
         { device: S.device, session: S.session, free: freeRun });
       run = b.run;
       log(`session ouverte · ${run.slice(0, 8)} · mode ${b.tier}${b.access === 'open' ? ' (accès libre)' : ''}`);
-      useServer = isOpenAccess() || !freeRun;
+      /* Une session propriétaire/étudiante doit aussi interroger le serveur
+         pour les analyses gratuites : les endpoints restent protégés par cookie. */
+      useServer = S.studentAuthRequired || isOpenAccess() || !freeRun;
     } catch (e) {
       const code = e.error || e.message;
       if (S.studentAuthRequired) {
