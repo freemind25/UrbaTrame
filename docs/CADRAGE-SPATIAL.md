@@ -17,9 +17,9 @@ Les deux premiers niveaux sont des cartes schématiques de situation. Ils ne dé
 - `public/cadrage-spatial.css` — styles de l’interface et de l’impression.
 - `public/js/spatial-framing.mjs` — contrôles d’interface, appels explicites, dessin SVG, imports, persistance locale et exports.
 - `public/js/spatial-framing-core.mjs` — constantes, contrôles de géométrie, distances/surfaces, échelles, annotations et validation des projets.
-- `api/atelier/cadrage-extract.js` — route Vercel dédiée à l’extraction du nouveau module.
+- `api/index.js` — point d’entrée Vercel unique, déléguant au routeur partagé.
+- `server/api.mjs` — distribue `/api/atelier/cadrage-extract` à l’atelier, pour Vercel comme pour le serveur Node local.
 - `server/atelier-api.mjs` et `server/atelier-data.mjs` — requêtes et validation serveur.
-- `server/api.mjs` — route équivalente pour le serveur Node local.
 - `docs/NOTICE-CADRAGE-SPATIAL.md` et `/cadrage-spatial-notice.html` — notice utilisateur.
 
 Le rendu cartographique est SVG natif, sans bibliothèque CDN. Les coordonnées vectorielles de la carte détaillée sont projetées localement en approximation équirectangulaire WGS 84; les surfaces de polygones et dimensions sont donc des mesures indicatives, non un levé géodésique.

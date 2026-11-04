@@ -93,8 +93,11 @@ describe('Cadrage spatial · plafond serveur distinct', () => {
     assert.match(requested[0], /highway/);
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     const api = fs.readFileSync(path.join(root, 'server/api.mjs'), 'utf8');
-    const vercel = fs.readFileSync(path.join(root, 'api/atelier/cadrage-extract.js'), 'utf8');
+    const vercelEntry = fs.readFileSync(path.join(root, 'api/index.js'), 'utf8');
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
     assert.match(api, /\/api\/atelier\/cadrage-extract/);
-    assert.match(vercel, /handleAtelierCadrageExtract/);
+    assert.match(vercelEntry, /createApi\(\{/);
+    assert.match(vercelEntry, /\/api\/atelier\/cadrage-extract/);
+    assert.deepEqual(Object.keys(vercelConfig.functions), ['api/index.js']);
   });
 });

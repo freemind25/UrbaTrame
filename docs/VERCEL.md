@@ -100,10 +100,15 @@ curl https://<votre-domaine>/api/status
 `vercel.json` déclare l'essentiel :
 
 - `outputDirectory: public` — Vercel sert le dossier `public/` tel quel ;
-- deux réécritures : `/analysis/2d` → `/api/analysis/2d` (le client garde le
-  contrat d'origine) et `/api/util` ;
-- `maxDuration: 60` et `memory: 512` pour les fonctions (une requête Overpass
-  dépasse facilement les 10 secondes accordées par défaut).
+- une seule fonction, `api/index.js`, délègue au routeur métier partagé
+  `server/api.mjs` ; les anciens fichiers-fonctions de `api/` ont été retirés
+  pour rester sous la limite Hobby de 12 fonctions ;
+- la réécriture `/api/(.*)` transmet le chemin capturé via `__path` à cette
+  fonction unique, et `/analysis/2d` conserve le contrat historique du client
+  en étant réécrit vers le même point d'entrée ; les paramètres de requête
+  sont préservés ;
+- `maxDuration: 60` s'applique au routeur unifié (une requête Overpass dépasse
+  facilement les 10 secondes accordées par défaut).
 
 ### Piège : ancrer les motifs de `.vercelignore`
 
@@ -114,8 +119,10 @@ ligne (`/data/sample-elkhroub.json`). Tous les motifs de dossier sont désormais
 ancrés (`/data`, `/docs`, `/test`, `/tools`…), la règle est vérifiée avec
 `git check-ignore` et gardée par deux tests dans `test/vercel.test.mjs`.
 
-Sur les 77 fichiers suivis par git, 38 partent chez Vercel : `public/` au
-complet, `api/`, `server/`, `package.json`, et les fichiers de dépôt utiles.
+Le déploiement Vercel inclut `public/` au complet, l’unique fonction
+`api/index.js`, `server/`, `package.json` et les fichiers de dépôt nécessaires;
+`.vercelignore` exclut les tests, outils et documents qui ne servent pas au
+runtime.
 
 ### Piège : ne pas renseigner `runtime` dans `functions`
 

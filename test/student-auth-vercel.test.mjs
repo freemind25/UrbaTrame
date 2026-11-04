@@ -25,17 +25,14 @@ function fakeReq(method = 'POST', url = '/', body = {}) {
 }
 
 describe('auth étudiante sur les fonctions Vercel', () => {
-  let status, session, analysis, atelier;
+  let router;
   before(async () => {
-    status = (await import('../api/status.js')).default;
-    session = (await import('../api/auth/session.js')).default;
-    analysis = (await import('../api/analysis/2d.js')).default;
-    atelier = (await import('../api/atelier/health.js')).default;
+    router = (await import('../api/index.js')).default;
   });
 
   test('le statut public indique la configuration manquante sans en révéler les valeurs', async () => {
     const res = fakeRes();
-    await status(fakeReq('GET', '/api/status'), res);
+    await router(fakeReq('GET', '/api/status'), res);
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.json.auth, { required: true, ready: false });
     assert.equal(JSON.stringify(res.json).includes('FM_AUTH_OTP_KEY'), false);
@@ -43,13 +40,16 @@ describe('auth étudiante sur les fonctions Vercel', () => {
 
   test('session, analyses et ateliers sont refusés quand l’auth requise n’est pas prête', async () => {
     const sessionRes = fakeRes();
-    await session(fakeReq('GET', '/api/auth/session'), sessionRes);
+    await router(fakeReq('GET', '/api/auth/session'), sessionRes);
     assert.equal(sessionRes.statusCode, 503);
     assert.deepEqual(sessionRes.json, { required: true, ready: false, authenticated: false });
 
-    for (const [name, handler] of [['analysis', analysis], ['atelier', atelier]]) {
+    for (const [name, method, url, body] of [
+      ['analysis', 'POST', '/analysis/2d', { action: 'check' }],
+      ['atelier', 'GET', '/api/atelier/health', {}]
+    ]) {
       const res = fakeRes();
-      await handler(fakeReq('POST', '/api/test', { action: 'check' }), res);
+      await router(fakeReq(method, url, body), res);
       assert.equal(res.statusCode, 503, name);
       assert.equal(res.json.error, 'STUDENT_AUTH_UNAVAILABLE', name);
     }

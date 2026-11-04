@@ -1,5 +1,5 @@
 # Ce qui n'a pas besoin de partir chez Vercel : le déploiement reste petit et
-# rapide. Les fonctions api/ n'importent que server/ et public/js/.
+# rapide. La fonction api/index.js n'importe que server/ et public/js/.
 #
 # Les motifs sont TOUS ancrés à la racine (barre oblique initiale). Sans elle,
 # « data » exclurait aussi public/data/ — donc l'exemple de carte servi par

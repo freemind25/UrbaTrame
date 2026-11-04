@@ -34,13 +34,13 @@ describe('garde d’accès étudiant — interface et routes', () => {
 
   test('l’accès propriétaire est séparé et utilise un POST mot de passe, sans changer le parcours OTP étudiant', () => {
     const ui = read('public/js/student-auth-ui.mjs');
-    const sessionFunction = read('api/auth/session.js');
+    const api = read('server/api.mjs');
     assert.match(ui, /ownerLoginReady/);
     assert.match(ui, /Mot de passe propriétaire/);
     assert.match(ui, /\/api\/auth\/session/);
     assert.match(ui, /body: JSON\.stringify\(\{ password: ownerInput\.value \}\)/);
-    assert.match(sessionFunction, /req\.method === 'POST'.*ownerLogin/);
-    assert.match(sessionFunction, /req\.method === 'POST'.*clientIp/);
+    assert.match(api, /url\.pathname === '\/api\/auth\/session'[\s\S]*?req\.method === 'POST'[\s\S]*?authHandlers\.ownerLogin\(req, res, ip\)/);
+    assert.match(api, /const ip = clientIp\(req\)/);
   });
 
   test('l’erreur de vérification peut afficher uniquement le diagnostic assaini fourni en Preview', () => {
@@ -59,13 +59,17 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.match(app, /if \(S\.studentAuthRequired\) \{\s*if \(code === 'STUDENT_AUTH_REQUIRED'\)/);
   });
 
-  test('les fonctions Vercel des API de l’application vérifient la session', () => {
-    for (const file of [
-      'api/analysis/2d.js', 'api/util.js',
-      'api/atelier/health.js', 'api/atelier/geocode.js', 'api/atelier/extract.js',
-      'api/atelier/cadrage-extract.js', 'api/atelier/gadm.js'
-    ]) assert.match(read(file), /requireStudentSession/, file);
-    assert.doesNotMatch(read('api/status.js'), /requireStudentSession/);
+  test('le routeur Vercel unifié protège les API sensibles sans protéger le statut public', () => {
+    const api = read('server/api.mjs');
+    const protectedPaths = api.match(/const protectedPaths = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
+    for (const route of [
+      '/analysis/2d', '/api/util',
+      '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
+      '/api/atelier/cadrage-extract', '/api/atelier/gadm'
+    ]) assert.ok(protectedPaths.includes(`'${route}'`), `${route} reste protégé`);
+    assert.match(api, /requireStudentSession\(req, res, studentAuth\)/);
+    assert.doesNotMatch(protectedPaths, /\/api\/status/);
+    assert.match(read('api/index.js'), /createApi\(\{/);
   });
 
   test('la migration stocke un HMAC et non un code OTP en clair; l’admin DB ne figure pas dans les exemples', () => {

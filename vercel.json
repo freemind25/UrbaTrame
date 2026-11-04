@@ -1,15 +1,20 @@
-{"$schema": "https://openapi.vercel.sh/vercel.json",
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
   "framework": null,
   "functions": {
-    "api/api.mjs": {
+    "api/index.js": {
       "maxDuration": 60
     }
   },
   "rewrites": [
     {
-      "source": "/api/util/codecraft",
-      "destination": "api/util/codecraft.js"
+      "source": "/api/(.*)",
+      "destination": "/api?__path=/$1"
+    },
+    {
+      "source": "/analysis/2d",
+      "destination": "/api?__path=/analysis/2d"
     }
   ],
   "headers": [

@@ -143,16 +143,12 @@ describe('fonctions serverless', () => {
 
   before(async () => {
     process.env.FM_SIGNING_KEY = Buffer.from(JSON.stringify(JWK)).toString('base64');
-    mods = {
-      status: (await import('../api/status.js')).default,
-      util: (await import('../api/util.js')).default,
-      analysis: (await import('../api/analysis/2d.js')).default
-    };
+    mods = { router: (await import('../api/index.js')).default };
   });
 
   test('GET /api/status expose la clé publique et les paliers', async () => {
     const res = fakeRes();
-    await mods.status(fakeReq({ method: 'GET', url: '/api/status' }), res);
+    await mods.router(fakeReq({ method: 'GET', url: '/api/status' }), res);
     assert.equal(res.statusCode, 200);
     assert.equal(res.json.ok, true);
     assert.equal(Buffer.from(res.json.pub, 'base64').length, 32);
@@ -161,19 +157,19 @@ describe('fonctions serverless', () => {
 
   test('POST /analysis/2d : check sans identifiants → essai', async () => {
     const res = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'check', device: DEVICE } }), res);
+    await mods.router(fakeReq({ body: { action: 'check', device: DEVICE } }), res);
     assert.equal(res.statusCode, 200);
     assert.equal(res.json.tier, 'free');
   });
 
   test('POST /analysis/2d : activation puis génération licenciée', async () => {
     const res1 = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'activate', device: DEVICE, code: 'cs_demo_max' } }), res1);
+    await mods.router(fakeReq({ body: { action: 'activate', device: DEVICE, code: 'cs_demo_max' } }), res1);
     assert.equal(res1.json.ok, true);
     const { account, token } = res1.json;
 
     const res2 = fakeRes();
-    await mods.analysis(fakeReq({
+    await mods.router(fakeReq({
       body: {
         action: 'begin', device: DEVICE, account, token,
         ids: ['roads', 'density'], radius: 600, lat: 36.26, lon: 6.69
@@ -186,7 +182,7 @@ describe('fonctions serverless', () => {
 
   test('POST /analysis/2d : refus des analyses payantes sans licence', async () => {
     const res = fakeRes();
-    await mods.analysis(fakeReq({
+    await mods.router(fakeReq({
       body: { action: 'begin', device: DEVICE, ids: ['density'], radius: 600, lat: 36.26, lon: 6.69 }
     }), res);
     assert.equal(res.statusCode, 401);
@@ -195,48 +191,48 @@ describe('fonctions serverless', () => {
 
   test('POST /analysis/2d : entrées invalides', async () => {
     const r1 = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'check', device: 'court' } }), r1);
+    await mods.router(fakeReq({ body: { action: 'check', device: 'court' } }), r1);
     assert.equal(r1.json.error, 'INVALID_DEVICE');
 
     const r2 = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'begin', device: DEVICE, ids: ['nope'], radius: 600, lat: 36, lon: 6 } }), r2);
+    await mods.router(fakeReq({ body: { action: 'begin', device: DEVICE, ids: ['nope'], radius: 600, lat: 36, lon: 6 } }), r2);
     assert.equal(r2.json.error, 'INVALID_ANALYSES');
 
     const r3 = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'begin', device: DEVICE, ids: ['roads'], radius: 10, lat: 36, lon: 6 } }), r3);
+    await mods.router(fakeReq({ body: { action: 'begin', device: DEVICE, ids: ['roads'], radius: 10, lat: 36, lon: 6 } }), r3);
     assert.equal(r3.json.error, 'RADIUS_200_3000');
   });
 
   test('les en-têtes CORS sont posés (appel depuis un autre domaine)', async () => {
     const res = fakeRes();
-    await mods.analysis(fakeReq({ body: { action: 'check', device: DEVICE } }), res);
+    await mods.router(fakeReq({ body: { action: 'check', device: DEVICE } }), res);
     assert.equal(res.headers['access-control-allow-origin'], '*');
   });
 
   test('OPTIONS et méthodes refusées', async () => {
     const opt = fakeRes();
-    await mods.analysis(fakeReq({ method: 'OPTIONS' }), opt);
+    await mods.router(fakeReq({ method: 'OPTIONS' }), opt);
     assert.equal(opt.statusCode, 200);
 
     const get = fakeRes();
-    await mods.analysis(fakeReq({ method: 'GET' }), get);
+    await mods.router(fakeReq({ method: 'GET' }), get);
     assert.equal(get.statusCode, 405);
 
     const utilGet = fakeRes();
-    await mods.util(fakeReq({ method: 'GET', url: '/api/util' }), utilGet);
+    await mods.router(fakeReq({ method: 'GET', url: '/api/util' }), utilGet);
     assert.equal(utilGet.statusCode, 405);
   });
 
   test('corps déjà analysé par la plateforme (req.body) : JSON', async () => {
     const res = fakeRes();
-    await mods.analysis(fakeReq({ prepared: { action: 'check', device: DEVICE } }), res);
+    await mods.router(fakeReq({ prepared: { action: 'check', device: DEVICE } }), res);
     assert.equal(res.statusCode, 200);
     assert.equal(res.json.tier, 'free', JSON.stringify(res.json));
   });
 
   test('corps déjà analysé par la plateforme (req.body) : formulaire', async () => {
     const res = fakeRes();
-    await mods.util(fakeReq({
+    await mods.router(fakeReq({
       url: '/api/util',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       prepared: { refcheck: 'MTN-ABCDE' }
@@ -247,7 +243,7 @@ describe('fonctions serverless', () => {
 
   test('corps déjà analysé : activation complète', async () => {
     const res = fakeRes();
-    await mods.analysis(fakeReq({
+    await mods.router(fakeReq({
       prepared: { action: 'activate', device: DEVICE, code: 'cs_demo_max' }
     }), res);
     assert.equal(res.json.ok, true, JSON.stringify(res.json));
@@ -256,11 +252,11 @@ describe('fonctions serverless', () => {
 
   test('POST /api/util : utilitaire inconnu et recherche vide, sans réseau', async () => {
     const r1 = fakeRes();
-    await mods.util(fakeReq({ url: '/api/util', form: { truc: '1' } }), r1);
+    await mods.router(fakeReq({ url: '/api/util', form: { truc: '1' } }), r1);
     assert.equal(r1.json.error, 'UNKNOWN_UTILITY');
 
     const r2 = fakeRes();
-    await mods.util(fakeReq({ url: '/api/util', form: { geocode: '   ' } }), r2);
+    await mods.router(fakeReq({ url: '/api/util', form: { geocode: '   ' } }), r2);
     assert.equal(r2.json.error, 'EMPTY_QUERY');
   });
 });
