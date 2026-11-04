@@ -373,7 +373,8 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
         return send(res, 400, { error: 'INVALID_ACTION' });
       }
       const key = process.env.CODECRAFT_API_KEY;
-      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });      const model = params.get('model') || '';
+      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' }); // ensure key is configured
+      const model = params.get('model') || '';
       const prompt = params.get('prompt') || '';
       const route = params.get('route') || 'chat';
       if (!model) return send(res, 400, { error: 'MISSING_MODEL' });
