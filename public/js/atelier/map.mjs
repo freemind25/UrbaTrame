@@ -20,6 +20,7 @@ function geographic(x, y, z) {
 }
 const fmt = n => Number.isFinite(n) ? n.toFixed(1) : '0';
 const mod = (n, m) => ((n % m) + m) % m;
+const normalizeShape = shape => shape === 'square' || shape === 'rounded' ? shape : 'circle';
 export const worldPixel = world;
 export const geographicFromWorldPixel = geographic;
 export function localPixel(lat, lon, origin, z) {
@@ -35,11 +36,12 @@ export function createMap(root, options = {}) {
   const tiles = root.querySelector('.map-tiles');
   const svg = root.querySelector('.map-overlay');
   const scaleLabel = root.querySelector('#mapScale');
-  const state = { lat: options.lat || 36.2642, lon: options.lon || 6.6969, zoom: options.zoom || 15,
-    radius: options.radius || 600, shape: options.shape === 'square' ? 'square' : 'circle',
+  const state = { lat: options.lat ?? 36.2642, lon: options.lon ?? 6.6969, zoom: options.zoom ?? 15,
+    radius: options.radius ?? 600, shape: normalizeShape(options.shape),
     boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [],
     drawMode: null, data: null, annotations: [] };
   const cache = new Map();
+  let tileErrorReported = false;
   let dimensions = { w: 0, h: 0 };
   let drawPending = false, drag = null, suppressClick = false;
 
@@ -67,8 +69,8 @@ export function createMap(root, options = {}) {
     const c = Math.cos(state.lat * D2R);
     const mpp = c * 40075016.686 / (TILE * 2 ** state.zoom);
     const radius = clamp(state.radius / mpp, 8, Math.max(w, h) * 4);
-    const frame = state.shape === 'square'
-      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}"/>`
+    const frame = state.shape !== 'circle'
+      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}" rx="${state.shape === 'rounded' ? fmt(radius * .18) : '0'}"/>`
       : `<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/>`;
     const parts = [`<defs><clipPath id="siteClip">${frame}</clipPath></defs>`];
     if (state.data) {
@@ -89,8 +91,8 @@ export function createMap(root, options = {}) {
       }
       parts.push('</g></g>');
     }
-    const frameShape = state.shape === 'square'
-      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}" rx="2"/>`
+    const frameShape = state.shape !== 'circle'
+      ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}" rx="${state.shape === 'rounded' ? fmt(radius * .18) : '0'}"/>`
       : `<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/>`;
     parts.push(`<g fill="rgba(40,107,78,.06)" stroke="#1f6c53" stroke-width="2" stroke-dasharray="7 5" vector-effect="non-scaling-stroke">${frameShape}</g>`);
     if (state.boundary.length) {
@@ -135,7 +137,13 @@ export function createMap(root, options = {}) {
           img = document.createElement('img');
           img.alt = ''; img.draggable = false; img.decoding = 'async';
           img.src = `https://tile.openstreetmap.org/${key}.png`;
-          img.addEventListener('error', () => img.classList.add('tile-missing'), { once: true });
+          img.addEventListener('error', () => {
+            img.classList.add('tile-missing');
+            if (!tileErrorReported) {
+              tileErrorReported = true;
+              options.onTileError?.(key);
+            }
+          }, { once: true });
           cache.set(key, img);
           if (cache.size > 96) cache.delete(cache.keys().next().value);
         }
@@ -164,7 +172,7 @@ export function createMap(root, options = {}) {
     schedule();
   }
   root.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.target.closest?.('a,button,input,select')) return;
     drag = { x: e.clientX, y: e.clientY, start: world(state.lat, state.lon, state.zoom), moved: false };
     root.setPointerCapture?.(e.pointerId);
   });
@@ -183,6 +191,7 @@ export function createMap(root, options = {}) {
   root.addEventListener('pointercancel', () => { drag = null; });
   root.addEventListener('click', e => {
     if (suppressClick) { suppressClick = false; return; }
+    if (e.target.closest?.('a,button,input,select')) return;
     const r = root.getBoundingClientRect();
     const c = world(state.lat, state.lon, state.zoom);
     const p = geographic(c.x + e.clientX - r.left - r.width / 2, c.y + e.clientY - r.top - r.height / 2, state.zoom);
@@ -211,7 +220,7 @@ export function createMap(root, options = {}) {
   return {
     setCenter: centerAt,
     setRadius: fitRadius,
-    setShape(shape) { state.shape = shape === 'square' ? 'square' : 'circle'; schedule(); },
+    setShape(shape) { state.shape = normalizeShape(shape); schedule(); },
     setBoundary(points) { state.boundary = Array.isArray(points) ? points.map(p => [...p]) : []; schedule(); },
     getBoundary() { return state.boundary.map(p => [...p]); },
     setDrawMode(mode) { state.drawMode = ['boundary', 'note'].includes(mode) ? mode : null; schedule(); },

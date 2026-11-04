@@ -124,6 +124,34 @@
       <span class="tool-hint" data-fr="Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur."
             data-en="Search a place, tick analyses, generate — everything runs in your browser.">Recherchez un lieu, cochez des analyses, générez — tout est calculé dans votre navigateur.</span>
     </div>
+    <section id="analysisMapPanel" class="analysis-map-panel" hidden aria-labelledby="analysisMapTitle">
+      <div class="analysis-map-heading">
+        <div class="analysis-map-heading-copy">
+          <span class="analysis-map-kicker" data-fr="CARTE DU SITE · AVANT ANALYSE" data-en="SITE MAP · BEFORE ANALYSIS">CARTE DU SITE · AVANT ANALYSE</span>
+          <h2 id="analysisMapTitle" data-fr="Choisissez le centre de l’emprise" data-en="Choose the study-area center">Choisissez le centre de l’emprise</h2>
+          <p><strong id="analysisMapLocation"></strong><span id="analysisMapCoords"></span></p>
+        </div>
+        <div class="analysis-map-controls" role="group" aria-label="Commandes de la carte">
+          <button id="analysisMapRecenter" type="button" data-fr="Recentrer sur le lieu recherché" data-en="Return to searched place">Recentrer sur le lieu recherché</button>
+          <button id="analysisMapZoomOut" type="button" aria-label="Dézoomer" title="Dézoomer">−</button>
+          <button id="analysisMapZoomIn" type="button" aria-label="Zoomer" title="Zoomer">+</button>
+        </div>
+      </div>
+      <div id="analysisMap" class="analysis-map" role="application" aria-label="Carte OpenStreetMap interactive">
+        <div class="map-tiles" aria-hidden="true"></div>
+        <svg class="map-overlay" aria-hidden="true" preserveAspectRatio="none"></svg>
+        <div class="map-scale" id="mapScale">500 m</div>
+        <div class="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</div>
+      </div>
+      <div class="analysis-map-foot">
+        <p class="analysis-map-instruction" data-fr="Cliquez sur le point voulu (ou déplacez la carte) pour déplacer le centre. Réglez le rayon et la forme dans « 2 · Site ». Le contour pointillé indique l’emprise; les requêtes OSM utilisent une boîte rectangulaire qui peut la dépasser."
+           data-en="Click the desired point (or move the map) to change the center. Set radius and shape in “2 · Site”. The dashed outline shows the study extent; OSM queries use a rectangular box that may extend beyond it.">Cliquez sur le point voulu (ou déplacez la carte) pour déplacer le centre. Réglez le rayon et la forme dans « 2 · Site ». Le contour pointillé indique l’emprise; les requêtes OSM utilisent une boîte rectangulaire qui peut la dépasser.</p>
+        <p id="analysisMapStatus" role="status" aria-live="polite" data-fr="Fond cartographique OpenStreetMap."
+           data-en="OpenStreetMap basemap.">Fond cartographique OpenStreetMap.</p>
+        <p class="analysis-map-privacy" data-fr="Fond © OpenStreetMap. Les tuiles visibles sont chargées depuis OpenStreetMap après votre choix de lieu."
+           data-en="Basemap © OpenStreetMap. Visible tiles are requested from OpenStreetMap after you select a place.">Fond © OpenStreetMap. Les tuiles visibles sont chargées depuis OpenStreetMap après votre choix de lieu.</p>
+      </div>
+    </section>
     <details id="dataPreview" class="data-preview" open>
       <summary>
         <span data-fr="Aperçu des couches · disponibilité & charge" data-en="Layer preview · availability & workload">Aperçu des couches · disponibilité & charge</span>

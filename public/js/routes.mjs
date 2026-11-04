@@ -107,7 +107,7 @@ export class Routes {
   }
 
   /* ── Overpass public, directement depuis le navigateur (essai gratuit) ── */
-  async overpassDirect(query, budget = 60_000, force = false) {
+  async overpassDirect(query, budget = 18_000, force = false) {
     if (!force) {
       const hit = await cacheGet(query);
       if (hit && Array.isArray(hit.d?.elements) && hit.d.elements.length > 0) {
@@ -115,21 +115,31 @@ export class Routes {
         return { ...hit.d, _cache: true, _age: hit.t };
       }
     }
+    const deadline = Date.now() + Math.max(0, Number(budget) || 0);
     let last;
     let failures = 0;
     let empty = null;
-    for (const ep of PUBLIC_OPS) {
+    for (let i = 0; i < PUBLIC_OPS.length; i++) {
+      const ep = PUBLIC_OPS[i];
+      const remaining = deadline - Date.now();
+      if (remaining < 1_000) {
+        last ||= new Error('OVERPASS_BUDGET_EXHAUSTED');
+        failures++;
+        break;
+      }
+      const mirrorsLeft = PUBLIC_OPS.length - i - 1;
+      const reserve = Math.min(1_500 * mirrorsLeft, Math.max(0, remaining - 1_000));
+      const attemptBudget = Math.min(15_000, Math.max(1_000, remaining - reserve));
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), attemptBudget);
       try {
-        const ac = new AbortController();
-        const t = setTimeout(() => ac.abort(), budget);
-        this.log(`overpass direct · ${new URL(ep).host}…`);
+        this.log(`overpass direct · miroir ${i + 1}/${PUBLIC_OPS.length} · ${new URL(ep).host}…`);
         const r = await fetch(ep, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
           body: 'data=' + encodeURIComponent(query),
           signal: ac.signal
         });
-        clearTimeout(t);
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const d = await r.json();
         if (!Array.isArray(d.elements)) throw new Error('INVALID_MAP_DATA');
@@ -142,7 +152,11 @@ export class Routes {
         }
         await cachePut(query, d);
         return d;
-      } catch (e) { last = e; failures++; }
+      } catch (e) {
+        last = e;
+        failures++;
+        this.log(`overpass direct · ${new URL(ep).host} indisponible (${e.name === 'AbortError' ? 'délai dépassé' : e.message})`);
+      } finally { clearTimeout(timer); }
     }
     const hit = await cacheGet(query);
     if (hit && Array.isArray(hit.d?.elements) && hit.d.elements.length > 0) {

@@ -58,6 +58,8 @@ describe('garde d’accès étudiant — interface et routes', () => {
     assert.match(app, /const ownerSession = S\.studentUser\?\.isOwner === true && S\.studentUser\?\.role === 'admin'/);
     assert.match(app, /run = b\.run;[\s\S]*?useServer = !ownerSession && \(S\.studentAuthRequired \|\| isOpenAccess\(\) \|\| !freeRun\);/);
     assert.match(app, /if \(S\.studentAuthRequired && !ownerSession\) throw new Error\('STUDENT_AUTH_REQUIRED'\)/);
+    assert.match(app, /if \(!ownerSession \|\| !run\) throw e/);
+    assert.match(app, /relais serveur protégé/);
     assert.match(app, /if \(S\.studentAuthRequired\) \{\s*if \(code === 'STUDENT_AUTH_REQUIRED'\)/);
   });
 

@@ -22,6 +22,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
+import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -75,6 +76,8 @@ let latestAssistantResult = null;
 let dataPreviewTimer = null;
 let dataPreviewRevision = 0;
 let siteSearchRevision = 0;
+let analysisMap = null;
+let searchedMapCenter = null;
 
 /* ─────────── i18n minimal ─────────── */
 const T = (fr, en) => (S.lang === 'en' ? en : fr);
@@ -88,6 +91,10 @@ function applyLang() {
   });
   renderCatalog();
   $('#langBtn').textContent = S.lang === 'fr' ? 'EN' : 'FR';
+  $('#analysisMap')?.setAttribute('aria-label', T('Carte OpenStreetMap interactive : cliquez pour déplacer le centre, faites glisser pour explorer.',
+    'Interactive OpenStreetMap: click to move the center, drag to explore.'));
+  $('#analysisMapZoomIn')?.setAttribute('aria-label', T('Zoomer', 'Zoom in'));
+  $('#analysisMapZoomOut')?.setAttribute('aria-label', T('Dézoomer', 'Zoom out'));
   if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   if ($('#assistantModal')?.classList.contains('on') && latestAssistantResult) renderAssistantResult(latestAssistantResult);
   if ($('#workspaceModal')?.classList.contains('on')) renderWorkspace();
@@ -638,6 +645,66 @@ function renderMiniMap() {
   host.innerHTML = s;
 }
 
+/* ═══════════════ carte de préparation du site ═══════════════ */
+function analysisMapShape() { return S.shape === 'circle' ? 'circle' : S.shape === 'rect' ? 'rounded' : 'square'; }
+function updateSiteInfo() {
+  const host = $('#siteInfo');
+  if (host && S.site.lat != null && S.site.lon != null) {
+    host.innerHTML = `<b>${esc(S.site.name)}</b><span>${S.site.lat.toFixed(5)}°, ${S.site.lon.toFixed(5)}° · r = ${S.site.R} m</span>`;
+  }
+  const title = $('#analysisMapLocation');
+  if (title) title.textContent = S.site.name || T('Lieu sélectionné', 'Selected place');
+  const coords = $('#analysisMapCoords');
+  if (coords && S.site.lat != null && S.site.lon != null)
+    coords.textContent = `${S.site.lat.toFixed(5)}, ${S.site.lon.toFixed(5)}`;
+}
+function syncAnalysisMapView() {
+  if (!analysisMap || S.site.lat == null || S.site.lon == null) return;
+  analysisMap.setCenter(S.site.lat, S.site.lon, false);
+  analysisMap.setRadius(S.site.R);
+  analysisMap.setShape(analysisMapShape());
+  analysisMap.setData(S.D);
+  updateSiteInfo();
+}
+function ensureAnalysisMap() {
+  const panel = $('#analysisMapPanel');
+  const host = $('#analysisMap');
+  if (!panel || !host || S.site.lat == null || S.site.lon == null) return;
+  panel.hidden = false;
+  if (!analysisMap) {
+    analysisMap = createMap(host, {
+      lat: S.site.lat, lon: S.site.lon, zoom: 15,
+      radius: S.site.R, shape: analysisMapShape(),
+      onCenter: moveAnalysisMapCenter,
+      onTileError() {
+        const status = $('#analysisMapStatus');
+        if (status) status.textContent = T(
+          'Certaines tuiles du fond OSM ne répondent pas. Le centre, le rayon et la forme restent réglables.',
+          'Some OSM basemap tiles did not load. The center, radius and shape can still be adjusted.'
+        );
+      }
+    });
+  }
+  syncAnalysisMapView();
+}
+function moveAnalysisMapCenter(lat, lon) {
+  lat = Number(lat); lon = Number(lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180) return;
+  if (Math.abs(S.site.lat - lat) < 1e-7 && Math.abs(S.site.lon - lon) < 1e-7) return;
+  const hadResults = S.mapLoaded || S.dataSite;
+  S.site.lat = lat; S.site.lon = lon;
+  if (!S.site.name) S.site.name = T('Emplacement personnalisé', 'Custom location');
+  updateSiteInfo();
+  if (hadResults) {
+    clearWorkspaceResults();
+    analysisMap?.setData(S.D);
+    renderCards();
+    if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
+    log('centre déplacé · les résultats précédents ont été effacés');
+  }
+  updateGenBtn();
+}
+
 /* ═══════════════ synthèse du site & scénario de faisabilité ═══════════════ */
 function reportNumber(value, digits = 0) {
   if (!Number.isFinite(value)) return '—';
@@ -1078,6 +1145,7 @@ function drawLoader(list, state, startedAt) {
       <div class="bar"><i style="width:${pct}%"></i></div>
       <ol>${list.map(s => `<li class="${state[s.id] || 'pending'}">${
         { done: '✓', failed: '!', active: '●', pending: '○' }[state[s.id] || 'pending']} ${T(s.fr, s.en)}</li>`).join('')}</ol>
+      ${state.activity ? `<p class="loader-detail">${esc(state.activity)}</p>` : ''}
       <p class="eta">${secs} s</p>
     </div>`;
   if (done === list.length) setTimeout(() => host.classList.remove('on'), 500);
@@ -1107,6 +1175,7 @@ async function generate() {
   S.obm = null;
 
   S.busy = true;
+  $('#analysisMap')?.classList.add('is-busy');
   const list = stages(p, null);
   const state = {}; state.prepare = 'done';
   const t0 = Date.now();
@@ -1127,8 +1196,9 @@ async function generate() {
         { device: S.device, session: S.session, free: freeRun });
       run = b.run;
       log(`session ouverte · ${run.slice(0, 8)} · mode ${b.tier}${b.access === 'open' ? ' (accès libre)' : ''}`);
-      /* Le propriétaire a déjà été vérifié par begin et n'a pas de quota étudiant :
-         ses requêtes OSM passent par les miroirs publics du navigateur (IP réelle).
+      /* Le propriétaire a été vérifié par begin et n'a pas de quota étudiant :
+         on essaie d’abord les miroirs depuis son navigateur, puis uniquement en
+         secours la requête planifiée du serveur, protégée par la même session.
          Les sessions étudiantes restent sur le serveur protégé et quota-gaté. */
       useServer = !ownerSession && (S.studentAuthRequired || isOpenAccess() || !freeRun);
     } catch (e) {
@@ -1155,7 +1225,9 @@ async function generate() {
     /* 2 · données OSM, par groupe */
     const acc = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
     for (const g of p.groups) {
-      state['g_' + g.id] = 'active'; drawLoader(list, state, t0);
+      state['g_' + g.id] = 'active';
+      state.activity = T('Interrogation des sources cartographiques…', 'Requesting map data…');
+      drawLoader(list, state, t0);
       let els = null;
       if (useServer && run) {
         try {
@@ -1172,16 +1244,29 @@ async function generate() {
       }
       if (!els || (ownerSession && Array.isArray(els) && els.length === 0)) {
         if (S.studentAuthRequired && !ownerSession) throw new Error('STUDENT_AUTH_REQUIRED');
-        const d = await S.routes.overpassDirect(g.query, 60_000, ownerSession && els?.length === 0);
-        els = d.elements;
-        if (d._cache) S.cacheInfo = T('données en cache', 'cached data');
-        log(`groupe ${g.id} · ${els.length} éléments (public)`);
+        try {
+          const d = await S.routes.overpassDirect(g.query, 18_000, ownerSession && els?.length === 0);
+          els = d.elements;
+          if (d._cache) S.cacheInfo = T('données en cache', 'cached data');
+          log(`groupe ${g.id} · ${els.length} éléments (public)`);
+        } catch (e) {
+          if (!ownerSession || !run) throw e;
+          state.activity = T('Miroirs du navigateur injoignables · essai du serveur protégé…',
+            'Browser mirrors unreachable · trying the protected server…');
+          drawLoader(list, state, t0);
+          log(`groupe ${g.id} · miroirs navigateur indisponibles → relais serveur protégé`);
+          const r = await S.routes.query(run, g.id, { device: S.device, session: S.session });
+          els = r.elements;
+          log(`groupe ${g.id} · ${els.length} éléments (relais serveur protégé)`);
+        }
       }
+      state.activity = '';
       normalizeElements(acc, dedupe(els));
       state['g_' + g.id] = 'done'; drawLoader(list, state, t0);
     }
     S.D = acc;
     S.mapLoaded = p.groups.length > 0;
+    analysisMap?.setData(S.D);
 
     /* 3 · sources annexes */
     if (p.climate) {
@@ -1238,6 +1323,7 @@ async function generate() {
     drawLoader([], state, t0);
     if (run) S.routes.end(run, { device: S.device, session: S.session });
     S.busy = false;
+    $('#analysisMap')?.classList.remove('is-busy');
   }
 }
 
@@ -1255,6 +1341,7 @@ async function loadSample() {
     if (requestId !== siteSearchRevision) return;
     S.windrose = windrose;
     S.site.lat = d.site.lat; S.site.lon = d.site.lon; S.site.R = d.site.R; S.site.name = d.site.name;
+    searchedMapCenter = { lat: d.site.lat, lon: d.site.lon, name: d.site.name };
     $('#q').value = d.site.name;
     $('#radius').value = d.site.R; $('#radiusOut').textContent = d.site.R + ' m';
     S.D = normalizeElements(null, dedupe(d.elements));
@@ -1345,10 +1432,13 @@ function selectSearchedPlace(place) {
   }
 
   $('#q').value = name;
+  searchedMapCenter = { lat: place.lat, lon: place.lon, name };
   setSite(place.lat, place.lon, name);
   if (locationChanged) {
     renderCards();
     renderMiniMap();
+    if (window.matchMedia?.('(max-width: 960px)').matches)
+      requestAnimationFrame(() => $('#analysisMapPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
   clearSearchResults();
   setSearchStatus(locationChanged
@@ -1409,7 +1499,8 @@ function setSite(lat, lon, name) {
     const card = $('#card_wind');
     if (card) card.querySelector('.body').innerHTML = renderOne('wind');
   }
-  $('#siteInfo').innerHTML = `<b>${esc(name)}</b><span>${lat.toFixed(5)}°, ${lon.toFixed(5)}° · r = ${S.site.R} m</span>`;
+  updateSiteInfo();
+  ensureAnalysisMap();
   log(`site · ${name} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
   updateGenBtn();
   if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
@@ -1605,7 +1696,7 @@ function clearWorkspaceResults() {
   S.mapLoaded = false; S.dataSite = null; S.cacheInfo = '';
 }
 function finishWorkspaceLoad() {
-  renderCatalog(); renderCards(); updateGenBtn();
+  renderCatalog(); renderCards(); syncAnalysisMapView(); updateGenBtn();
   if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   closeModal('workspaceModal');
   toast(T('Configuration chargée. Relancez les analyses pour actualiser les résultats.', 'Configuration loaded. Rerun analyses to refresh results.'));
@@ -1615,6 +1706,7 @@ function loadWorkspaceProject(project) {
   S.site.R = project.radius;
   const name = project.site.name || `${project.site.lat.toFixed(4)}, ${project.site.lon.toFixed(4)}`;
   $('#q').value = name;
+  searchedMapCenter = { lat: project.site.lat, lon: project.site.lon, name };
   setSite(project.site.lat, project.site.lon, name);
   finishWorkspaceLoad();
 }
@@ -1802,6 +1894,14 @@ function wireUI() {
     if (S.dataSite || S.D.build.length || S.D.roads.length || S.windrose || S.climate || S.terrain) renderCards();
   });
   $('#search').addEventListener('click', doSearch);
+  $('#analysisMapRecenter').addEventListener('click', () => {
+    if (!analysisMap || !searchedMapCenter) return;
+    moveAnalysisMapCenter(searchedMapCenter.lat, searchedMapCenter.lon);
+    analysisMap.setCenter(searchedMapCenter.lat, searchedMapCenter.lon, false);
+    analysisMap.setRadius(S.site.R);
+  });
+  $('#analysisMapZoomIn').addEventListener('click', () => analysisMap?.zoomBy(1));
+  $('#analysisMapZoomOut').addEventListener('click', () => analysisMap?.zoomBy(-1));
   $('#sample')?.addEventListener('click', loadSample);
   $('#q').addEventListener('input', resetSearchFeedback);
   $('#q').addEventListener('keydown', e => {
@@ -1814,13 +1914,14 @@ function wireUI() {
   $('#radius').addEventListener('input', e => {
     S.site.R = +e.target.value;
     $('#radiusOut').textContent = S.site.R + ' m';
-    if (S.site.name) $('#siteInfo').querySelector('span').textContent =
-      `${S.site.lat.toFixed(5)}°, ${S.site.lon.toFixed(5)}° · r = ${S.site.R} m`;
+    analysisMap?.setRadius(S.site.R);
+    updateSiteInfo();
     updateGenBtn();
     if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
   });
   $('#shape').addEventListener('change', e => {
     S.shape = e.target.value; store.set('shape', S.shape);
+    analysisMap?.setShape(analysisMapShape());
     const rw = $('#radiusWrap'); if (rw) rw.style.opacity = S.shape === 'poly' ? '.45' : '1';
     renderCards();
     scheduleDataPreview();
@@ -1843,6 +1944,7 @@ function wireUI() {
   $('#clear').addEventListener('click', () => {
     S.D = { roads: [], build: [], green: [], pois: [], rail: [], coast: [] };
     S.terrain = null; S.climate = null; S.windrose = null; S.obm = null; S.mapLoaded = false; S.dataSite = null;
+    analysisMap?.setData(S.D);
     renderCards(); updateGenBtn();
     if ($('#siteReport')?.classList.contains('on')) renderSiteReport();
     log('carte vidée');
