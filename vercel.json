@@ -49,6 +49,12 @@
       ]
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/util/codecraft",
+      "destination": "api/api.mjs"
+    }
+  ],
   "cleanUrls": false,
   "trailingSlash": false
 }
