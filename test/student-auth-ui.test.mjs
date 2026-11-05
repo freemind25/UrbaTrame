@@ -10,7 +10,8 @@ describe('garde d’accès étudiant — interface et routes', () => {
   test('la connexion partagée est chargée sur les pages d’application UrbaTrame', () => {
     for (const file of [
       'public/index.html', 'public/atelier.html', 'public/atelier-analyse.html',
-      'public/atelier-cartographique.html', 'public/atelier-s5.html', 'public/cadrage-spatial.html'
+      'public/atelier-cartographique.html', 'public/atelier-s5.html', 'public/cadrage-spatial.html',
+      'public/bibliotheque-cartes.html'
     ]) assert.match(read(file), /student-auth-ui\.mjs/, file);
   });
 

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="description" content="Bibliothèque UrbaTrame de ressources cartographiques historiques : Algérie, Constantine et monde.">
+  <title>UrbaTrame — Bibliothèque de cartes anciennes</title>
+  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/atelier-cartographique.css">
+  <link rel="stylesheet" href="/bibliotheque-cartes.css">
+  <script type="module" src="/js/student-auth-ui.mjs"></script>
+  <script type="module" src="/js/historical-map-library.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="UrbaTrame, accueil">
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+      <span class="brand-copy">
+        <span class="brand-name">UrbaTrame</span>
+        <span class="brand-subtitle">Analyse des sites urbains</span>
+        <span class="brand-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a href="/atelier-analyse.html">Atelier d’analyse</a>
+      <a href="/atelier-cartographique.html">Atelier cartographique</a>
+      <a href="/cadrage-spatial.html">Cadrage spatial</a>
+      <a class="current" href="/bibliotheque-cartes.html" aria-current="page">Cartes anciennes</a>
+    </nav>
+  </header>
+
+  <main class="library-page">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">URBATRAME <span>·</span> RESSOURCES PÉDAGOGIQUES <span>·</span> CARTOGRAPHIE</p>
+      <h1 id="page-title">Bibliothèque de cartes anciennes</h1>
+      <p class="lede">Retrouvez des cartes et plans historiques d’Algérie, de Constantine et d’ailleurs. Les fiches réunissent des catalogues d’archives, des collections universitaires et des liens de téléchargement.</p>
+      <div class="hero-tags" aria-label="Thèmes de la bibliothèque">
+        <span>Algérie</span><span>Constantine</span><span>Cartes topographiques</span><span>Archives</span>
+      </div>
+    </section>
+
+    <section class="library-note" aria-label="À propos de la bibliothèque">
+      <span class="note-icon" aria-hidden="true">↗</span>
+      <p><strong>Une porte d’entrée vers les sources.</strong> Ouvrez les collections et téléchargez les documents proposés par leur site d’origine. Les crédits et conditions d’utilisation sont indiqués par chaque source.</p>
+    </section>
+
+    <section class="library-controls" aria-label="Rechercher dans la bibliothèque">
+      <label class="search-field" for="resourceSearch">
+        <span>Rechercher une carte, un lieu ou une collection</span>
+        <input id="resourceSearch" type="search" placeholder="Ex. Constantine, 1:50 000, Gallica…" autocomplete="off">
+      </label>
+      <label for="regionFilter">Région
+        <select id="regionFilter">
+          <option value="all">Toutes les régions</option>
+          <option value="algeria">Algérie</option>
+          <option value="constantine">Constantine</option>
+          <option value="world">Monde</option>
+        </select>
+      </label>
+      <label for="formatFilter">Type de ressource
+        <select id="formatFilter">
+          <option value="all">Tous les types</option>
+          <option value="catalogue">Catalogues d’archives</option>
+          <option value="images">Images de cartes</option>
+          <option value="archive">Archives téléchargeables</option>
+        </select>
+      </label>
+    </section>
+
+    <div class="results-heading">
+      <div><span class="eyebrow">COLLECTIONS RÉFÉRENCÉES</span><h2>Explorer les ressources</h2></div>
+      <span id="resourceCount" class="resource-count" role="status" aria-live="polite"></span>
+    </div>
+    <section id="resourceGrid" class="resource-grid" aria-label="Ressources cartographiques"></section>
+    <p id="emptyResults" class="empty-results" hidden>Aucune ressource ne correspond à ces filtres. Essayez un autre lieu ou un autre type.</p>
+
+    <footer class="library-footer">
+      <span>URBATRAME · BIBLIOTHÈQUE CARTOGRAPHIQUE</span>
+      <span>Les cartes historiques sont des documents de recherche et de mémoire. Vérifiez leur date, leur échelle et leur contexte avant de les comparer à des limites actuelles.</span>
+    </footer>
+  </main>
+</body>
+</html>
