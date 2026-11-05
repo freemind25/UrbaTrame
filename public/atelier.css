@@ -77,3 +77,18 @@ textarea:focus-visible{outline:3px solid #75a993;outline-offset:2px}
 .field-note-empty{grid-column:1/-1;margin:0;border:1px dashed #e0e5df;border-radius:5px;padding:8px;color:#8a948c;font-size:8px}
 @media(max-width:760px){.field-note-list{grid-template-columns:1fr}}
 @media(max-width:600px){.map-notes>summary{padding:10px 9px}.field-note-content{padding:0 9px 10px}.field-note-form{grid-template-columns:1fr 1fr}.field-note-form label:last-child{grid-column:1/-1}.field-note-actions button{font-size:7px;padding:6px}.field-note-list{max-height:260px}}
+
+/* Relief Terrarium, échelle d’altitude et lecture au clic. */
+.topo-tools{display:grid;grid-template-columns:max-content minmax(150px,1fr);align-items:center;gap:7px 14px;padding:11px 16px 13px;border-top:1px solid #eef0eb;background:#fcfcfa}
+.topo-toggle{display:flex;align-items:center;gap:7px;color:#44594b;font-size:10px;font-weight:750}
+.topo-toggle input{accent-color:var(--green)}
+.topo-legend{display:grid;gap:3px;min-width:0;color:#52645a;font-size:9px}
+.topo-legend-title{font-size:9px;color:#3d5146}
+.topo-legend-bar{display:block;height:8px;border:1px solid rgba(40,55,45,.16);border-radius:99px}
+.topo-legend-values{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:#728078}
+.topo-legend-note{color:#859087;font-size:8px;line-height:1.4}
+.topo-legend-empty{color:#7b867e;font-size:9px}
+.topo-altitude,.topo-provenance{grid-column:1/-1;margin:0;font-size:9px;line-height:1.45}
+.topo-altitude{color:#375b49;font-weight:700}
+.topo-provenance{color:#7e887f;font-size:8px}
+@media(max-width:600px){.topo-tools{grid-template-columns:1fr;padding:10px 12px}.topo-legend{grid-column:1}}

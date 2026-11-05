@@ -3,3 +3,17 @@
 @media(max-width:1120px){.workbench{grid-template-columns:minmax(285px,330px) minmax(0,1fr)}.topnav a{font-size:.75rem;padding:8px}.map-meta-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:840px){.topbar{align-items:flex-start;flex-direction:column;gap:8px;position:relative}.topnav{justify-content:flex-start}.privacy-grid{grid-template-columns:1fr}.workbench{grid-template-columns:1fr}.sidebar{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.sidebar .panel{align-self:start}.map-column{grid-row:1}.level-cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:580px){.page{width:min(100% - 20px,1560px);margin-top:12px}.hero{padding:17px}.hero-title-row{flex-direction:column;gap:0}.help-link{margin-top:0}.level-strip{padding:15px}.level-heading{align-items:flex-start;flex-direction:column}.level-cards{grid-template-columns:1fr 1fr}.level-card{min-height:82px;padding:9px;gap:8px}.level-card strong{font-size:.75rem}.level-card small{font-size:.63rem}.sidebar{grid-template-columns:1fr}.map-column{padding:10px}.map-toolbar{flex-direction:column}.preview-actions{width:100%}.preview-actions button{flex:1}.map-frame svg{min-height:260px}.map-meta-grid{grid-template-columns:1fr 1fr}.legend-wrap{grid-template-columns:1fr}.map-tools{align-items:flex-start;flex-direction:column}.export-buttons{display:grid;grid-template-columns:1fr 1fr}.coordinate-grid{gap:7px}}
 @media print{@page{size:A4 landscape;margin:0}html,body{width:auto;height:auto;background:#fff!important}.topbar,.page,.toast,.busy{display:none!important}.print-layout{display:block!important;position:static;width:100%;height:auto;background:#fff}.print-page{break-after:page;page-break-after:always;overflow:hidden;background:#fff;color:#203c3b;font-family:Arial,Helvetica,sans-serif}.print-page:last-child{break-after:auto;page-break-after:auto}.print-page svg{display:block;width:100%;height:100%;max-height:calc(100vh - 16mm)}.print-layout .print-document{width:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+/* Provenance, lecture et légende du relief Terrarium. */
+.topo-map-info{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,1fr);gap:8px 16px;margin:10px 0 2px;padding:11px 13px;border:1px solid #e5ebe6;border-radius:10px;background:#fcfdfb}
+.topo-altitude,.topo-provenance{grid-column:1/-1;margin:0;font-size:.72rem;line-height:1.5}
+.topo-altitude{color:#315d4f;font-weight:750}
+.topo-provenance{color:#79857f;font-size:.65rem}
+.topo-provenance a{color:#315f50;text-decoration:underline}
+.topo-legend{display:grid;gap:4px;min-width:0;color:#52645a;font-size:.68rem}
+.topo-legend-title{font-size:.7rem;color:#3d5146}
+.topo-legend-bar{display:block;height:10px;border:1px solid rgba(40,55,45,.16);border-radius:99px}
+.topo-legend-values{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:#728078}
+.topo-legend-note{color:#859087;font-size:.61rem;line-height:1.4}
+.topo-legend-empty{color:#7b867e;font-size:.68rem}
+@media(max-width:580px){.topo-map-info{grid-template-columns:1fr}}

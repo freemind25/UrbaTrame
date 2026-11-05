@@ -8,6 +8,7 @@ import {
 } from './spatial-framing-core.mjs';
 import { parseGeoJSONText } from './atelier/local-layers.mjs';
 import { parseGeoPackage } from './atelier/geopackage.mjs';
+import { appendTopographicLayer, TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from './terrain/topographic.mjs';
 
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
@@ -184,6 +185,8 @@ function invalidateRemoteLayers(reason = 'Le centre a changé; les couches dista
   state.osmLoadedAt = '';
   state.terrain = null;
   state.terrainSource = '';
+  updateTerrainLegend($('terrainLegend'), null, { unloadedText: 'Relief non chargé. La lecture d’altitude apparaîtra après chargement.' });
+  updateElevationReadout($('terrainAltitude'), null, NaN, NaN);
   setStatus('osmStatus', reason);
 }
 
@@ -882,6 +885,9 @@ function pointerUp(event) {
 }
 
 function handleMapClick(event) {
+  const point = screenToGeo(event);
+  if (point && validGeoOrStatus(point))
+    updateElevationReadout($('terrainAltitude'), state.terrain, point[1], point[0]);
   const target = event.target?.closest?.('[data-admin-gid],[data-ann-id]');
   if (target?.dataset.annId) { selectAnnotation(target.dataset.annId); return; }
   if (target?.dataset.adminGid) {
@@ -892,7 +898,6 @@ function handleMapClick(event) {
     }
     return;
   }
-  const point = screenToGeo(event);
   if (!point || !validGeoOrStatus(point)) return;
   if (state.drawTool === 'polygon') {
     if (state.draftShape.length >= 1000) return toast('Limite de 1 000 sommets atteinte.', 'error');
@@ -988,24 +993,8 @@ function addText(parent, x, y, text, attrs = {}) {
 }
 
 function renderTerrain(group, project) {
-  const terrain = state.terrain;
-  if (!terrain || !Array.isArray(terrain.grid) || !state.layerVisibility.relief) return;
-  const n = Math.min(40, terrain.grid.length);
-  const values = terrain.grid.flat().filter(Number.isFinite);
-  if (!values.length) return;
-  const min = Math.min(...values), max = Math.max(...values), span = Math.max(1, max - min);
-  const radius = Number(terrain.radius) || 0;
-  const center = { lat: Number(terrain.lat), lon: Number(terrain.lon) };
-  if (!(radius > 0) || !Number.isFinite(center.lat) || !Number.isFinite(center.lon)) return;
-  const step = 2 * radius / n;
-  for (let row = 0; row < n; row++) for (let col = 0; col < Math.min(n, terrain.grid[row]?.length || 0); col++) {
-    const value = Number(terrain.grid[row][col]); if (!Number.isFinite(value)) continue;
-    const x0 = -radius + col * step, y0 = radius - row * step;
-    const p1 = fromLocalMeters(x0, y0, center), p2 = fromLocalMeters(x0 + step, y0 - step, center);
-    const a = project(p1), b = project(p2); if (!a || !b) continue;
-    const t = (value - min) / span, hue = 110 - t * 78, light = 81 - t * 25;
-    svgElement('rect', { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), width: Math.max(1, Math.abs(b[0] - a[0]) + .25), height: Math.max(1, Math.abs(b[1] - a[1]) + .25), fill: `hsl(${hue.toFixed(0)} 35% ${light.toFixed(0)}%)`, opacity: .53, 'data-layer': 'relief' }, group);
-  }
+  if (!state.terrain || !state.layerVisibility.relief) return;
+  appendTopographicLayer(group, state.terrain, project, { opacity: 0.58 });
 }
 
 function getOsmLayer(tags, element) {
@@ -1337,7 +1326,7 @@ function sourceSummary() {
   const dateOf = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleDateString('fr-FR') : 'date non précisée';
   if (state.adminCountry.length || state.adminWilayas.length) sources.push(`GADM ${state.gadmVersion} (gadm.org), chargé le ${dateOf(state.gadmLoadedAt)}`);
   if (state.osmFeatures.length) sources.push(`OpenStreetMap / Overpass · ODbL, chargé le ${dateOf(state.osmLoadedAt)}`);
-  if (state.terrain) sources.push(`AWS Terrain Tiles · Terrarium, chargé le ${dateOf(state.osmLoadedAt)}`);
+  if (state.terrain) sources.push(`Terrarium / AWS Terrain Tiles (SRTM/USGS/EU-DEM selon couverture), chargé le ${dateOf(state.osmLoadedAt)}`);
   if (state.localFeatures.length) sources.push('fichier local');
   const reference = $('sourceReference')?.value.trim();
   if (reference) sources.push(reference);
@@ -1404,6 +1393,7 @@ function renderLegend() {
     const empty = document.createElement('div'); empty.className = 'legend-item'; empty.textContent = 'Aucune couche visible avec des données chargées.'; fragment.append(empty);
   }
   root.replaceChildren(fragment);
+  updateTerrainLegend($('terrainLegend'), state.terrain, { unloadedText: 'Relief non chargé. Activez la couche relief et lancez un chargement explicite.' });
 }
 
 function renderAnnotationList() {
@@ -1463,6 +1453,8 @@ async function loadOsmAndRelief() {
     state.osmLoadedAt = payload.extractedAt || new Date().toISOString();
     state.terrain = payload.terrain || null;
     state.terrainSource = payload.source?.elevation || '';
+    updateTerrainLegend($('terrainLegend'), state.terrain, { unloadedText: 'Relief non chargé. Cochez « Relief » puis relancez le chargement.' });
+    updateElevationReadout($('terrainAltitude'), state.terrain, state.center.lat, state.center.lon);
     const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
     const visible = state.osmFeatures.length;
     let msg = `${visible.toLocaleString('fr-FR')} objets OSM convertis en couches visibles; rayon interrogé ${formatDistance(state.osmRadius)}. Source : © OpenStreetMap contributors, ODbL.`;
@@ -1755,7 +1747,7 @@ function buildPrintSvg() {
   const credits = [];
   if (state.osmFeatures.length) credits.push('© OpenStreetMap contributors · ODbL');
   if (usesGadm) credits.push(`GADM ${state.gadmVersion} · gadm.org`);
-  if (state.terrain) credits.push('AWS Terrain Tiles · Terrarium');
+  if (state.terrain) credits.push(`${TERRAIN_PROVENANCE} ${state.terrainSource || ''}`.trim());
   credits.push('UrbaTrame · Designed by M.SADI');
   addText(svg, margin, footerY + 25, credits.join(' · '), { fill: '#697871', 'font-size': 9 });
   if ($('mapComments').value.trim()) {

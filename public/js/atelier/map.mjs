@@ -1,4 +1,7 @@
+import { appendTopographicLayer } from '../terrain/topographic.mjs';
+
 const TILE = 256;
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const R2D = 180 / Math.PI;
 const D2R = Math.PI / 180;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -39,7 +42,7 @@ export function createMap(root, options = {}) {
   const state = { lat: options.lat ?? 36.2642, lon: options.lon ?? 6.6969, zoom: options.zoom ?? 15,
     radius: options.radius ?? 600, shape: normalizeShape(options.shape),
     boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [],
-    drawMode: null, data: null, annotations: [] };
+    drawMode: null, data: null, annotations: [], terrain: null, showTerrain: true };
   const cache = new Map();
   let tileErrorReported = false;
   let dimensions = { w: 0, h: 0 };
@@ -73,6 +76,12 @@ export function createMap(root, options = {}) {
       ? `<rect x="${fmt(w / 2 - radius)}" y="${fmt(h / 2 - radius)}" width="${fmt(2 * radius)}" height="${fmt(2 * radius)}" rx="${state.shape === 'rounded' ? fmt(radius * .18) : '0'}"/>`
       : `<circle cx="${w / 2}" cy="${h / 2}" r="${fmt(radius)}"/>`;
     const parts = [`<defs><clipPath id="siteClip">${frame}</clipPath></defs>`];
+    if (state.showTerrain && state.terrain) {
+      const terrainRoot = document.createElementNS(SVG_NS, 'g');
+      appendTopographicLayer(terrainRoot, state.terrain,
+        position => localPixel(position[1], position[0], origin, state.zoom), { opacity: 0.58 });
+      parts.push(`<g clip-path="url(#siteClip)">${terrainRoot.innerHTML}</g>`);
+    }
     if (state.data) {
       parts.push('<g clip-path="url(#siteClip)">');
       parts.push(featurePath(state.data.landuse, origin, state.zoom, '#97ad8f', 1, 'rgba(184,207,171,.22)', true));
@@ -195,6 +204,7 @@ export function createMap(root, options = {}) {
     const r = root.getBoundingClientRect();
     const c = world(state.lat, state.lon, state.zoom);
     const p = geographic(c.x + e.clientX - r.left - r.width / 2, c.y + e.clientY - r.top - r.height / 2, state.zoom);
+    options.onMapClick?.(p.lat, p.lon);
     if (state.drawMode === 'boundary') {
       if (state.boundary.length >= 100) return;
       state.boundary.push([p.lat, p.lon]);
@@ -235,6 +245,8 @@ export function createMap(root, options = {}) {
     undoBoundary() { state.boundary.pop(); options.onBoundaryChange?.(this.getBoundary()); schedule(); },
     clearBoundary() { state.boundary = []; options.onBoundaryChange?.([]); schedule(); },
     setData(data) { state.data = data; schedule(); },
+    setTerrain(terrain) { state.terrain = terrain || null; schedule(); },
+    setTerrainVisible(visible) { state.showTerrain = Boolean(visible); schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
     getState() { return { ...state, boundary: this.getBoundary(), annotations: state.annotations.map(item => ({ ...item })) }; },
     destroy() { observer.disconnect(); root.replaceChildren(); }

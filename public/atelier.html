@@ -113,6 +113,12 @@
           <div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
         </div>
         <div class="map-bottomline"><span id="mapState"><i></i> Mode aperçu · données réelles préchargées</span><span class="map-bottom-coords" id="mapBottomCoords">36.2642, 6.6969</span></div>
+        <section class="topo-tools" aria-label="Relief topographique et lecture d’altitude">
+          <label class="topo-toggle"><input id="showTerrain" type="checkbox" checked><span>Relief topographique</span></label>
+          <div id="terrainLegend" aria-live="polite"></div>
+          <p id="terrainAltitude" class="topo-altitude" role="status" aria-live="polite">Altitude au clic : relief non chargé. Récupérez les données pour activer la lecture.</p>
+          <p id="terrainProvenance" class="topo-provenance"></p>
+        </section>
         <details class="map-notes" id="fieldNotes">
           <summary><span>Repères &amp; notes locales</span><span class="field-note-count" id="fieldNoteCount">0</span></summary>
           <div class="field-note-content">

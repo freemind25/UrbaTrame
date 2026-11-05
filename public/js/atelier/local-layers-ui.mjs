@@ -20,13 +20,14 @@ import { createStoredZip } from './zip-writer.mjs';
 import { exportVisibleCsv, normalizeFieldTemplate, defaultFieldTemplate, parseFieldTemplate, serializeFieldTemplate, buildSurveyProperties, MAX_FIELD_TEMPLATE_BYTES, MAX_SURVEY_FIELDS } from './field-survey.mjs';
 import { createGeoPackage } from './geopackage-export.mjs';
 import { parseGtxGrid, interpolateGeoidUndulation, orthometricHeight, MAX_GTX_BYTES } from './geoid-gtx.mjs';
+import { appendTopographicLayer, terrainExtent, TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from '../terrain/topographic.mjs';
 
 const $ = selector => document.querySelector(selector);
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
-const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null };
+const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
 const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
 const MAX_SAVED_SURVEY_TEMPLATES = 20;
 function readSavedSurveyTemplates() {
@@ -591,6 +592,25 @@ function appendRasterLayer(layer, project) {
   }));
 }
 
+function readTerrainAtMapClick(event) {
+  const project = currentProjector;
+  if (!project?.inverse) {
+    updateElevationReadout($('#terrainAltitude'), state.terrain, NaN, NaN);
+    return;
+  }
+  let point;
+  try {
+    const screenPoint = svg.createSVGPoint();
+    screenPoint.x = event.clientX; screenPoint.y = event.clientY;
+    point = screenPoint.matrixTransform(svg.getScreenCTM().inverse());
+  } catch {
+    const rect = svg.getBoundingClientRect();
+    point = { x: (event.clientX - rect.left) * 1000 / rect.width, y: (event.clientY - rect.top) * 600 / rect.height };
+  }
+  const [lon, lat] = project.inverse(point.x, point.y);
+  updateElevationReadout($('#terrainAltitude'), state.terrain, lat, lon);
+}
+
 function renderMap() {
   svg.replaceChildren();
   const visibleLayers = state.layers.filter(layer => layer.visible);
@@ -604,9 +624,19 @@ function renderMap() {
   const rasterExtentPoints = rasterLayers.flatMap(layer => (layer.raster?.cornersWgs84 || []).map(coordinates => ({ geometry: { type: 'Point', coordinates } })));
   let project = state.surveyViewEnabled ? buildSurveyProjector() : null;
   if (!project) project = buildProjector([...allFeatures, ...rasterExtentPoints]);
+  if (!project && state.terrain && state.terrainVisible) {
+    const extent = terrainExtent(state.terrain);
+    if (extent) {
+      const ring = [[extent.west, extent.south], [extent.east, extent.south], [extent.east, extent.north], [extent.west, extent.north], [extent.west, extent.south]];
+      project = buildProjector([{ geometry: { type: 'Polygon', coordinates: [ring] } }]);
+    }
+  }
   const hasFeatureGeometry = allFeatures.some(feature => !!feature.geometry);
   currentProjector = project;
-  $('#mapAttribution').textContent = state.basemap ? `Fond externe · ${state.basemap.attribution}` : '';
+  const attributions = [];
+  if (state.basemap) attributions.push(`Fond externe · ${state.basemap.attribution}`);
+  if (state.terrain && state.terrainVisible) attributions.push('Relief Terrarium · AWS public elevation tiles');
+  $('#mapAttribution').textContent = attributions.join(' · ');
   mapEmpty.hidden = !!project;
   if (!project) {
     $('#mapSummary').textContent = 'Aucune entité ou image raster affichable dans les couches visibles';
@@ -615,6 +645,7 @@ function renderMap() {
     return;
   }
   appendExternalBasemap(project);
+  if (state.terrain && state.terrainVisible) appendTopographicLayer(svg, state.terrain, project, { opacity: 0.58 });
   if (!hasFeatureGeometry && state.surveyViewEnabled) {
     svg.append(createSvgElement('circle', { cx: 500, cy: 300, r: 8, fill: '#fff', stroke: '#b7603e', 'stroke-width': 2, class: 'survey-center-mark', 'pointer-events': 'none' }));
     svg.append(createSvgElement('path', { d: 'M488 300h24M500 288v24', stroke: '#b7603e', 'stroke-width': 1.5, class: 'survey-center-mark', 'pointer-events': 'none' }));
@@ -644,7 +675,8 @@ function renderMap() {
   }
   const total = entries.reduce((sum, entry) => sum + entry.items.length, 0);
   const rasterSummary = rasterLayers.length ? ` · ${rasterLayers.length} raster(s)` : '';
-  $('#mapSummary').textContent = `${rendered.toLocaleString('fr-FR')} entité(s) dessinée(s) · ${total.toLocaleString('fr-FR')} entité(s) après filtre${rasterSummary}`;
+  const terrainSummary = state.terrain && state.terrainVisible ? ' · relief topographique Terrarium' : '';
+  $('#mapSummary').textContent = `${rendered.toLocaleString('fr-FR')} entité(s) dessinée(s) · ${total.toLocaleString('fr-FR')} entité(s) après filtre${rasterSummary}${terrainSummary}`;
   const warning = $('#renderWarning');
   warning.hidden = !truncated;
   warning.textContent = truncated ? `Aperçu limité à ${MAX_RENDERED_FEATURES.toLocaleString('fr-FR')} entités / ${MAX_RENDERED_SHAPES.toLocaleString('fr-FR')} symboles; l’export conserve la couche entière.` : '';
@@ -1236,6 +1268,7 @@ $('#finishDrawing').addEventListener('click', finishDrawing);
 $('#cancelDrawing').addEventListener('click', () => { state.drawMode = null; state.pendingCoordinates = []; renderMap(); updateEditControls(); });
 $('#undoEdit').addEventListener('click', undoEdit);
 $('#redoEdit').addEventListener('click', redoEdit);
+svg.addEventListener('click', readTerrainAtMapClick, true);
 svg.addEventListener('click', event => {
   if (!state.drawMode) return;
   if (!currentProjector) { status('Ajoutez une géométrie visible avant de dessiner.', 'error'); return; }
@@ -1848,6 +1881,44 @@ function zoomSurveyView(factor) {
   renderMap();
 }
 
+async function loadTopographicRelief() {
+  if (!applySurveyViewInputs()) return;
+  const requestId = ++state.terrainRequest;
+  const { lat, lon, spanMeters } = state.surveyView;
+  const radius = spanMeters / 2;
+  const button = $('#loadTerrain');
+  button.disabled = true;
+  $('#terrainStatus').textContent = `Chargement explicite du relief Terrarium · rayon ${Math.round(radius).toLocaleString('fr-FR')} m…`;
+  try {
+    const response = await fetch('/api/atelier/terrain', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin', cache: 'no-store',
+      body: JSON.stringify({ lat, lon, radius, n: 24 })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (requestId !== state.terrainRequest) return;
+    if (!response.ok || !payload.ok || !payload.terrain?.grid) {
+      const reason = response.status === 401 ? 'Connectez-vous pour charger le relief.'
+        : response.status === 503 ? 'Le service de relief est temporairement indisponible.'
+          : 'Le relief n’est pas disponible pour cette emprise. Vérifiez les coordonnées puis réessayez.';
+      throw new Error(reason);
+    }
+    state.terrain = payload.terrain;
+    state.terrainVisible = true;
+    state.terrainLoadedAt = payload.extractedAt || new Date().toISOString();
+    $('#showTerrain').checked = true;
+    updateTerrainLegend($('#terrainLegend'), state.terrain);
+    updateElevationReadout($('#terrainAltitude'), state.terrain, lat, lon);
+    $('#terrainStatus').textContent = `Relief chargé · ${state.terrain.n || state.terrain.grid.length} × ${state.terrain.n || state.terrain.grid.length} points · ${TERRAIN_PROVENANCE}`;
+    renderMap(); updateActions();
+  } catch (error) {
+    if (requestId !== state.terrainRequest) return;
+    $('#terrainStatus').textContent = error.message || 'Échec du chargement du relief.';
+  } finally {
+    if (requestId === state.terrainRequest) button.disabled = false;
+  }
+}
+
 function geolocationPosition() {
   if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.reject(Object.assign(new Error('GEOLOCATION_UNAVAILABLE'), { code: 'GEOLOCATION_UNAVAILABLE' }));
   return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, error => {
@@ -1965,7 +2036,7 @@ function updateSurveyLayerControls() {
 }
 
 function updateActions() {
-  const hasVisible = state.layers.some(layer => layer.visible);
+  const hasVisible = state.layers.some(layer => layer.visible) || Boolean(state.terrain && state.terrainVisible);
   const hasVisibleVector = state.layers.some(layer => layer.visible && layer.kind !== 'raster');
   $('#exportGeoJSON').disabled = !hasVisibleVector;
   $('#exportCsv').disabled = !hasVisibleVector;
@@ -1977,6 +2048,8 @@ function updateActions() {
   $('#exportProjectJson').disabled = !state.layers.length;
   $('#printMap').disabled = !hasVisible;
   $('#clearLayers').disabled = !state.layers.length;
+  $('#showTerrain').disabled = !state.terrain;
+  $('#removeTerrain').disabled = !state.terrain;
   updateSurveyLayerControls();
 }
 
@@ -2214,6 +2287,19 @@ $('#clearLayers').addEventListener('click', () => {
 
 $('#createSurveyLayer').addEventListener('click', createSurveyLayer);
 $('#applySurveyView').addEventListener('click', applySurveyViewInputs);
+$('#loadTerrain').addEventListener('click', loadTopographicRelief);
+$('#showTerrain').addEventListener('change', event => {
+  state.terrainVisible = Boolean(event.currentTarget.checked);
+  renderMap(); updateActions();
+});
+$('#removeTerrain').addEventListener('click', () => {
+  state.terrainRequest++;
+  state.terrain = null; state.terrainLoadedAt = '';
+  updateTerrainLegend($('#terrainLegend'), null);
+  updateElevationReadout($('#terrainAltitude'), null, NaN, NaN);
+  $('#terrainStatus').textContent = 'Relief retiré de l’affichage de cet onglet.';
+  renderMap(); updateActions();
+});
 $('#fitSurveyData').addEventListener('click', () => { state.surveyViewEnabled = false; renderMap(); });
 $('#surveyZoomIn').addEventListener('click', () => zoomSurveyView(0.5));
 $('#surveyZoomOut').addEventListener('click', () => zoomSurveyView(2));
@@ -2275,6 +2361,9 @@ $('#surveyTemplateFile').addEventListener('change', async () => {
   finally { $('#surveyTemplateFile').value = ''; }
 });
 
+$('#terrainProvenance').textContent = TERRAIN_PROVENANCE;
+updateTerrainLegend($('#terrainLegend'), null);
+updateElevationReadout($('#terrainAltitude'), null, NaN, NaN);
 updateSurveyTemplateSelect();
 renderSurveyFieldDefinitions();
 renderSurveyForm();

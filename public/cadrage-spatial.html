@@ -236,6 +236,11 @@
           </svg>
           <div class="map-tools" aria-label="Outils de carte"><span>Utilisez le clic-glissé pour dessiner un rectangle ou un cercle; cliquez pour les sommets d’un polygone.</span><button id="cancelTool" type="button" hidden>Quitter l’outil</button></div>
         </div>
+        <section class="topo-map-info" aria-label="Échelle et lecture d’altitude">
+          <p id="terrainAltitude" class="topo-altitude" role="status" aria-live="polite">Altitude indisponible : relief non chargé. Cochez « Relief » puis chargez les couches.</p>
+          <div id="terrainLegend" aria-live="polite"></div>
+          <p class="topo-provenance">Provenance : relief Terrarium / <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">AWS Open Data</a>; sources SRTM/USGS/EU-DEM selon couverture. Valeurs indicatives, non certifiées. <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · ODbL</a>.</p>
+        </section>
         <div class="map-meta-grid">
           <div><span class="meta-label">Centre (WGS 84)</span><strong id="mapCoordinates">36.753800, 3.058800</strong></div>
           <div><span class="meta-label">Référence de coordonnées</span><strong>EPSG:4326 · WGS 84</strong></div>

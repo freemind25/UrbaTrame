@@ -6,11 +6,20 @@ import {
   queryFor, queryForCadrage, withoutContactTags
 } from './atelier-data.mjs';
 import { geocode as searchPlace, overpass as requestOverpass } from './sources/overpass.mjs';
-import { terrain as requestTerrain } from './sources/terrain.mjs';
+import { latToY, lonToX, terrain as requestTerrain, terrainZoom } from './sources/terrain.mjs';
 import { log, readBody, send } from './http.mjs';
 import { createGadmHandler } from './gadm.mjs';
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function terrainTileFootprint(lat, lon, radius) {
+  const zoom = terrainZoom(radius);
+  const dy = radius / 111320;
+  const dx = dy / Math.max(0.08, Math.cos(lat * Math.PI / 180));
+  const minX = Math.floor(lonToX(lon - dx, zoom)), maxX = Math.floor(lonToX(lon + dx, zoom));
+  const minY = Math.floor(latToY(lat + dy, zoom)), maxY = Math.floor(latToY(lat - dy, zoom));
+  return { zoom, tiles: (maxX - minX + 1) * (maxY - minY + 1) };
+}
 
 export function createAtelierHandlers(deps = {}) {
   const geocodeSource = deps.geocode || searchPlace;
@@ -152,8 +161,37 @@ export function createAtelierHandlers(deps = {}) {
     });
   }
 
+  async function terrain(req, res) {
+    if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST_ONLY' });
+    const body = await readJSON(req, res);
+    if (body === null) return;
+    const lat = Number(body.lat), lon = Number(body.lon), radius = Number(body.radius);
+    const n = Math.min(40, Math.max(12, Number(body.n) || 24));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180 ||
+        !Number.isFinite(radius) || radius < 50)
+      return send(res, 400, { ok: false, error: 'INVALID_TERRAIN_REQUEST' });
+    const dy = radius / 111320;
+    const dx = dy / Math.max(0.08, Math.cos(lat * Math.PI / 180));
+    if (lat - dy < -85 || lat + dy > 85 || lon - dx < -180 || lon + dx > 180)
+      return send(res, 400, { ok: false, error: 'TERRAIN_OUTSIDE_MAP' });
+    const tileCount = terrainTileFootprint(lat, lon, radius).tiles;
+    if (!Number.isSafeInteger(tileCount) || tileCount > 64)
+      return send(res, 413, { ok: false, error: 'TERRAIN_TILE_BUDGET', maxTiles: 64 });
+    try {
+      const grid = await terrainSource(lat, lon, radius, n);
+      return send(res, 200, {
+        ok: true, terrain: grid,
+        source: { elevation: 'Terrarium · tuiles d’altitude publiques AWS' },
+        extractedAt: new Date(clock()).toISOString()
+      });
+    } catch (error) {
+      logger('atelier terrain unavailable', error?.message || 'TERRAIN');
+      return send(res, 502, { ok: false, error: 'TERRAIN_UNAVAILABLE' });
+    }
+  }
+
   const extractCadrage = (req, res) => extract(req, res, { cadrage: true });
-  return { health, geocode, extract, extractCadrage, gadm };
+  return { health, geocode, extract, extractCadrage, gadm, terrain };
 }
 
 const handlers = createAtelierHandlers();
@@ -162,3 +200,4 @@ export const handleAtelierGeocode = handlers.geocode;
 export const handleAtelierExtract = handlers.extract;
 export const handleAtelierCadrageExtract = handlers.extractCadrage;
 export const handleAtelierGadm = handlers.gadm;
+export const handleAtelierTerrain = handlers.terrain;

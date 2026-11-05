@@ -223,3 +223,16 @@ button{cursor:pointer}
 .geoid-confirm-row{margin-top:7px;padding:8px;border-radius:7px;background:#fff7e9;color:#786641;font-size:8px;line-height:1.5}
 .geoid-confirm-row label{display:flex;align-items:flex-start;gap:7px}
 .geoid-confirm-row input{flex:0 0 auto;margin:1px 0 0;accent-color:#28734f}
+
+/* Relief Terrarium et lecture d’altitude dans l’atelier cartographique. */
+.topo-actions label{display:flex;align-items:center;gap:5px;color:#52645a;font-size:.68rem;font-weight:700}
+.topo-actions input{margin:0;accent-color:#276b54}
+.topo-legend{display:grid;gap:4px;margin:7px 0;color:#52645a;font-size:.68rem}
+.topo-legend-title{font-size:.7rem;color:#3d5146}
+.topo-legend-bar{display:block;height:10px;border:1px solid rgba(40,55,45,.16);border-radius:99px}
+.topo-legend-values{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:#728078}
+.topo-legend-note{color:#859087;font-size:.61rem;line-height:1.4}
+.topo-legend-empty{color:#7b867e;font-size:.68rem}
+#terrainStatus,#terrainAltitude,#terrainProvenance{line-height:1.5}
+#terrainAltitude{color:#315d4f;font-weight:750}
+#terrainProvenance{color:#79857f;font-size:.64rem}

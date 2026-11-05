@@ -150,6 +150,15 @@
               <button id="surveyZoomOut" class="button-secondary" type="button" aria-label="Dézoomer">−</button>
               <button id="surveyZoomIn" class="button-secondary" type="button" aria-label="Zoomer">＋</button>
             </div>
+            <div class="survey-action-row topo-actions">
+              <button id="loadTerrain" class="button-primary" type="button">Charger le relief Terrarium</button>
+              <label><input id="showTerrain" type="checkbox" checked disabled> Afficher le relief</label>
+              <button id="removeTerrain" class="button-secondary" type="button" disabled>Retirer</button>
+            </div>
+            <p id="terrainStatus" class="survey-status" role="status" aria-live="polite">Relief non chargé. La requête part uniquement après votre clic.</p>
+            <div id="terrainLegend" aria-live="polite"></div>
+            <p id="terrainAltitude" class="survey-status" role="status" aria-live="polite">Altitude indisponible : relief non chargé. Chargez le relief, puis cliquez sur la carte.</p>
+            <p id="terrainProvenance" class="source-footnote"></p>
             <div class="survey-action-row">
               <button id="readGps" class="button-secondary" type="button">Lire ma position GNSS</button>
               <button id="captureGpsPoint" class="button-primary" type="button" disabled>Capturer un point GPS</button>

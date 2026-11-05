@@ -3,6 +3,7 @@ import { areaForShape, insideShape, normalizeBoundary, toLocal } from './geometr
 import { normaliser } from './osm-data.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { initGadmAtlas } from './gadm.mjs';
+import { TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from '../terrain/topographic.mjs';
 import { FIELD_NOTE_CATEGORIES, MAX_FIELD_NOTES, createFieldNote, fieldNotesGeoJSON, fieldNotesInExtent, normalizeFieldNotes } from './annotations.mjs';
 
 const $ = selector => document.querySelector(selector);
@@ -58,7 +59,8 @@ const map = createMap($('#map'), {
     site.boundary = points;
     updateBoundaryStatus();
   },
-  onNotePoint(lat, lon) { placeFieldNote(lat, lon); }
+  onNotePoint(lat, lon) { placeFieldNote(lat, lon); },
+  onMapClick(lat, lon) { updateElevationReadout($('#terrainAltitude'), site.terrain, lat, lon); }
 });
 
 function coordinates(lat = site.lat, lon = site.lon) {
@@ -268,6 +270,10 @@ function setData(d, terrain, label = '', include = demoLayers) {
   loadedInclude = new Set(include);
   site.terrain = terrain || null;
   map.setData(dataPourExport());
+  map.setTerrain(site.terrain);
+  map.setTerrainVisible($('#showTerrain').checked);
+  updateTerrainLegend($('#terrainLegend'), site.terrain);
+  updateElevationReadout($('#terrainAltitude'), site.terrain, site.lat, site.lon);
   const count = data.raw?.length ?? 0;
   const summary = [
     data.build?.length ? `${data.build.length.toLocaleString('fr-FR')} bâtiments` : '',
@@ -291,6 +297,7 @@ function updateSite(lat, lon, name = 'Emprise personnalisée', fit = true) {
   map.setCenter(site.lat, site.lon, false);
   if (fit) map.setRadius(site.radius);
   updateFreshness();
+  updateElevationReadout($('#terrainAltitude'), site.terrain, site.lat, site.lon);
   renderFieldNotes();
 }
 function setBusy(value, text = '') {
@@ -371,6 +378,7 @@ document.addEventListener('keydown', event => {
 $('#homeMap').addEventListener('click', () => { map.setCenter(site.lat, site.lon, false); map.setRadius(site.radius); });
 $('#zoomIn').addEventListener('click', () => map.zoomBy(1));
 $('#zoomOut').addEventListener('click', () => map.zoomBy(-1));
+$('#showTerrain').addEventListener('change', event => map.setTerrainVisible(event.currentTarget.checked));
 $('#allLayers').addEventListener('click', e => {
   const boxes = $all('.layer-row input[type=checkbox]');
   const select = boxes.some(b => !b.checked);
@@ -477,6 +485,9 @@ $('#helpDialog').addEventListener('click', e => { if (e.target === $('#helpDialo
 
 fetch('/api/atelier/health').then(r => r.ok ? $('#connectionDot').classList.remove('offline') : Promise.reject())
   .catch(() => { $('#connectionDot').classList.add('offline'); $('#message').textContent = 'Serveur hors ligne : les exports restent disponibles avec l’exemple chargé localement.'; });
+$('#terrainProvenance').textContent = TERRAIN_PROVENANCE;
+updateTerrainLegend($('#terrainLegend'), null);
+updateElevationReadout($('#terrainAltitude'), null, NaN, NaN);
 updateCoordinates(); updateRadius(); updatePlaceName();
 await loadDemo();
 updateBoundaryStatus();
