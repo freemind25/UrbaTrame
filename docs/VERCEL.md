@@ -183,8 +183,9 @@ Mesures en place (`server/config.mjs`, `server/sources/overpass.mjs` et
 - **cinq URL publiques mondiales sans clé**, conservées sans service payant ni
   compte conditionnel : les trois URL `z`, `lz4` et principale de
   `overpass-api.de`, `overpass.private.coffee` et `maps.mail.ru`. Ce sont cinq
-  adresses, pas cinq opérateurs indépendants; la liste reste remplaçable par
-  `FM_OVERPASS_ENDPOINTS=url1,url2` ;
+  adresses, pas cinq opérateurs indépendants; cette liste publique reste
+  remplaçable par `FM_OVERPASS_ENDPOINTS=url1,url2`. Les services à clé
+  éventuels sont construits côté serveur et ajoutés avant cette liste ;
 - **rotation au cours de la même requête** après un HTTP `429`, une limite de
   quota, une surcharge (`5xx`), un délai dépassé, une erreur réseau ou un
   `remark` Overpass. Le serveur respecte `Retry-After` et les en-têtes de
@@ -212,15 +213,25 @@ Mesures en place (`server/config.mjs`, `server/sources/overpass.mjs` et
 - les pauses sont **en mémoire dans l'onglet ou le processus courant**, pas
   partagées globalement entre les fonctions serverless Vercel. Le repli dans la
   requête courante, lui, essaie bien tous les miroirs encore disponibles.
+- **relais facultatifs à clé, serveur seulement** : si `FM_NEXTGIS_API_KEY`
+  et/ou `FM_OVERPASS_CH_API_KEY` sont définies en Production, le relais construit
+  leurs URL côté serveur et les essaie d'abord après l'échec du navigateur; les
+  cinq miroirs publics restent ensuite disponibles. Les clés ne sont jamais
+  incluses dans `public/js/routes.mjs`, `/api/status` ou les journaux. Laisser
+  ces variables absentes conserve strictement le mode public sans clé. Les
+  quotas/réponses `401`, `402`, `403` ou `429` provoquent la rotation vers la
+  source suivante; aucune souscription ni bascule payante automatique n'est
+  effectuée.
 
 Aucun résultat vide n'est déclaré valide si un ou plusieurs miroirs étaient
 indisponibles ou en pause. Les limites internes d'accès/licence d'UrbaTrame ne
 sont pas contournées par cette rotation.
 
 Ce qui n'est **pas** fait, volontairement : aucune mise en cache de résultats
-OSM côté serveur (les données OpenStreetMap doivent rester fraîches) et aucun
-autre service de repli (tuiles vectorielles, FairwayMapper, NextGIS, Overpass.ch
-ou service payant) n'est ajouté à cette liste publique.
+OSM côté serveur (les données OpenStreetMap doivent rester fraîches), aucun
+FairwayMapper (admissibilité conditionnelle aux contributions OSM) et aucun
+service payant n'est ajouté. NextGIS et Overpass.ch restent facultatifs et
+nécessitent leurs variables secrètes pour être utilisés.
 
 ## Ce qui ne change pas
 

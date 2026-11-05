@@ -29,18 +29,41 @@ export const accessMode = () =>
 
 export const isOpenAccess = () => accessMode() === 'open';
 
-/* Sources de données — plusieurs miroirs pour les services qui en offrent. */
+/* Miroirs publics Overpass sans clé, utilisés directement par le navigateur
+   et par le relais serveur. */
+export const PUBLIC_OVERPASS_ENDPOINTS = Object.freeze([
+  'https://z.overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+]);
+
+/* Les éventuels services à clé restent exclusivement côté serveur. Ils passent
+   en tête du relais après l'échec du navigateur, puis les miroirs publics
+   demeurent disponibles comme secours. Ne jamais sérialiser ces URL côté client. */
+export function buildOverpassEndpoints({
+  endpoints = process.env.FM_OVERPASS_ENDPOINTS,
+  nextgisKey = process.env.FM_NEXTGIS_API_KEY,
+  overpassChKey = process.env.FM_OVERPASS_CH_API_KEY
+} = {}) {
+  const publicEndpoints = String(endpoints || PUBLIC_OVERPASS_ENDPOINTS.join(','))
+    .split(',').map(x => x.trim()).filter(Boolean);
+  const keyedEndpoints = [];
+  const nextgis = String(nextgisKey || '').trim();
+  const overpassCh = String(overpassChKey || '').trim();
+  if (nextgis)
+    keyedEndpoints.push('https://overpass.nextgis.com/' + encodeURIComponent(nextgis) + '/api/interpreter');
+  if (overpassCh)
+    keyedEndpoints.push('https://api.overpass.ch/v1/' + encodeURIComponent(overpassCh) + '/interpreter');
+  return [...new Set([...keyedEndpoints, ...publicEndpoints])];
+}
+
+/* Sources de données — les clés n'existent que dans la configuration serveur. */
 export const SOURCES = {
-  /* Plusieurs miroirs à couverture globale : les instances publiques tombent
-     parfois (surcharge, 504). On les essaie dans l'ordre, en s'arrêtant au
-     premier résultat exploitable. Surchargeable par FM_OVERPASS_ENDPOINTS. */
-  overpass: (process.env.FM_OVERPASS_ENDPOINTS || [
-    'https://z.overpass-api.de/api/interpreter',
-    'https://lz4.overpass-api.de/api/interpreter',
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
-  ].join(',')).split(',').map(x => x.trim()).filter(Boolean),
+  /* Les clés sont facultatives : sans elles, le comportement reste celui des
+     cinq miroirs publics. Surchargeable par FM_OVERPASS_ENDPOINTS. */
+  overpass: buildOverpassEndpoints(),
   nominatim: 'https://nominatim.openstreetmap.org/search',
   nasa: 'https://power.larc.nasa.gov/api/temporal/daily/point',
   windrose: 'https://power.larc.nasa.gov/api/application/windrose/point',
