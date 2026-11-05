@@ -18,6 +18,8 @@ describe('Bibliothèque de cartes anciennes', () => {
     assert.ok(HISTORICAL_MAP_RESOURCES.some(resource => resource.id === 'senatus-algeria'));
     assert.ok(HISTORICAL_MAP_RESOURCES.some(resource => resource.id === 'mediafire-topographic-archive'));
     assert.ok(HISTORICAL_MAP_RESOURCES.some(resource => resource.id === 'ams-algeria-50k'));
+    assert.ok(HISTORICAL_MAP_RESOURCES.some(resource => resource.id === 'ams-world-index'));
+    assert.ok(HISTORICAL_MAP_RESOURCES.some(resource => resource.id === 'usgs-topo-access-points'));
   });
 
   test('la recherche ignore la casse et les accents et trouve les cartes de Constantine', () => {

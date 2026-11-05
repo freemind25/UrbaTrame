@@ -48,6 +48,22 @@ export const HISTORICAL_MAP_RESOURCES = Object.freeze([
     note: 'La collection comprend une feuille nommée Constantine. Les feuilles sont proposées depuis le catalogue universitaire.'
   }),
   Object.freeze({
+    id: 'ams-world-index',
+    title: 'Séries topographiques mondiales de l’Army Map Service',
+    description: 'Index général des cartes topographiques produites par l’U.S. Army Map Service, classées par pays et par région : Afrique, Amériques, Asie, Europe, Moyen-Orient et monde entier, avec les séries de l’Algérie (P741 1:50 000, P541 1:200 000, plans de villes).',
+    source: 'Perry-Castañeda Map Collection · UT Austin',
+    url: 'https://maps.lib.utexas.edu/maps/ams/',
+    regions: ['algeria', 'world'],
+    period: 'Séries de 1937 à 1968 selon les régions',
+    scale: 'De 1:25 000 à 1:2 000 000 selon les séries',
+    formats: ['JPG', 'KMZ (index Google Earth)'],
+    formatGroup: 'images',
+    kind: 'Cartes topographiques',
+    actionLabel: 'Ouvrir l’index mondial AMS',
+    keywords: ['armée américaine', 'U.S. Army Map Service', 'AMS', 'Algérie', 'séries topographiques mondiales', 'index KMZ'],
+    note: 'Le site de la bibliothèque est archivé depuis 2021 ; les portails Texas GeoData et Collections de l’UT Austin sont indiqués comme relais pour les fichiers cartographiques.'
+  }),
+  Object.freeze({
     id: 'anom-cartotheque',
     title: 'La cartothèque des Archives nationales d’outre-mer',
     description: 'Point d’accès aux cartes, plans, atlas et croquis conservés par les ANOM, pour l’Algérie et d’autres territoires.',
@@ -94,6 +110,22 @@ export const HISTORICAL_MAP_RESOURCES = Object.freeze([
     actionLabel: 'Afficher les notices',
     keywords: ['cartes militaires', 'Army Map Service', 'Alger', 'Algérie'],
     note: 'La recherche mène aux notices et aux documents numériques disponibles dans la collection.'
+  }),
+  Object.freeze({
+    id: 'usgs-topo-access-points',
+    title: 'Points d’accès aux cartes topographiques — USGS',
+    description: 'Portail de l’USGS pour rechercher, consulter et télécharger les cartes topographiques historiques et actuelles des États-Unis : topoView pour les cartes historiques, le National Map Downloader, topoBuilder pour des cartes à la demande et la boutique USGS.',
+    source: 'U.S. Geological Survey · The National Map',
+    url: 'https://www.usgs.gov/the-national-map-data-delivery/topographic-map-access-points',
+    regions: ['us'],
+    period: 'Cartes historiques et actuelles',
+    scale: 'Échelles variables selon les produits',
+    formats: ['GeoTIFF', 'PDF géoréférencé', 'JPEG', 'KMZ'],
+    formatGroup: 'images',
+    kind: 'Cartes topographiques',
+    actionLabel: 'Ouvrir les points d’accès USGS',
+    keywords: ['USGS', 'topoView', 'cartes historiques', 'États-Unis', 'The National Map', 'topoBuilder', 'National Map Downloader'],
+    note: 'topoView permet de télécharger des cartes topographiques historiques en plusieurs formats (PDF géoréférencé, GeoTIFF, JPEG, KMZ). La couverture concerne les États-Unis.'
   }),
   Object.freeze({
     id: 'mediafire-topographic-archive',
@@ -162,12 +194,13 @@ function makeCard(resource) {
   description.className = 'resource-description';
   description.textContent = resource.description;
 
+  const regionLabels = { algeria: 'Algérie', constantine: 'Constantine', world: 'Monde', us: 'États-Unis' };
   const tags = document.createElement('div');
   tags.className = 'resource-tags';
   for (const region of resource.regions) {
     const tag = document.createElement('span');
     tag.className = 'resource-tag';
-    tag.textContent = region === 'algeria' ? 'Algérie' : region === 'constantine' ? 'Constantine' : 'Monde';
+    tag.textContent = regionLabels[region] || region;
     tags.append(tag);
   }
   for (const format of resource.formats) {
