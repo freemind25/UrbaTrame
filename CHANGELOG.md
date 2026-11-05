@@ -12,6 +12,7 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 - Si tous les miroirs sont en pause, aucun appel externe n'est relancé; les routes Overpass renvoient `Retry-After` et `retryAfter` quand le délai de reprise est connu.
 - Même politique dans le chemin serveur et l'essai gratuit exécuté directement par le navigateur. Seuls les miroirs publics déjà configurés restent utilisés; aucun fournisseur à clé, payant ou conditionnel n'est ajouté.
 - Les erreurs de syntaxe sont arrêtées sans consommer une requête sur chaque miroir; une réponse vide n'est pas présentée comme certaine si des miroirs sont indisponibles ou en pause.
+- Le relais autorise jusqu'à 25 s par miroir, correspondant au délai demandé par la requête Overpass, et répartit équitablement le budget Vercel de 45 s entre les miroirs restants. Les échecs rapides laissent davantage de temps aux sources lentes; une réponse antérieure obtenue en 14,8 s peut désormais être reçue si le budget restant le permet, au lieu d'être systématiquement coupée à 8 s. Un test hors ligne vérifie ce cas.
 - Tests hors ligne dédiés aux réponses `429`, aux quotas épuisés, aux réponses partielles `remark`, au basculement navigateur/serveur et à l'absence de répétition quand tous les miroirs sont en pause.
 
 ### Corrigé — diagnostic de disponibilité de l'authentification étudiante

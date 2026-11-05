@@ -47,6 +47,14 @@ function mirror(behaviour) {
       const mode = typeof behaviour === 'function' ? behaviour(seen) : behaviour;
       if (mode === 'hang') return;                       // ne répond jamais
       if (mode === '504') { res.writeHead(504).end('Gateway Timeout'); return; }
+      if (mode && typeof mode === 'object' && Number.isFinite(mode.delayMs)) {
+        setTimeout(() => {
+          if (res.destroyed) return;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(mode.json));
+        }, mode.delayMs);
+        return;
+      }
       if (mode === 'remark' || mode === 'partial-remark') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -87,6 +95,18 @@ describe('repli entre miroirs Overpass', () => {
     assert.equal(good.seen.requests, 1);
     /* le miroir qui a répondu passe en tête pour la requête suivante */
     assert.equal(orderedEndpoints([bad.url, good.url], Date.now(), state)[0], good.url);
+  });
+
+  test('un miroir lent peut répondre après 8 s sans être annulé par le relais', async () => {
+    const busy = await open('504');
+    const slow = await open({ delayMs: 9_000, json: { elements: [{ type: 'way', id: 43 }] } });
+    const d = await overpass(QUERY, {
+      endpoints: [busy.url, slow.url], budget: 14_000, minSlice: 200,
+      minAttempt: 200, reserve: 500
+    });
+    assert.equal(d.elements[0].id, 43);
+    assert.equal(busy.seen.requests, 1);
+    assert.equal(slow.seen.requests, 1);
   });
 
   test('un 429 consomme le quota du miroir: repli immédiat et pause aux appels suivants', async () => {

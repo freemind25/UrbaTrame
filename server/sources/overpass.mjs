@@ -33,7 +33,7 @@ export async function overpass(query, opt = {}) {
   const list = state.order(configured);
   const skipped = configured.length - list.length;
   const budget = opt.budget ?? TIMEOUTS.overpass;
-  const perAttempt = opt.perAttempt ?? 8_000;   // éviter qu'un miroir monopolise le budget
+  const perAttempt = opt.perAttempt ?? 25_000;  // le plan Overpass peut lui-même demander jusqu'à 25 s
   const minAttempt = opt.minAttempt ?? 1_500;   // en dessous : inutile d'essayer
   const minSlice = opt.minSlice ?? 1_500;       // part réservée à chaque miroir restant
   const reserve = opt.reserve ?? 3_000;         // temps gardé pour répondre proprement
@@ -63,7 +63,12 @@ export async function overpass(query, opt = {}) {
        au suivant. */
     const restants = list.length - i - 1;
     const garde = Math.min(minSlice * restants, Math.max(0, left - minAttempt));
-    const slice = Math.min(left, Math.max(minAttempt, Math.min(perAttempt, left - garde)));
+    /* Partage équitable du temps restant : si les premiers répondent vite,
+       un miroir lent placé plus loin peut recevoir plus de temps (jusqu'au
+       timeout de la requête Overpass), sans dépasser le budget global. */
+    const partage = left / (restants + 1);
+    const slice = Math.min(left, Math.max(minAttempt,
+      Math.min(perAttempt, partage, left - garde)));
 
     try {
       const r = await fetchT(endpoint, {

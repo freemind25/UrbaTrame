@@ -191,6 +191,13 @@ Mesures en place (`server/config.mjs`, `server/sources/overpass.mjs` et
   remise à zéro/solde de quota lorsqu'ils sont disponibles. Une erreur de
   syntaxe de requête est arrêtée sans la renvoyer identiquement à tous les
   miroirs ;
+- **délai adapté aux miroirs lents** : le relais peut consacrer jusqu'à 25 s à
+  un miroir (le planificateur Overpass peut demander 25 s), mais partage
+  équitablement son budget global de 45 s entre les miroirs encore à essayer.
+  Les échecs rapides libèrent du temps pour un miroir lent placé plus loin, sans
+  dépasser la limite de Vercel. C'est nécessaire : un test antérieur a obtenu
+  des données en 14,8 s d'un miroir public ; si le budget lui est disponible,
+  cette réponse n'est plus automatiquement coupée après 8 s ;
 - **pause automatique par instance** : à défaut d'indication du serveur,
   environ 5 min après une limite de quota, 30 s après une surcharge/réseau et
   15 min après un refus d'accès; les délais fournis par le serveur sont bornés
