@@ -9,6 +9,7 @@ import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear, cacheGet } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
+import { ensureVue3D } from './lazy-vue3d.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
 import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
@@ -240,7 +241,8 @@ const unlocked = id => {
    Ouvre la fenêtre de volumes bâtis : mêmes données que l'analyse « Volumes 3D »
    quand elles sont déjà chargées, sinon le serveur les fournit (action
    `buildings`), avec repli sur les tuiles osmbuildings.org si on le demande. */
-function vue3D(opts = {}) {
+async function vue3D(opts = {}) {
+  await ensureVue3D();
   return ouvrir3D({
     lat: S.site.lat, lon: S.site.lon, rayon: S.site.R,
     nom: S.site.name, langue: S.lang,
@@ -296,6 +298,7 @@ function renderCatalog() {
         <span class="limit">${limit} m</span>`;
       row.querySelector('input').addEventListener('change', e => {
         if (e.target.checked) S.sel.add(a.id); else S.sel.delete(a.id);
+        if (a.id === 'volumes' && e.target.checked) ensureVue3D();
         store.set('sel', [...S.sel]);
         updateGenBtn(); renderCatalog();
       });
@@ -1155,6 +1158,7 @@ function drawLoader(list, state, startedAt) {
 
 /* ═══════════════ génération ═══════════════ */
 async function generate() {
+  if (S.sel.has('volumes')) await ensureVue3D();
   if (S.busy) return;
   const ids = selected();
   if (!ids.length) { toast(T('Sélectionnez au moins une analyse', 'Pick at least one analysis'), false); return; }
@@ -2085,6 +2089,7 @@ async function init() {
   await refreshEntitlement();
 
   const mayUseApp = !S.studentAuthRequired || Boolean(S.studentUser);
+  if (mayUseApp && (qp.get('vue3d') === '1' || S.sel.has('volumes'))) ensureVue3D();
   if (mayUseApp && qp.get('vue3d') === '1') setTimeout(() => vue3D(), 400);
   if (mayUseApp && qp.get('upgrade')) openPlans();
   if (mayUseApp && qp.get('sample') === '1') setTimeout(loadSample, 300);

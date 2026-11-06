@@ -12,8 +12,10 @@
    logiciel de CAO. Aucune bibliothèque : tout est calculé ici.
    ───────────────────────────────────────────────────────────────────────── */
 import * as X from './exports.mjs';
+import { ensureVue3D } from './lazy-vue3d.mjs';
 
-export function ouvrirExports(o) {
+export async function ouvrirExports(o) {
+  await ensureVue3D();
   const lang = o.langue === 'en' ? 'en' : 'fr';
   const t = (fr, en) => (lang === 'en' ? en : fr);
   const V = globalThis.FMVue3D;
