@@ -18,6 +18,7 @@ import {
   contourIntervalChoice, contourSegments, flowAccumulation, flowDirD8, gridStats, laserPlates,
   platesDxfEntities, platesSvg, explodeSvg, slopeAspectGrid, streamCells, twiGrid, watershedAt
 } from './terrain/relief-analysis.mjs';
+import { spaceSyntaxRapport } from './space-syntax.mjs';
 import { dxf } from './atelier/exports.mjs';
 
 const $ = id => document.getElementById(id);
@@ -1345,6 +1346,7 @@ function drawMapScene(svg, rect, { scope = 'preview', includeMeta = true } = {})
     drawCenter(group, projection.project);
     drawPreviewDraft(group, projection.project);
     drawSectionDraft(group, projection.project);
+    drawSpaceSyntax(group, projection.project);
     if (state.annotationTool && state.annotationDraft.length) {
       const path = geometryPath({ type: 'LineString', coordinates: [...state.annotationDraft, ...(state.dragCurrent ? [state.dragCurrent] : [])] }, projection.project);
       if (path) svgElement('path', { d: path, fill: 'none', stroke: $('annotationColor').value || '#b24d3b', 'stroke-width': 2.2, 'stroke-dasharray': '6 4', class: 'draw-preview' }, group);
@@ -1388,7 +1390,9 @@ function sourceSummary() {
   const dateOf = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleDateString('fr-FR') : 'date non précisée';
   if (state.adminCountry.length || state.adminWilayas.length) sources.push(`GADM ${state.gadmVersion} (gadm.org), chargé le ${dateOf(state.gadmLoadedAt)}`);
   if (state.osmFeatures.length) sources.push(`OpenStreetMap / Overpass · ODbL, chargé le ${dateOf(state.osmLoadedAt)}`);
-  if (state.terrain) sources.push(`Terrarium / AWS Terrain Tiles (SRTM/USGS/EU-DEM selon couverture), chargé le ${dateOf(state.osmLoadedAt)}`);
+  if (state.terrain) sources.push(state.terrain.source === 'glo30'
+    ? `Copernicus GLO-30 / AWS Open Data (programme Copernicus, ~30 m), chargé le ${dateOf(state.osmLoadedAt)}`
+    : `Terrarium / AWS Terrain Tiles (SRTM/USGS/EU-DEM selon couverture), chargé le ${dateOf(state.osmLoadedAt)}`);
   if (state.localFeatures.length) sources.push('fichier local');
   const reference = $('sourceReference')?.value.trim();
   if (reference) sources.push(reference);
@@ -1499,7 +1503,7 @@ async function loadOsmAndRelief() {
   try {
     const response = await fetch('/api/atelier/cadrage-extract', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ lat, lon, radius, include, terrain: $('loadRelief').checked, terrainN: 24 })
+      body: JSON.stringify({ lat, lon, radius, include, terrain: $('loadRelief').checked, terrainN: 24, terrainSource: $('terrainSource')?.value || 'terrarium' })
     });
     let payload;
     try { payload = await response.json(); } catch { throw new Error('MAP_DATA_UNAVAILABLE'); }
@@ -1953,7 +1957,8 @@ function analyzeSite() {
     threeThirtyThreeHundred: threeThirtyThreeHundred({ features, center: state.center }),
     isochrones: pedestrianIsochrones({ features: state.osmFeatures, center: state.center }),
     skyView: state.terrain ? skyViewFactor(state.terrain, state.center.lat, state.center.lon) : { ok: false, reason: 'terrain-not-loaded' },
-    sun: sunPosition(state.center.lat, state.center.lon, $('sunDateTime').value ? new Date($('sunDateTime').value) : new Date())
+    sun: sunPosition(state.center.lat, state.center.lon, $('sunDateTime').value ? new Date($('sunDateTime').value) : new Date()),
+    spaceSyntax: spaceSyntaxRapport({ features: state.osmFeatures, center: state.center })
   };
   state.siteReport = { report, indicators, perimeterLabel: perimeterLabel() };
   renderAnalysisPanels();
@@ -1976,7 +1981,8 @@ function renderAnalysisPanels() {
     ['Arbres à 300 m (3-30-300)', String(indicators.threeThirtyThreeHundred.trees)],
     ['Canopée à 300 m', `${indicators.threeThirtyThreeHundred.canopyPct.toFixed(1)} %`],
     ['SVF au centre', indicators.skyView.ok ? indicators.skyView.svf.toFixed(2) : '—'],
-    ['Soleil', `élév. ${indicators.sun.elevationDeg.toFixed(0)}° · azim. ${indicators.sun.azimuthDeg.toFixed(0)}°`]
+    ['Soleil', `élév. ${indicators.sun.elevationDeg.toFixed(0)}° · azim. ${indicators.sun.azimuthDeg.toFixed(0)}°`],
+    ['Intégration moy. (space syntax*)', indicators.spaceSyntax?.ok ? indicators.spaceSyntax.meanIntegration.toFixed(2) : '—']
   ];
   for (const [label, value] of cards) {
     const div = document.createElement('div');
@@ -2003,6 +2009,12 @@ function renderAnalysisPanels() {
   lignes.push(`Règle 3-30-300 : ${t3.trees} arbre(s), canopée ${t3.canopyPct.toFixed(1)} %, parc à ${t3.parkDistanceM === null ? '—' : formatDistance(t3.parkDistanceM)}.`);
   if (indicators.skyView.ok) lignes.push(`Sky view factor au centre : ${indicators.skyView.svf.toFixed(2)} (approximation DEM).`);
   lignes.push(`Soleil : élévation ${indicators.sun.elevationDeg.toFixed(1)}°, azimut ${indicators.sun.azimuthDeg.toFixed(0)}°.`);
+  const ss = indicators.spaceSyntax;
+  if (ss?.ok) {
+    lignes.push(`Space syntax simplifié (approximation pédagogique) : ${ss.nodes} nœuds, ${ss.edges} tronçons, RA moyen ${ss.meanRA}, intégration moyenne ${ss.meanIntegration}.`);
+    for (const e of ss.topEdges.slice(0, 3))
+      lignes.push(`Axe le plus intégré : « ${e.name || e.highway || 'sans nom'} » · ${formatDistance(e.lenM)} · score ${e.score} (top ${ss.topEdges.length}).`);
+  } else if (ss) lignes.push(`Space syntax simplifié : ${ss.reason === 'no-roads' || ss.reason === 'no-nodes' ? 'aucune voie chargée' : ss.reason === 'graph-too-large' ? 'graphe trop grand pour le calcul simplifié' : ss.reason} (approximation non calculée).`);
   lignes.push('Toutes ces valeurs sont des approximations calculées localement (pas de relevé certifié).');
   for (const line of lignes) { const p = document.createElement('p'); p.textContent = line; detail.appendChild(p); }
 }
@@ -2030,7 +2042,8 @@ function exportSiteReport() {
     featureCount: report.featureCount,
     usage: report.usage,
     profile: state.sectionProfile,
-    indicators
+    indicators,
+    reliefSource: state.terrainSource || (state.terrain?.source === 'glo30' ? 'GLO-30' : '')
   });
   downloadBlob(new Blob([pdf], { type: 'application/pdf' }), 'rapport-site.pdf');
 }
@@ -2151,6 +2164,27 @@ const reliefColor = (mode, value, g) => {
   }
   return '#4a93c6';
 };
+
+/* Axes les plus intégrés (space syntax simplifié, phase D) : surlignés en orange. */
+function drawSpaceSyntax(group, project) {
+  const ss = state.siteReport?.indicators?.spaceSyntax;
+  if (!ss?.ok || !Array.isArray(ss.topEdges) || !ss.topEdges.length) return;
+  const g = svgElement('g', { 'data-layer': 'space-syntax', 'aria-label': 'Axes les plus intégrés (space syntax simplifié, approximation)', 'pointer-events': 'none' });
+  ss.topEdges.forEach((e, index) => {
+    const path = geometryPath({ type: 'LineString', coordinates: e.coords }, project);
+    if (!path) return;
+    g.append(svgElement('path', {
+      d: path, fill: 'none', stroke: '#e07b39',
+      'stroke-width': 4.2 - index * 0.6, 'stroke-opacity': 0.92 - index * 0.12,
+      'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke',
+      'data-rank': index + 1, 'data-score': e.score
+    }));
+  });
+  const title = svgElement('title');
+  title.textContent = `Space syntax simplifié (approximation) : ${ss.topEdges.length} axe(s) les plus intégrés sur ${ss.edges} tronçons.`;
+  g.prepend(title);
+  group.append(g);
+}
 
 function renderReliefOverlay(group, project) {
   const mode = state.reliefMode;

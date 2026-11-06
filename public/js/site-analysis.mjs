@@ -657,7 +657,7 @@ export function buildSiteReportPdf(report) {
     [11, 40, 680, `Surface d'étude : ${fmtN(report.studyAreaM2)} m² (${(report.studyAreaM2 / 10000).toFixed(2)} ha)`, false],
     [11, 40, 666, `Entités retenues dans le périmètre : ${report.featureCount}`, false],
     [11, 40, 652, `Taux d'occupation du sol (bâti / surface d'étude) : ${pct(report.builtCoverage)}`, false],
-    [11, 40, 630, 'Sources : OpenStreetMap (ODbL) via /api, couches locales, relief Terrarium (SRTM/USGS/EU-DEM).', false],
+    [11, 40, 630, `Sources : OpenStreetMap (ODbL) via /api, couches locales, ${/glo-?30/i.test(report.reliefSource || '') ? 'relief Copernicus GLO-30 (AWS Open Data, ~30 m)' : 'relief Terrarium (SRTM/USGS/EU-DEM)'}.`, false],
     [11, 40, 616, 'Analyse calculée localement dans le navigateur ; aucune donnée transmise.', false]
   ];
   const page2 = [
@@ -714,14 +714,28 @@ export function buildSiteReportPdf(report) {
   }
   if (ind.skyView) page3.push([10, 40, y, `Sky view factor au centre : ${ind.skyView.ok ? ind.skyView.svf.toFixed(2) : 'n/a'} (approximation DEM)`]), y -= 16;
   if (ind.sun) page3.push([10, 40, y, `Soleil : élévation ${ind.sun.elevationDeg.toFixed(1)}° · azimut ${ind.sun.azimuthDeg.toFixed(0)}°`]), y -= 16;
+  if (ind.spaceSyntax) {
+    if (ind.spaceSyntax.ok) {
+      const sx = ind.spaceSyntax;
+      page3.push([10, 40, y, `Space syntax simplifié (approximation pédagogique) : ${sx.nodes} nœuds, ${sx.edges} tronçons, RA moyen ${sx.meanRA}, intégration moyenne ${sx.meanIntegration}.`]);
+      y -= 16;
+      for (const e of sx.topEdges.slice(0, 3)) {
+        page3.push([10, 40, y, `  axe le plus intégré : « ${e.name || e.highway || 'sans nom'} » · ${fmtN(e.lenM)} m · score ${e.score}`]);
+        y -= 16;
+      }
+    } else {
+      page3.push([10, 40, y, `Space syntax simplifié : non calculé (${ind.spaceSyntax.reason}).`]);
+      y -= 16;
+    }
+  }
   const page4 = [
     [13, 40, 800, 'Sources et limites d’usage', true],
-    [10, 40, 776, 'Données : OpenStreetMap (© contributeurs OSM, ODbL), relief Terrarium/AWS (SRTM/USGS/EU-DEM selon couverture),', false],
+    [10, 40, 776, `Données : OpenStreetMap (© contributeurs OSM, ODbL), relief ${/glo-?30/i.test(report.reliefSource || '') ? 'Copernicus GLO-30/AWS Open Data (~30 m)' : 'Terrarium/AWS (SRTM/USGS/EU-DEM selon couverture)'},`, false],
     [10, 40, 762, 'couches locales importées par l’utilisateur. Toutes les analyses sont calculées localement, hors ligne.', false],
     [11, 40, 736, 'Limites', true],
     [10, 40, 716, '- Les mesures sont des approximations pédagogiques : ni relevé cadastral, ni limite juridique.', false],
     [10, 40, 702, '- Le relief Terrarium est indicatif (« computed, not surveyed ») ; pente, TWI, hydrologie D8 et', false],
-    [10, 40, 688, '  isochrones sont des simulations simplifiées, non des études certifiées.', false],
+    [10, 40, 688, '  isochrones et space syntax simplifié sont des simulations/approximations, non certifiées.', false],
     [10, 40, 674, '- Hauteurs de bâti : tag OSM height, sinon building:levels × 3 m, sinon valeur par défaut.', false],
     [10, 40, 660, '- Aucune donnée personnelle transmise ; aucun appel réseau externe depuis cette page.', false],
     [10, 40, 640, 'Généré par UrbaTrame — page Cadrage spatial.' ]

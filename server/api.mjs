@@ -13,6 +13,7 @@ import { overpass, geocode } from './sources/overpass.mjs';
 import { climate } from './sources/climate.mjs';
 import { windrose } from './sources/windrose.mjs';
 import { terrain } from './sources/terrain.mjs';
+import { glo30 } from './sources/glo30.mjs';
 import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
@@ -273,8 +274,10 @@ export function createAnalysisHandler({ licence, quota, runs }) {
     if (action === 'terrain') {
       try {
         const n = Math.min(40, Math.max(12, Number(body.n) || 24));
-        const t = await terrain(Number(body.lat), Number(body.lon), Number(body.radius) || 600, n);
-        log('terrain', n + '×' + n, 'zoom', t.zoom);
+        const t = body.source === 'glo30'
+          ? await glo30(Number(body.lat), Number(body.lon), Number(body.radius) || 600, n)
+          : await terrain(Number(body.lat), Number(body.lon), Number(body.radius) || 600, n);
+        log('terrain', body.source === 'glo30' ? 'glo30' : 'terrarium', n + '×' + n, 'zoom', t.zoom);
         return send(res, 200, { ok: true, ...t });
       } catch (e) {
         return send(res, 502, { error: 'TERRAIN_UNAVAILABLE', detail: e.message });

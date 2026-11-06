@@ -68,7 +68,10 @@ export const SOURCES = {
   nasa: 'https://power.larc.nasa.gov/api/temporal/daily/point',
   windrose: 'https://power.larc.nasa.gov/api/application/windrose/point',
   terrain: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/',
-            'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/']
+            'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/'],
+  /* Copernicus GLO-30 (phase D, consentement explicite) : bucket AWS Open Data public. */
+  glo30: ['https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
+          'https://copernicus-dem-30m.s3.amazonaws.com/']
 };
 
 export const UA = PRODUCT + '/0.1.0 (https://github.com/freemind25/UrbaTrame ; freemind25@tutamail.com)';
@@ -89,5 +92,6 @@ export const TIMEOUTS = {
   nominatim: 15_000,
   climate: 30_000,
   windrose: 30_000,
-  tile: 20_000
+  tile: 20_000,
+  glo30: 30_000
 };

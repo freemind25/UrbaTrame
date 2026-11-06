@@ -15,6 +15,7 @@
      • tuiles osmbuildings.org : hauteurs déjà calculées (attribution requise).
    ───────────────────────────────────────────────────────────────────────── */
 import { batimentsDepuisOverpass, batimentsDepuisTuiles } from './osm.mjs';
+import { buildGlb, scene3dVersMeshes } from './glb-writer.mjs';
 
 const todayLocalISO = () => {
   const d = new Date();
@@ -89,6 +90,7 @@ export function ouvrir3D(o) {
       <span class="v3d-spacer"></span>
       <button id="v3d-png" title="${t('Image PNG de la vue', 'PNG image of the view')}">PNG</button>
       <button id="v3d-svg" title="${t('Géométrie vectorielle', 'Vector geometry')}">SVG</button>
+      <button id="v3d-glb" title="${t('Maquette 3D au format GLB (glTF binaire, ouvert)', '3D model as GLB (binary glTF, open format)')}">GLB</button>
       <button id="v3d-fermer" class="fermer">✕</button>
     </div>
     <div class="v3d-scene">
@@ -338,6 +340,15 @@ export function ouvrir3D(o) {
   });
   q('#v3d-png').addEventListener('click', () => {
     cv.toBlob(b => telecharger(b, 'urbatrame-vue3d.png'), 'image/png');
+  });
+  q('#v3d-glb').addEventListener('click', () => {
+    /* Maquette 3D en GLB (phase D) : faces de la scène courante (bâti, toits,
+       arbres) + maillage du sol, Z ramené à l'altitude absolue (terrainRef). */
+    if (!dernier?.sc) return;
+    const meshes = scene3dVersMeshes(dernier.sc, { zRef: dernier.sc.terrainRef || 0 });
+    if (!meshes.length) { etat.textContent = t('Rien à exporter : aucune géométrie 3D.', 'Nothing to export: no 3D geometry.'); return; }
+    const glb = buildGlb(meshes, { generator: 'UrbaTrame — vue 3D (bâti OSM, arbres, relief)' });
+    telecharger(new Blob([glb], { type: 'model/gltf-binary' }), 'urbatrame-vue3d.glb');
   });
   q('#v3d-fermer').addEventListener('click', fermer);
   racine.addEventListener('keydown', e => { if (e.key === 'Escape') fermer(); });

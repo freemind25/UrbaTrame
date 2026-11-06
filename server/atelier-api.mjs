@@ -7,6 +7,7 @@ import {
 } from './atelier-data.mjs';
 import { geocode as searchPlace, overpass as requestOverpass } from './sources/overpass.mjs';
 import { latToY, lonToX, terrain as requestTerrain, terrainZoom } from './sources/terrain.mjs';
+import { glo30 as requestGlo30, GLO30_SOURCE_LABEL } from './sources/glo30.mjs';
 import { log, readBody, send } from './http.mjs';
 import { createGadmHandler } from './gadm.mjs';
 
@@ -25,6 +26,12 @@ export function createAtelierHandlers(deps = {}) {
   const geocodeSource = deps.geocode || searchPlace;
   const overpassSource = deps.overpass || requestOverpass;
   const terrainSource = deps.terrain || requestTerrain;
+  const glo30Source = deps.glo30 || requestGlo30;
+  /* Source de relief demandée : 'terrarium' (défaut) ou 'glo30' (phase D). */
+  const sourceRelief = body => (body?.terrainSource === 'glo30' || body?.source === 'glo30' ? glo30Source : terrainSource);
+  const labelRelief = topo => !topo ? null
+    : topo.source === 'glo30' ? GLO30_SOURCE_LABEL
+    : 'Terrarium / public elevation tiles';
   const clock = deps.now || Date.now;
   const logger = deps.log || log;
   const gadm = createGadmHandler({ fetch: deps.gadmFetch, now: clock, log: logger });
@@ -58,7 +65,7 @@ export function createAtelierHandlers(deps = {}) {
     return send(res, 200, {
       ok: true, name: 'UrbaTrame', feature: 'atelier-topographique', version: '0.1.0',
       datasets: DATASET_IDS, radius: { min: MIN_RADIUS, max: MAX_RADIUS },
-      sources: ['OpenStreetMap / Overpass', 'Terrarium elevation tiles', 'GADM administrative boundaries']
+      sources: ['OpenStreetMap / Overpass', 'Terrarium elevation tiles', 'Copernicus GLO-30 (AWS Open Data)', 'GADM administrative boundaries']
     });
   }
 
@@ -113,7 +120,7 @@ export function createAtelierHandlers(deps = {}) {
     const t0 = clock();
     const [osm, ground] = await Promise.allSettled([
       overpassSource(query),
-      body.terrain === false ? Promise.resolve(null) : terrainSource(lat, lon, radius, n)
+      body.terrain === false ? Promise.resolve(null) : sourceRelief(body)(lat, lon, radius, n)
     ]);
     if (osm.status === 'rejected') {
       const error = osm.reason;
@@ -139,7 +146,7 @@ export function createAtelierHandlers(deps = {}) {
           nMembers + (Array.isArray(member?.geometry) ? member.geometry.length : 0), 0) : 0), 0);
       const payload = {
         ok: true, lat, lon, radius, maxRadius: MAX_CADRAGE_RADIUS, include, elements, terrain: topo, warnings,
-        source: { osm: 'OpenStreetMap contributors (ODbL)', elevation: topo ? 'Terrarium / public elevation tiles' : null },
+        source: { osm: 'OpenStreetMap contributors (ODbL)', elevation: labelRelief(topo) },
         extractedAt: new Date(clock()).toISOString()
       };
       if (elements.length > 12000 || positionCount > 240000 || Buffer.byteLength(JSON.stringify(payload), 'utf8') > 12_000_000) {
@@ -156,7 +163,7 @@ export function createAtelierHandlers(deps = {}) {
     logger('atelier extract', elements.length, 'OSM elements,', topo ? `${topo.n}×${topo.n} terrain` : 'no terrain', `${clock() - t0} ms`);
     return send(res, 200, {
       ok: true, lat, lon, radius, include, elements, terrain: topo, warnings,
-      source: { osm: 'OpenStreetMap contributors (ODbL)', elevation: topo ? 'Terrarium / public elevation tiles' : null },
+      source: { osm: 'OpenStreetMap contributors (ODbL)', elevation: labelRelief(topo) },
       extractedAt: new Date(clock()).toISOString()
     });
   }
@@ -178,10 +185,10 @@ export function createAtelierHandlers(deps = {}) {
     if (!Number.isSafeInteger(tileCount) || tileCount > 64)
       return send(res, 413, { ok: false, error: 'TERRAIN_TILE_BUDGET', maxTiles: 64 });
     try {
-      const grid = await terrainSource(lat, lon, radius, n);
+      const grid = await sourceRelief(body)(lat, lon, radius, n);
       return send(res, 200, {
         ok: true, terrain: grid,
-        source: { elevation: 'Terrarium · tuiles d’altitude publiques AWS' },
+        source: { elevation: grid?.source === 'glo30' ? GLO30_SOURCE_LABEL : 'Terrarium · tuiles d’altitude publiques AWS' },
         extractedAt: new Date(clock()).toISOString()
       });
     } catch (error) {

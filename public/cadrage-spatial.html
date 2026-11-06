@@ -155,6 +155,11 @@
               <label><input type="checkbox" name="remoteLayer" value="barriers">Barrières / murs</label>
               <label><input type="checkbox" name="remoteLayer" value="trees">Arbres</label>
               <label><input type="checkbox" id="loadRelief">Relief (si disponible)</label>
+              <label class="field-label inline" for="terrainSource">Source du relief
+                <select id="terrainSource">
+                  <option value="terrarium" selected>Terrarium · AWS (défaut, ~10–30 m)</option>
+                  <option value="glo30">Copernicus GLO-30 · AWS Open Data (~30 m)</option>
+                </select></label>
             </div>
             <button id="loadOsm" class="button-primary full" type="button">Charger les données OSM / relief</button>
             <div id="osmStatus" class="status" role="status" aria-live="polite">Aucune requête OSM ou relief effectuée.</div>
@@ -190,7 +195,7 @@
         <details class="panel">
           <summary><span class="step">07 / RELIEF AVANCÉ</span><strong>Pente, hydrologie, plaques de découpe</strong></summary>
           <div class="panel-body">
-            <label class="field-label" for="reliefAnalysis">Analyse du relief (DEM Terrarium, indicatif)
+            <label class="field-label" for="reliefAnalysis">Analyse du relief (DEM chargé, indicatif)
               <select id="reliefAnalysis" disabled>
                 <option value="off">Aucune</option>
                 <option value="pente">Pente (dégradé)</option>

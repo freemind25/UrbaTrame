@@ -109,6 +109,13 @@ export function formatElevation(value) {
 
 export const TERRAIN_PROVENANCE = 'Relief Terrarium · tuiles d’altitude publiques AWS (sources SRTM/USGS/EU-DEM selon couverture) · valeur indicative, non certifiée.';
 
+export const GLO30_PROVENANCE = 'Relief Copernicus GLO-30 · tuiles COG publiques AWS Open Data (programme Copernicus, ~30 m) · valeur indicative, non certifiée.';
+
+/* Provenance affichée selon la source réellement chargée (Terrarium par défaut). */
+export function provenanceRelief(terrain) {
+  return terrain?.source === 'glo30' ? GLO30_PROVENANCE : TERRAIN_PROVENANCE;
+}
+
 export function updateTerrainLegend(root, terrain, { unloadedText = 'Relief non chargé. Lancez le chargement du relief pour afficher l’échelle.' } = {}) {
   if (!root) return null;
   root.replaceChildren();
@@ -138,7 +145,8 @@ export function updateTerrainLegend(root, terrain, { unloadedText = 'Relief non 
   const interval = contourInterval(stats.min, stats.max);
   const note = document.createElement('span');
   note.className = 'topo-legend-note';
-  note.textContent = interval ? `Courbes indicatives · intervalle ${formatElevation(interval)} · ${TERRAIN_PROVENANCE}` : `Relief uniforme dans cette grille · ${TERRAIN_PROVENANCE}`;
+  const prov = provenanceRelief(terrain);
+  note.textContent = interval ? `Courbes indicatives · intervalle ${formatElevation(interval)} · ${prov}` : `Relief uniforme dans cette grille · ${prov}`;
   root.append(title, bar, values, note);
   root.dataset.minimum = String(stats.min);
   root.dataset.maximum = String(stats.max);
@@ -157,7 +165,7 @@ export function updateElevationReadout(root, terrain, lat, lon) {
   else if (result.status === 'no-data') root.textContent = `Aucune altitude valide à ce point${coordinate}.`;
   else if (result.status === 'invalid-point') root.textContent = 'Cliquez sur un point cartographique valide pour lire l’altitude.';
   else if (result.status === 'invalid-terrain') root.textContent = 'Altitude indisponible : la grille de relief reçue est invalide. Rechargez le relief.';
-  else root.textContent = `Altitude estimée : ${formatElevation(result.elevation)}${coordinate} · interpolation bilinéaire Terrarium, non certifiée.`;
+  else root.textContent = `Altitude estimée : ${formatElevation(result.elevation)}${coordinate} · interpolation bilinéaire ${terrain?.source === 'glo30' ? 'Copernicus GLO-30' : 'Terrarium'}, non certifiée.`;
   return result;
 }
 
