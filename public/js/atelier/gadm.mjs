@@ -147,7 +147,7 @@ function renderParentControls() {
 }
 
 function createMetaRow(label, value) {
-  const row = document.createElement('div');
+  const row = document.createElement('dl');
   row.className = 'gadm-meta-row';
   const term = document.createElement('dt');
   term.textContent = label;

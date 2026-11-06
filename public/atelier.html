@@ -15,7 +15,7 @@
 <body>
   <a class="skip-link" href="#main" data-fr="Aller au contenu principal" data-en="Skip to main content">Aller au contenu principal</a>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="UrbaTrame, accueil">
+    <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
       <span class="brand-word">UrbaTrame<small>Analyse des sites urbains</small><span class="brand-credit">Designed by M.SADI</span></span>
     </a>
@@ -52,7 +52,7 @@
           <label class="sr-only" for="placeSearch">Rechercher un lieu ou une adresse</label>
           <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
           <input id="placeSearch" name="q" type="search" placeholder="Ville, adresse ou lieu…" aria-label="Ville, adresse ou lieu">
-          <button type="submit" aria-label="Rechercher">Chercher</button>
+          <button type="submit">Chercher</button>
         </form>
         <div id="searchResults" class="search-results" hidden></div>
 
@@ -238,7 +238,7 @@
               </select>
             </div>
             <div class="gadm-map-stage" id="gadm-map-stage">
-              <svg id="gadm-vector-map" viewBox="0 0 900 560" role="img" aria-label="Limites administratives GADM. Cliquez sur une unité pour la sélectionner."></svg>
+              <svg id="gadm-vector-map" viewBox="0 0 900 560" role="group" aria-label="Limites administratives GADM. Cliquez sur une unité pour la sélectionner."></svg>
               <div id="gadm-theme-panel" class="gadm-theme-panel" hidden>
                 <img id="gadm-theme-image" alt="Carte thématique GADM du pays sélectionné" loading="lazy">
                 <div id="gadm-theme-fallback" class="gadm-theme-fallback" hidden>Cette carte thématique n’est pas disponible pour ce pays.</div>

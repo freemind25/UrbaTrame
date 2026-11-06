@@ -236,6 +236,6 @@ button{cursor:pointer}
 #terrainStatus,#terrainAltitude,#terrainProvenance{line-height:1.5}
 #terrainAltitude{color:#315d4f;font-weight:750}
 #terrainProvenance{color:66706b;font-size:.75rem}
-.skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid #2e6b52}
+.skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid var(--ring)}
 
 @media (pointer:coarse){button,.button-primary,.button-secondary,.tool-button,.file-button,.level-card,.search-result,.topnav a,.panel>summary,.resource-action,.library-card a{min-height:44px;padding-top:10px;padding-bottom:10px}}

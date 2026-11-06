@@ -51,7 +51,7 @@
     <section class="panel">
       <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
       <div class="row">
-        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon" autocomplete="off" aria-controls="searchResults">
+        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon" autocomplete="off" aria-controls="searchResults" aria-label="Ville, adresse ou lat,lon">
         <button id="search" class="primary ut-glow" type="button" aria-controls="searchResults" aria-expanded="false" data-fr="Chercher" data-en="Search">Chercher</button>
       </div>
       <p id="searchStatus" class="search-status" role="status" aria-live="polite" hidden></p>
@@ -66,18 +66,18 @@
     <section class="panel">
       <label class="lab" data-fr="2 · Site" data-en="2 · Site">2 · Site</label>
       <div class="row" id="radiusWrap">
-        <span class="lab2" data-fr="rayon" data-en="radius">rayon</span>
+        <label class="lab2" for="radius" data-fr="rayon" data-en="radius">rayon</label>
         <input id="radius" type="range" min="200" max="3000" step="50" value="600">
         <output id="radiusOut">600 m</output>
       </div>
       <div class="row">
-        <span class="lab2" data-fr="forme" data-en="shape">forme</span>
+        <label class="lab2" for="shape" data-fr="forme" data-en="shape">forme</label>
         <select id="shape">
           <option value="circle" data-fr="Cercle" data-en="Circle">Cercle</option>
           <option value="rect" data-fr="Carré arrondi" data-en="Rounded square">Carré arrondi</option>
           <option value="square" data-fr="Carré" data-en="Square">Carré</option>
         </select>
-        <span class="lab2" data-fr="heure" data-en="hour">heure</span>
+        <label class="lab2" for="time" data-fr="heure" data-en="hour">heure</label>
         <output id="timeOut">12:00</output>
         <input id="time" type="range" min="4" max="21" step="0.25" value="12">
       </div>
@@ -119,6 +119,7 @@
   </aside>
 
   <main id="main">
+  <h1 class="sr-only">UrbaTrame — analyse des sites urbains</h1>
     <div class="toolbar">
       <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
       <button id="siteReportBtn" class="report-trigger" data-fr="Synthèse & scénario" data-en="Site summary & scenario">Synthèse & scénario</button>
@@ -217,7 +218,7 @@
        data-en="Saved in this browser only. Projects retain the place, analysis selection, assumptions and map appearance (palettes, titles and text visibility)—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent le lieu, la sélection, les hypothèses et l’apparence des cartes (palettes, titres et affichage du texte) — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
     <div class="workspace-save">
       <label for="workspaceName" data-fr="Nom du projet ou modèle" data-en="Project or template name">Nom du projet ou modèle</label>
-      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet">
+      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet" aria-label="Nom du projet">
       <div class="workspace-save-actions">
         <button id="saveWorkspaceProject" class="primary" data-fr="Enregistrer le projet" data-en="Save project">Enregistrer le projet</button>
         <button id="saveWorkspaceTemplate" data-fr="Enregistrer comme modèle" data-en="Save as template">Enregistrer comme modèle</button>

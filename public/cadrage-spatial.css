@@ -21,6 +21,6 @@
 .analysis-chart svg{display:block;width:100%;height:auto;border:1px solid #dce3dd;border-radius:9px;background:#fbfcf9}
 .analysis-chart{margin:9px 0}
 .analysis-detail{margin:6px 0}.analysis-detail p{margin:4px 0}.field-label.inline{display:flex;align-items:center;gap:8px;margin:8px 0 0}.field-label.inline input,.field-label.inline select{width:auto;margin:0}
-.skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid #2e6b52}
+.skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid var(--ring)}
 
 @media (pointer:coarse){button,.button-primary,.button-secondary,.tool-button,.file-button,.level-card,.search-result,.topnav a,.panel>summary,.resource-action,.library-card a{min-height:44px;padding-top:10px;padding-bottom:10px}}

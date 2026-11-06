@@ -141,7 +141,7 @@ describe('métriques des planches dans l’emprise étudiée', () => {
 
     const axo = render('axocallout',{sLat:0,sLng:0,curR:100,shape:'circle',D:data,isPro:true});
     assert.equal(metric(axo,312,75),'1','la volumétrie ne compte que les bâtiments dans le cercle');
-    assert.match(axo,/stroke="#D97559" stroke-width="0\.8" stroke-dasharray="2\.1 1\.2"/,'le rail est dessiné sur l’axonométrie');
+    assert.match(axo,/stroke="#A15742" stroke-width="0\.8" stroke-dasharray="2\.1 1\.2"/,'le rail est dessiné sur l’axonométrie');
     assert.match(axo,/stroke="#9EC5CF" stroke-width="0\.9"/,'le trait de côte est dessiné sur l’axonométrie');
   });
 });
@@ -160,7 +160,7 @@ describe('couches ferroviaires et côtières OSM', () => {
     assert.equal(d.roads.length, 0, 'le rail n’est pas reclassé en voirie');
     assert.equal(d.green.length, 0, 'le trait de côte n’est pas avalé par la couche verte');
     const svg = render('mappingboard', { D: d });
-    assert.match(svg, /stroke="#D97559" stroke-width="0\.8" stroke-dasharray="2\.1 1\.2"/);
+    assert.match(svg, /stroke="#A15742" stroke-width="0\.8" stroke-dasharray="2\.1 1\.2"/);
     assert.match(svg, /stroke="#9EC5CF" stroke-width="0\.9"/);
   });
 });
