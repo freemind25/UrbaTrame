@@ -1,0 +1,42 @@
+/* UrbaTrame — design tokens sémantiques (source unique de vérité).
+   Structure inspirée de ui-ux-pro-max-skill (colors.csv, palettes mesurées WCAG).
+   Thème clair par défaut ; thème sombre via <html data-theme="dark">.
+   Branche design/tokens-p1 — 2026-11-06. */
+:root{
+  color-scheme:light;
+  /* surfaces & texte (contrastes mesurés ≥ 4,5:1) */
+  --background:#f5f7f5; --foreground:#203c3b;
+  --card:#ffffff; --card-foreground:#203c3b; --card-2:#fbfcfb;
+  --muted:#eef3ef; --muted-foreground:#4d5f56; --muted-foreground-2:#44534b;
+  --border:#d9e2dc;
+  /* marque (vert profond) */
+  --primary:#153e3d; --on-primary:#ffffff;
+  --primary-strong:#0e2a29; --primary-2:#246b54; --primary-soft:#e8f1eb;
+  /* accents */
+  --accent:#8a5a24; --on-accent:#ffffff; --accent-soft:#f1ede5;
+  /* états */
+  --destructive:#a92e28; --on-destructive:#ffffff;
+  --success:#2e6949; --warning:#8a5a24;
+  --ring:#2e6b52;
+  /* divers */
+  --radius:14px; --shadow:0 18px 50px rgba(32,41,34,.08);
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,monospace;
+  font-family:var(--sans); font-synthesis:none; text-rendering:optimizeLegibility;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --background:#0E0E10; --foreground:#F4F2EE;
+  --card:#151517; --card-foreground:#F4F2EE; --card-2:#1B1B1E;
+  --muted:#1B1B1E; --muted-foreground:#B8B5AE; --muted-foreground-2:#C9C6BE;
+  --border:rgba(255,255,255,.09);
+  --primary:#2e6b52; --on-primary:#ffffff;
+  --primary-strong:#3d8170; --primary-2:#7bd88f; --primary-soft:#1d2b27;
+  --accent:#e2a07e; --on-accent:#2b0b0a; --accent-soft:#2a2018;
+  --destructive:#F0524B; --on-destructive:#2b0b0a;
+  --success:#3FA86A; --warning:#E0A83A;
+  --ring:#7bd88f;
+  --shadow:0 18px 50px rgba(0,0,0,.5);
+}
+html{font-size:16px}
+body{font-family:var(--sans);font-size:1rem;line-height:1.55}

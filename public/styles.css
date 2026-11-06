@@ -1,13 +1,7 @@
 /* UrbaTrame · interface — chrome sombre, cartes blanches */
-:root{
-  --bg:#0E0E10; --panel:#151517; --panel2:#1B1B1E; --line:rgba(255,255,255,.09);
-  --txt:#F4F2EE; --mut:#A3A09A; --mut2:#888681; --red:#E8413A; --red2:#F0524B;
-  --ok:#3FA86A; --warn:#E0A83A;
-  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,monospace;
-  --sans:Inter,ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-}
+:root{--bg:var(--background);--panel:var(--card);--panel2:var(--card-2);--line:var(--border);--txt:var(--foreground);--mut:var(--muted-foreground);--mut2:var(--muted-foreground-2);--red:var(--destructive);--red2:var(--destructive);--ok:var(--success);--warn:var(--warning)}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 var(--sans)}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:1rem/1.5 var(--sans)}
 a{color:inherit}
 button{font:600 13px var(--sans);height:36px;padding:0 13px;border-radius:10px;border:1px solid var(--line);
   background:rgba(255,255,255,.05);color:var(--txt);cursor:pointer}
