@@ -381,7 +381,15 @@ function createCodecraftRelay() {
       const text = await upstream.text();
       if (text.length > 1_000_000) return send(res, 502, { error: 'CODECRAFT_UPSTREAM_TOO_LARGE' });
       let data;
-      try { data = JSON.parse(text); } catch { return send(res, 502, { error: 'CODECRAFT_UPSTREAM_INVALID_JSON' }); }
+      try { data = JSON.parse(text); }
+      catch {
+        /* diagnostic sans fuite : statut + content-type de l'amont, jamais le corps */
+        return send(res, 502, {
+          error: 'CODECRAFT_UPSTREAM_INVALID_JSON',
+          upstreamStatus: upstream.status,
+          upstreamContentType: upstream.headers.get('content-type') || ''
+        });
+      }
       if (!upstream.ok) {
         log('codecraft amont HTTP', upstream.status); // jamais de contenu de prompt journalisé
         return send(res, 502, { error: 'CODECRAFT_UPSTREAM_ERROR', upstreamStatus: upstream.status });
