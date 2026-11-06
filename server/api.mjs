@@ -394,6 +394,11 @@ function createCodecraftRelay() {
       }
       if (!upstream.ok) {
         log('codecraft amont HTTP', upstream.status); // jamais de contenu de prompt journalisé
+        /* 403 text/html = challenge WAF (Cloudflare) qui bloque la sortie Vercel/AWS :
+           code dédié pour que le client affiche un message actionnable */
+        const ct = upstream.headers.get('content-type') || '';
+        if (upstream.status === 403 && ct.includes('text/html'))
+          return send(res, 502, { error: 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF', upstreamStatus: 403 });
         return send(res, 502, { error: 'CODECRAFT_UPSTREAM_ERROR', upstreamStatus: upstream.status });
       }
       return send(res, 200, { ok: true, response: data });

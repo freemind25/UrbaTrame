@@ -1575,7 +1575,13 @@ $('#runAi').addEventListener('click', async () => {
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 90_000);
   try {
     const response = await fetch(endpoint.href, { method: 'POST', mode: 'cors', credentials: 'omit', redirect: 'error', cache: 'no-store', headers: headers, body: bodyString, signal: controller.signal });
-    if (!response.ok) throw new Error(`Fournisseur IA · HTTP ${response.status}. Vérifiez clé, modèle, CORS, quota et solde.`);
+    if (!response.ok) {
+      let cc = '';
+      try { cc = (await response.json())?.error || ''; } catch { /* body non JSON */ }
+      if (cc === 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF')
+        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403). Autorisez les ASN AWS (AS16509) côté CodeCraft/Cloudflare, ou choisissez OpenRouter / APInex / endpoint perso.');
+      throw new Error(`Fournisseur IA · HTTP ${response.status}. Vérifiez clé, modèle, CORS, quota et solde.`);
+    }
     const responseJson = JSON.parse(await readResponseTextLimited(response, 512 * 1024, 'AI_RESPONSE_TOO_LARGE'));
     const content = responseJson?.choices?.[0]?.message?.content;
     const reply = typeof content === 'string' ? content : Array.isArray(content) ? content.map(part => part.text || '').join('') : '';
