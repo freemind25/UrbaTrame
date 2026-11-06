@@ -79,6 +79,14 @@ export const clientIp = req =>
   (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
   req.socket.remoteAddress || '0.0.0.0';
 
+/* Règle perf 27 : un asset servit avec ?v=<version> est immuable (nom + empreinte
+   de version dans l'URL) -> cache navigateur d'un an. Sans ?v=, on reste prudent. */
+export function cacheControlFor(urlPath, ext) {
+  if (ext === '.html') return 'no-store';
+  const hasV = /[?&]v=[^&]+/.test(urlPath);
+  return hasV ? 'public, max-age=31536000, immutable' : 'public, max-age=300';
+}
+
 export async function serveStatic(req, res, urlPath, publicDir) {
   let rel = decodeURIComponent(urlPath.split('?')[0]);
   if (rel === '/' || rel === '') rel = '/index.html';
@@ -93,7 +101,8 @@ export async function serveStatic(req, res, urlPath, publicDir) {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'X-EM-Trace': TRACE,
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=300'
+      'Cache-Control': cacheControlFor(urlPath, ext),
+      'Vary': 'Accept-Encoding'
     });
     res.end(data);
   } catch {
