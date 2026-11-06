@@ -1179,15 +1179,21 @@ function drawLoader(list, state, startedAt) {
 
 /* ═══════════════ génération ═══════════════ */
 async function generate() {
-  if (S.sel.has('volumes')) await ensureVue3D();
+  /* Règle perf 14 : verrou optimiste immédiat — le clic met à jour l'UI tout de
+     suite (bouton désactivé, S.busy) et un double-clic ne lance pas 2 générations,
+     même pendant l'éventuel chargement du moteur 3D. */
   if (S.busy) return;
+  S.busy = true;
+  const genBtn = $('#gen');
+  if (genBtn) genBtn.disabled = true;
+  if (S.sel.has('volumes')) await ensureVue3D();
   const ids = selected();
-  if (!ids.length) { toast(T('Sélectionnez au moins une analyse', 'Pick at least one analysis'), false); return; }
-  if (S.site.lat == null) { toast(T('Cherchez d\'abord un lieu', 'Search a place first'), false); return; }
+  if (!ids.length) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(T('Sélectionnez au moins une analyse', 'Pick at least one analysis'), false); return; }
+  if (S.site.lat == null) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(T('Cherchez d\'abord un lieu', 'Search a place first'), false); return; }
 
   let p;
   try { p = plan(ids, S.site.R, S.site.lat, S.site.lon); }
-  catch (e) { toast(errText(e.message, S.lang), false); log('plan refusé : ' + e.message); return; }
+  catch (e) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(errText(e.message, S.lang), false); log('plan refusé : ' + e.message); return; }
   if (p.skipped.length)
     log(`rayon ${S.site.R} m : ${p.skipped.length} analyse(s) ignorée(s) (${p.skipped.join(', ')})`);
   const requestedSite = {
@@ -1201,7 +1207,6 @@ async function generate() {
   S.terrain = null;
   S.obm = null;
 
-  S.busy = true;
   renderCards(); /* squelettes des cartes pendant la génération (règle perf 1) */
   $('#analysisMap')?.classList.add('is-busy');
   const list = stages(p, null);
@@ -1353,6 +1358,7 @@ async function generate() {
     drawLoader([], state, t0);
     if (run) S.routes.end(run, { device: S.device, session: S.session });
     S.busy = false;
+    if (genBtn) genBtn.disabled = false;
     $('#analysisMap')?.classList.remove('is-busy');
   }
 }
