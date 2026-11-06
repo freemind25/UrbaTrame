@@ -74,7 +74,7 @@ describe('service', () => {
     assert.match(homeHtml, /atelier-analyse\.html/, 'onglet de suivi de l’atelier d’analyse');
     assert.match(homeHtml, /id="sunDate"/, 'date solaire sélectionnable');
     assert.match(homeHtml, /js\/renderers-obm\.js/, 'rendu OpenBuildingMap chargé');
-    assert.equal((await fetch(base + '/urbatrame-emblem.png')).status, 200);
+    assert.equal((await fetch(base + '/urbatrame-emblem.webp')).status, 200);
     assert.equal((await fetch(base + '/urbatrame-favicon.png')).status, 200);
     assert.equal((await fetch(base + '/favicon.svg')).status, 200);
     assert.equal((await fetch(base + '/js/osm.mjs')).status, 200);
@@ -136,7 +136,7 @@ describe('service', () => {
     assert.match(html, /Analyse des sites urbains/);
     assert.match(html, /Atelier d’analyse/);
     assert.match(html, /intégrée à UrbaTrame/);
-    assert.match(html, /urbatrame-emblem\.png/);
+    assert.match(html, /urbatrame-emblem\.webp/);
     assert.doesNotMatch(html, /github\.com\/freemind25\/altiplan/);
     assert.equal((await fetch(base + '/js/atelier/app.mjs')).status, 200);
 
