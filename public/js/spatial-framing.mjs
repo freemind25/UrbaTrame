@@ -9,6 +9,16 @@ import {
 import { parseGeoJSONText } from './atelier/local-layers.mjs';
 import { parseGeoPackage } from './atelier/geopackage.mjs';
 import { appendTopographicLayer, TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from './terrain/topographic.mjs';
+import {
+  buildSiteReportPdf, computeSiteRatios, computeSpacematrix, estimateHeightM, pedestrianIsochrones,
+  polylineProfile, profileToSvg, ratiosChartSvg, ratiosToCsv, skyViewFactor, streetCanyons,
+  sunPosition, threeThirtyThreeHundred
+} from './site-analysis.mjs';
+import {
+  contourIntervalChoice, contourSegments, flowAccumulation, flowDirD8, gridStats, laserPlates,
+  platesDxfEntities, platesSvg, explodeSvg, slopeAspectGrid, streamCells, twiGrid, watershedAt
+} from './terrain/relief-analysis.mjs';
+import { dxf } from './atelier/exports.mjs';
 
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
@@ -63,7 +73,17 @@ const state = {
   renderId: 0,
   visibleFeatureCount: 0,
   busy: false,
-  busyKind: ''
+  busyKind: '',
+  /* panneau 06 — analyse de site + coupe */
+  siteReport: null,
+  sectionTool: false,
+  sectionDraft: [],
+  sectionProfile: null,
+  /* panneau 07 — relief avancé */
+  reliefMode: 'off',
+  reliefCache: null,
+  watershed: null,
+  laserResult: null
 };
 
 const layerById = new Map(LAYERS.map(layer => [layer.id, layer]));
@@ -187,7 +207,25 @@ function invalidateRemoteLayers(reason = 'Le centre a changé; les couches dista
   state.terrainSource = '';
   updateTerrainLegend($('terrainLegend'), null, { unloadedText: 'Relief non chargé. La lecture d’altitude apparaîtra après chargement.' });
   updateElevationReadout($('terrainAltitude'), null, NaN, NaN);
+  resetAnalysisState();
   setStatus('osmStatus', reason);
+}
+
+function resetAnalysisState() {
+  state.siteReport = null;
+  state.sectionTool = false;
+  state.sectionDraft = [];
+  state.sectionProfile = null;
+  state.reliefMode = 'off';
+  state.reliefCache = null;
+  state.watershed = null;
+  state.laserResult = null;
+  for (const id of ['analysisStatus', 'sectionStatus', 'reliefStatus'])
+    if ($(id)) setStatus(id, '');
+  for (const id of ['analysisMetrics', 'analysisChart', 'analysisUsage', 'analysisDetail', 'sectionChart', 'platesPreview'])
+    if ($(id)) $(id).replaceChildren();
+  if ($('reliefAnalysis')) $('reliefAnalysis').value = 'off';
+  updateAnalysisButtons();
 }
 
 function applyCenter(value, { fromUnit = false } = {}) {
@@ -309,8 +347,23 @@ function updateButtons() {
   $('updateAnnotation').disabled = !state.selectedAnnotationId;
   $('moveAnnotation').disabled = !state.selectedAnnotationId;
   $('deleteAnnotation').disabled = !state.selectedAnnotationId;
-  $('cancelTool').hidden = !(state.drawTool || state.annotationTool || state.editPerimeter || state.annotationMoveMode);
+  $('cancelTool').hidden = !(state.drawTool || state.annotationTool || state.editPerimeter || state.annotationMoveMode || state.sectionTool);
   $('cancelTool').textContent = state.editPerimeter || state.annotationMoveMode ? 'Quitter le mode édition' : 'Quitter l’outil';
+  updateAnalysisButtons();
+}
+
+function updateAnalysisButtons() {
+  const hasOsm = state.osmFeatures.length > 0;
+  const hasTerrain = Boolean(state.terrain && Array.isArray(state.terrain.grid));
+  if ($('analyzeSite')) $('analyzeSite').disabled = !hasOsm;
+  if ($('exportRatiosCsv')) $('exportRatiosCsv').disabled = !state.siteReport;
+  if ($('startSection')) $('startSection').disabled = !hasTerrain;
+  if ($('finishSectionBtn')) $('finishSectionBtn').disabled = !(state.sectionTool && state.sectionDraft.length >= 2);
+  if ($('exportSectionSvg')) $('exportSectionSvg').disabled = !state.sectionProfile;
+  if ($('exportSectionPng')) $('exportSectionPng').disabled = !state.sectionProfile;
+  if ($('exportSiteReport')) $('exportSiteReport').disabled = !state.siteReport;
+  for (const id of ['reliefAnalysis', 'contourPas', 'laserPas', 'platesPreviewBtn', 'exportPlatesSvg', 'exportPlatesDxf'])
+    if ($(id)) $(id).disabled = !hasTerrain;
 }
 
 function updateScaleControls({ from = 'radius' } = {}) {
@@ -903,6 +956,13 @@ function handleMapClick(event) {
     if (state.draftShape.length >= 1000) return toast('Limite de 1 000 sommets atteinte.', 'error');
     state.draftShape.push(point); updateButtons(); renderMap(); return;
   }
+  if (state.sectionTool) {
+    if (state.sectionDraft.length >= 50) return toast('Coupe limitée à 50 points.', 'error');
+    state.sectionDraft.push(point);
+    setStatus('sectionStatus', `${state.sectionDraft.length} point(s) posés — « Terminer la coupe » pour tracer.`);
+    updateButtons(); renderMap(); return;
+  }
+  if (state.reliefMode === 'bassin') { onReliefMapClick(point); return; }
   if (!state.annotationTool) return;
   state.annotationDraft.push(point);
   const type = state.annotationTool;
@@ -1269,6 +1329,7 @@ function drawMapScene(svg, rect, { scope = 'preview', includeMeta = true } = {})
     if (!isSchematic()) renderTerrain(group, projection.project);
     renderAdministrative(group, projection.project);
     if (!isSchematic()) renderOsmFeatures(group, projection.project);
+    if (!isSchematic()) renderReliefOverlay(group, projection.project);
     if (state.localFeatures.length && state.layerVisibility.local) {
       for (const item of state.localFeatures.slice(0, MAX_RENDER_FEATURES)) {
         const path = geometryPath(item.geometry, projection.project);
@@ -1283,6 +1344,7 @@ function drawMapScene(svg, rect, { scope = 'preview', includeMeta = true } = {})
     addStudyPerimeter(group, projection.project);
     drawCenter(group, projection.project);
     drawPreviewDraft(group, projection.project);
+    drawSectionDraft(group, projection.project);
     if (state.annotationTool && state.annotationDraft.length) {
       const path = geometryPath({ type: 'LineString', coordinates: [...state.annotationDraft, ...(state.dragCurrent ? [state.dragCurrent] : [])] }, projection.project);
       if (path) svgElement('path', { d: path, fill: 'none', stroke: $('annotationColor').value || '#b24d3b', 'stroke-width': 2.2, 'stroke-dasharray': '6 4', class: 'draw-preview' }, group);
@@ -1852,6 +1914,358 @@ function updateProjectName() {
   if (!state.currentTitleManual) updateTitle();
 }
 
+
+/* ═══════════════ panneau 06 — analyse de site, coupe, rapport ═══════════════ */
+
+function effectivePerimeter() {
+  return state.perimeter || { type: 'circle', center: [state.center.lon, state.center.lat], radiusMeters: state.viewRadius };
+}
+
+function perimeterLabel() {
+  const per = state.perimeter;
+  if (!per) return `Cercle visible de ${formatDistance(state.viewRadius)} autour du centre`;
+  if (per.type === 'circle') return `Cercle de ${formatDistance(Number(per.radiusMeters))} autour du centre`;
+  const stats = perimeterStats(per, state.center);
+  return `${per.type === 'rectangle' ? 'Rectangle' : 'Polygone'} de ${formatArea(stats.areaM2)}`;
+}
+
+function allAnalysisFeatures() {
+  const locals = state.localFeatures.map(f => ({
+    type: 'Feature',
+    geometry: f.geometry,
+    properties: { ...(f.properties || {}), layerId: f.properties?.layerId || 'local' }
+  }));
+  return [...state.osmFeatures, ...locals];
+}
+
+function analyzeSite() {
+  const features = allAnalysisFeatures();
+  const perimeter = effectivePerimeter();
+  const report = computeSiteRatios({ features, perimeter, center: state.center });
+  if (!report) { setStatus('analysisStatus', 'Centre invalide : analyse impossible.', 'error'); return; }
+  const roads = report.rows.find(r => r.key === 'roads');
+  const indicators = {
+    spacematrix: computeSpacematrix({
+      features, center: state.center, studyAreaM2: report.studyAreaM2,
+      roadLengthM: roads ? roads.lengthM : 0, perimeter
+    }),
+    canyons: streetCanyons({ features, center: state.center, perimeter }),
+    threeThirtyThreeHundred: threeThirtyThreeHundred({ features, center: state.center }),
+    isochrones: pedestrianIsochrones({ features: state.osmFeatures, center: state.center }),
+    skyView: state.terrain ? skyViewFactor(state.terrain, state.center.lat, state.center.lon) : { ok: false, reason: 'terrain-not-loaded' },
+    sun: sunPosition(state.center.lat, state.center.lon, $('sunDateTime').value ? new Date($('sunDateTime').value) : new Date())
+  };
+  state.siteReport = { report, indicators, perimeterLabel: perimeterLabel() };
+  renderAnalysisPanels();
+  setStatus('analysisStatus', `${report.featureCount} entités retenues dans le périmètre (${formatArea(report.studyAreaM2)}). Analyse locale, approximations pédagogiques.`, 'success');
+  updateAnalysisButtons();
+}
+
+function renderAnalysisPanels() {
+  const { report, indicators } = state.siteReport;
+  const metrics = $('analysisMetrics');
+  metrics.replaceChildren();
+  const sm = indicators.spacematrix;
+  const cards = [
+    ['Surface d’étude', formatArea(report.studyAreaM2)],
+    ['Entités dans le périmètre', String(report.featureCount)],
+    ['Taux d’occupation du sol', `${(report.builtCoverage * 100).toFixed(1)} %`],
+    ['Voirie', formatDistance(report.rows.find(r => r.key === 'roads')?.lengthM || 0)],
+    ['GSI / FSI', sm ? `${(sm.gsi * 100).toFixed(1)} % / ${sm.fsi.toFixed(2)}` : '—'],
+    ['OSR', sm ? `${(sm.osr * 100).toFixed(1)} %` : '—'],
+    ['Arbres à 300 m (3-30-300)', String(indicators.threeThirtyThreeHundred.trees)],
+    ['Canopée à 300 m', `${indicators.threeThirtyThreeHundred.canopyPct.toFixed(1)} %`],
+    ['SVF au centre', indicators.skyView.ok ? indicators.skyView.svf.toFixed(2) : '—'],
+    ['Soleil', `élév. ${indicators.sun.elevationDeg.toFixed(0)}° · azim. ${indicators.sun.azimuthDeg.toFixed(0)}°`]
+  ];
+  for (const [label, value] of cards) {
+    const div = document.createElement('div');
+    div.className = 'metric';
+    const b = document.createElement('b'); b.textContent = value;
+    const span = document.createElement('span'); span.textContent = label;
+    div.append(b, span);
+    metrics.appendChild(div);
+  }
+  $('analysisChart').innerHTML = ratiosChartSvg(report);
+  $('analysisUsage').textContent = report.usage.length
+    ? 'Usages du bâti : ' + report.usage.map(u => `${u.label} (${u.count})`).join(' · ')
+    : 'Aucun bâtiment dans le périmètre.';
+  const detail = $('analysisDetail');
+  detail.replaceChildren();
+  const lignes = [];
+  if (sm) lignes.push(`Spacematrix : GSI ${(sm.gsi * 100).toFixed(1)} % · OSR ${(sm.osr * 100).toFixed(1)} % · FSI ${sm.fsi.toFixed(2)} · N ${sm.networkDensityKmPerKm2.toFixed(2)} km/km² (${sm.buildings} bâtiments).`);
+  for (const c of indicators.canyons.slice(0, 5))
+    lignes.push(`Canyon de rue (${c.highway || c.layerId}) : largeur ${c.widthM} m, hauteur moy. ${c.avgHeightM.toFixed(1)} m → ratio ${c.ratio.toFixed(2)} (${c.class}).`);
+  const iso = indicators.isochrones;
+  if (iso.ok) for (const t of iso.times) lignes.push(`Isochrone ${t.minutes} min à pied (5 km/h) : ${formatDistance(t.reachableLengthM)} de voirie, ${t.pois} équipement(s) atteint(s).`);
+  else lignes.push(`Isochrones : ${iso.reason === 'no-roads' ? 'aucune voie chargée' : iso.reason}.`);
+  const t3 = indicators.threeThirtyThreeHundred;
+  lignes.push(`Règle 3-30-300 : ${t3.trees} arbre(s), canopée ${t3.canopyPct.toFixed(1)} %, parc à ${t3.parkDistanceM === null ? '—' : formatDistance(t3.parkDistanceM)}.`);
+  if (indicators.skyView.ok) lignes.push(`Sky view factor au centre : ${indicators.skyView.svf.toFixed(2)} (approximation DEM).`);
+  lignes.push(`Soleil : élévation ${indicators.sun.elevationDeg.toFixed(1)}°, azimut ${indicators.sun.azimuthDeg.toFixed(0)}°.`);
+  lignes.push('Toutes ces valeurs sont des approximations calculées localement (pas de relevé certifié).');
+  for (const line of lignes) { const p = document.createElement('p'); p.textContent = line; detail.appendChild(p); }
+}
+
+function exportRatiosCsv() {
+  if (!state.siteReport) return;
+  const csv = ratiosToCsv(state.siteReport.report);
+  downloadBlob(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), 'ratios-site.csv');
+}
+
+function exportSiteReport() {
+  if (!state.siteReport) return;
+  const { report, indicators, perimeterLabel: label } = state.siteReport;
+  const pdf = buildSiteReportPdf({
+    title: `Rapport de site — ${state.center.name || 'site'}`,
+    projectName: $('projectName').value || 'Cadrage spatial',
+    centerName: state.center.name || '',
+    center: state.center,
+    dateText: new Date().toLocaleDateString('fr-FR'),
+    perimeterLabel: label,
+    studyAreaM2: report.studyAreaM2,
+    rows: report.rows,
+    totals: report.totals,
+    builtCoverage: report.builtCoverage,
+    featureCount: report.featureCount,
+    usage: report.usage,
+    profile: state.sectionProfile,
+    indicators
+  });
+  downloadBlob(new Blob([pdf], { type: 'application/pdf' }), 'rapport-site.pdf');
+}
+
+/* ── coupe multi-points sur le relief ── */
+
+function startSectionTool() {
+  if (state.sectionTool) {
+    state.sectionTool = false; state.sectionDraft = [];
+    setStatus('sectionStatus', 'Outil de coupe désactivé.');
+  } else {
+    state.sectionTool = true; state.sectionDraft = []; state.sectionProfile = null;
+    $('sectionChart').replaceChildren();
+    setStatus('sectionStatus', 'Cliquez sur la carte pour poser les points de la coupe (A…B), puis « Terminer la coupe ».');
+  }
+  updateButtons(); renderMap();
+}
+
+function finishSection() {
+  if (!state.sectionTool) return;
+  const points = state.sectionDraft.slice();
+  state.sectionTool = false;
+  if (points.length < 2) {
+    setStatus('sectionStatus', 'Posez au moins deux points sur la carte.', 'error');
+    updateButtons(); renderMap(); return;
+  }
+  const profile = polylineProfile(state.terrain, points);
+  if (!profile || !profile.ok) {
+    setStatus('sectionStatus', profile && profile.reason === 'terrain-not-loaded'
+      ? 'Relief non chargé : chargez d’abord le relief (étape 05).'
+      : 'Ligne de coupe invalide.', 'error');
+    updateButtons(); return;
+  }
+  state.sectionProfile = profile;
+  renderSectionProfile();
+  setStatus('sectionStatus', `Coupe de ${formatDistance(profile.lengthM)} · ${profile.samples} échantillons · montée ${profile.riseM.toFixed(1)} m · pente max ${profile.maxSlopePct.toFixed(1)} %.`, 'success');
+  updateButtons();
+}
+
+function renderSectionProfile() {
+  if (!state.sectionProfile) return;
+  $('sectionChart').innerHTML = profileToSvg(state.sectionProfile, { exaggeration: Number($('sectionExaggeration').value) || 1 });
+}
+
+function exportSectionSvg() {
+  if (!state.sectionProfile) return;
+  const svg = profileToSvg(state.sectionProfile, { exaggeration: Number($('sectionExaggeration').value) || 1 });
+  downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'coupe-site.svg');
+}
+
+function exportSectionPng() {
+  if (!state.sectionProfile) return;
+  const svg = profileToSvg(state.sectionProfile, { exaggeration: Number($('sectionExaggeration').value) || 1 });
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1440; canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fbfcf9'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => { if (blob) downloadBlob(blob, 'coupe-site.png'); URL.revokeObjectURL(url); }, 'image/png');
+  };
+  img.src = url;
+}
+
+function drawSectionDraft(group, project) {
+  if (!state.sectionDraft.length) return;
+  const path = geometryPath({ type: 'LineString', coordinates: state.sectionDraft }, project);
+  if (path) svgElement('path', { d: path, fill: 'none', stroke: '#e34e32', 'stroke-width': 2.4, 'stroke-dasharray': '7 4', class: 'section-draft', 'vector-effect': 'non-scaling-stroke' }, group);
+  state.sectionDraft.forEach((p, k) => {
+    const q = project(p);
+    if (!q) return;
+    svgElement('circle', { cx: q[0], cy: q[1], r: 4.5, fill: '#e34e32', stroke: '#fff', 'stroke-width': 1.4 }, group);
+    addText(group, q[0] + 8, q[1] - 6, String.fromCharCode(65 + k), { 'font-size': 11, 'font-weight': 800, fill: '#e34e32' });
+  });
+}
+
+/* ═══════════════ panneau 07 — relief avancé (phase C) ═══════════════ */
+
+function terrainGridGeom(t) {
+  const n = t.grid.length;
+  const dy = (Number(t.radius) || 600) / 111320;
+  const dx = dy / Math.max(0.08, Math.cos(Number(t.lat) * Math.PI / 180));
+  return {
+    n, latTop: Number(t.lat) + dy, lonLeft: Number(t.lon) - dx,
+    pasX: 2 * dx / (n - 1), pasY: 2 * dy / (n - 1)
+  };
+}
+
+function reliefCacheFor(mode) {
+  if (!state.terrain) return null;
+  const key = mode + '@' + (state.terrain.grid.length + 'x' + (state.terrain.grid[0]?.length));
+  if (state.reliefCache && state.reliefCache.key === key) return state.reliefCache.data;
+  const t = state.terrain;
+  let data = { key };
+  if (mode === 'pente' || mode === 'exposition') data.slope = slopeAspectGrid(t);
+  if (mode === 'twi') data.twi = twiGrid(t);
+  if (mode === 'ecoulement') {
+    data.flow = flowAccumulation(t);
+    data.streams = data.flow ? streamCells(t, 0) : null;
+  }
+  state.reliefCache = { key, data };
+  return data;
+}
+
+const reliefColor = (mode, value, g) => {
+  if (mode === 'pente') {
+    const t = Math.min(1, value / 30);
+    const r = Math.round(232 + (138 - 232) * t), v = Math.round(240 + (47 - 240) * t), b = Math.round(228 + (29 - 228) * t);
+    return `rgb(${r},${v},${b})`;
+  }
+  if (mode === 'exposition') return `hsl(${Math.round(value)}, 55%, 52%)`;
+  if (mode === 'twi') {
+    const t = g && g.max > g.min ? (value - g.min) / (g.max - g.min) : 0;
+    const r = Math.round(247 - 180 * t), v = Math.round(250 - 120 * t), b = Math.round(252 - 40 * t);
+    return `rgb(${r},${v},${b})`;
+  }
+  return '#4a93c6';
+};
+
+function renderReliefOverlay(group, project) {
+  const mode = state.reliefMode;
+  const t = state.terrain;
+  if (mode === 'off' || !t || !Array.isArray(t.grid) || !t.grid.length) return;
+  const geom = terrainGridGeom(t);
+  const { n, latTop, lonLeft, pasX, pasY } = geom;
+  const cache = reliefCacheFor(mode);
+
+  if (mode === 'bassin' && state.watershed) {
+    for (const [i, j] of state.watershed.cells) {
+      const a = project([lonLeft + i * pasX, latTop - j * pasY]);
+      const b = project([lonLeft + (i + 1) * pasX, latTop - (j + 1) * pasY]);
+      if (!a || !b) continue;
+      svgElement('rect', {
+        x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]),
+        width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]),
+        fill: 'rgba(74,147,198,.45)', stroke: '#2c6a94', 'stroke-width': .8
+      }, group);
+    }
+  } else if (cache) {
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const a = project([lonLeft + i * pasX, latTop - j * pasY]);
+        const b = project([lonLeft + (i + 1) * pasX, latTop - (j + 1) * pasY]);
+        if (!a || !b) continue;
+        const k = j * n + i;
+        let fill = null;
+        if (mode === 'pente' && cache.slope) fill = reliefColor('pente', cache.slope.slope[k], cache.slope);
+        else if (mode === 'exposition' && cache.slope) fill = reliefColor('exposition', cache.slope.aspect[k], cache.slope);
+        else if (mode === 'twi' && cache.twi) fill = reliefColor('twi', cache.twi.twi[k], cache.twi);
+        else if (mode === 'ecoulement' && cache.flow) {
+          const inStream = cache.streams && cache.flow.acc[k] >= cache.streams.threshold;
+          fill = inStream ? 'rgba(44,106,148,.85)' : 'rgba(74,147,198,.18)';
+        }
+        if (!fill) continue;
+        svgElement('rect', {
+          x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]),
+          width: Math.max(.6, Math.abs(b[0] - a[0])), height: Math.max(.6, Math.abs(b[1] - a[1])),
+          fill
+        }, group);
+        if (mode === 'ecoulement' && cache.flow) {
+          const d = cache.flow.dir[k];
+          if (d >= 0) {
+            const DIRS = [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]];
+            const c = project([lonLeft + (i + .5) * pasX, latTop - (j + .5) * pasY]);
+            const e = project([lonLeft + (i + .5 + DIRS[d][0] * .45) * pasX, latTop - (j + .5 + DIRS[d][1] * .45) * pasY]);
+            if (c && e) svgElement('line', { x1: c[0], y1: c[1], x2: e[0], y2: e[1], stroke: '#2c6a94', 'stroke-width': 1, 'stroke-opacity': .8 }, group);
+          }
+        }
+      }
+    }
+  }
+
+  /* courbes de niveau au pas choisi */
+  const g = gridStats(t);
+  if (g) {
+    const choix = $('contourPas').value;
+    const pas = choix === 'auto' ? contourIntervalChoice(g.min, g.max, 10) : Number(choix);
+    if (pas > 0) {
+      for (const seg of contourSegments(t, pas)) {
+        const coords = seg.pts.map(([x, y]) => [lonLeft + x * pasX, latTop - y * pasY]);
+        const path = geometryPath({ type: 'LineString', coordinates: coords }, project);
+        if (path) svgElement('path', { d: path, fill: 'none', stroke: '#8C7B62', 'stroke-width': .9, 'stroke-opacity': .85, 'vector-effect': 'non-scaling-stroke' }, group);
+      }
+    }
+  }
+}
+
+function onReliefMapClick(point) {
+  const t = state.terrain;
+  if (!t) return;
+  const geom = terrainGridGeom(t);
+  const i = Math.floor((point[0] - geom.lonLeft) / geom.pasX);
+  const j = Math.floor((geom.latTop - point[1]) / geom.pasY);
+  const ws = watershedAt(t, i, j);
+  state.watershed = ws;
+  if (ws) setStatus('reliefStatus', `Bassin versant amont : ${ws.cells.length} cellules · ${formatArea(ws.areaM2)} — simulation D8, approximation pédagogique.`, 'success');
+  else setStatus('reliefStatus', 'Point hors de la grille du relief.', 'error');
+  renderMap();
+}
+
+function computeLaser() {
+  if (!state.terrain) return null;
+  if (!state.laserResult) {
+    const pas = Number($('laserPas').value) || 5;
+    state.laserResult = laserPlates(state.terrain, { pas });
+  }
+  return state.laserResult;
+}
+
+function showPlatesPreview() {
+  const laser = computeLaser();
+  if (!laser) { setStatus('reliefStatus', 'Relief non chargé.', 'error'); return; }
+  $('platesPreview').innerHTML = explodeSvg(laser, { titre: state.center.name || '' });
+  setStatus('reliefStatus', `${laser.plates.length} plaques au pas de ${laser.pas} m · aire totale ${formatArea(laser.totalAreaM2)} — « computed, not surveyed ».`, 'success');
+}
+
+function exportPlatesSvg() {
+  const laser = computeLaser();
+  if (!laser) return;
+  downloadBlob(new Blob([explodeSvg(laser, { titre: 'Pile éclatée' })], { type: 'image/svg+xml' }), 'plaques-pile.svg');
+  for (const plate of laser.plates)
+    downloadBlob(new Blob([platesSvg(plate, laser, { titre: state.center.name || '' })], { type: 'image/svg+xml' }), `plaque-${plate.numero}.svg`);
+}
+
+function exportPlatesDxf() {
+  const laser = computeLaser();
+  if (!laser) return;
+  const { entites, calques } = platesDxfEntities(laser, { origine: [0, 0] });
+  const texte = dxf(entites, calques, { titre: 'UrbaTrame - plaques de decoupe' });
+  downloadBlob(new Blob([texte], { type: 'application/dxf' }), 'plaques.dxf');
+  setStatus('reliefStatus', `DXF exporté : ${entites.length} entités (${laser.plates.length} plaques numérotées, Z = cote).`, 'success');
+}
+
 function hookEvents() {
   $('searchForm').addEventListener('submit', searchPlace);
   $('applyCenter').addEventListener('click', applyCoordinatesFromFields);
@@ -1868,6 +2282,26 @@ function hookEvents() {
   $('editShape').addEventListener('click', toggleEditPerimeter);
   $('circleRadius').addEventListener('input', circleRadiusChanged);
   $('loadOsm').addEventListener('click', loadOsmAndRelief);
+  $('analyzeSite').addEventListener('click', analyzeSite);
+  $('exportRatiosCsv').addEventListener('click', exportRatiosCsv);
+  $('startSection').addEventListener('click', startSectionTool);
+  $('finishSectionBtn').addEventListener('click', finishSection);
+  $('sectionExaggeration').addEventListener('change', renderSectionProfile);
+  $('exportSectionSvg').addEventListener('click', exportSectionSvg);
+  $('exportSectionPng').addEventListener('click', exportSectionPng);
+  $('exportSiteReport').addEventListener('click', exportSiteReport);
+  $('reliefAnalysis').addEventListener('change', event => {
+    state.reliefMode = event.target.value;
+    state.reliefCache = null; state.watershed = null;
+    const labels = { off: 'Aucune analyse de relief.', pente: 'Pente par cellule (dégradé, 0–30°).', exposition: 'Exposition des versants (teinte par azimut).', twi: 'Indice d’humidité TWI.', ecoulement: 'Écoulement D8 + cours d’eau (simulation).', bassin: 'Cliquez un point sur la carte pour son bassin versant amont.' };
+    setStatus('reliefStatus', labels[state.reliefMode] || '');
+    renderMap();
+  });
+  $('contourPas').addEventListener('change', () => renderMap());
+  $('laserPas').addEventListener('change', () => { state.laserResult = null; });
+  $('platesPreviewBtn').addEventListener('click', showPlatesPreview);
+  $('exportPlatesSvg').addEventListener('click', exportPlatesSvg);
+  $('exportPlatesDxf').addEventListener('click', exportPlatesDxf);
   $('importBoundary').addEventListener('change', importLocalLayer);
   $('useBoundary').addEventListener('click', useImportedBoundary);
   $('startAnnotation').addEventListener('click', startAnnotation);

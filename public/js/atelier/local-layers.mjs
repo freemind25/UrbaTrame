@@ -404,3 +404,242 @@ export function exportVisibleGeoJSON(layers, { now = new Date() } = {}) {
     }
   };
 }
+
+
+/* ─────────── phase C : références DXF / OBJ / GLB (sous-couches) ───────────
+   Lecture locale de fichiers vectoriels ou de maillage, référencement manuel
+   (CRS source, échelle, rotation, décalage est/nord en mètres du CRS source),
+   puis conversion en WGS 84. L'empreinte du maillage est affichée ; le maillage
+   brut reste dans les propriétés de la couche. Aucune donnée n'est envoyée. */
+
+/* Applique échelle + rotation autour du centroïde, puis décalage est/nord.
+   pts : [[x, y], ...] en unités du CRS source. */
+export function transformXY(pts, { scale = 1, rotationDeg = 0, offsetEN = [0, 0] } = {}) {
+  if (!Array.isArray(pts) || !pts.length) return [];
+  const k = Number(scale) > 0 ? Number(scale) : 1;
+  const th = (Number(rotationDeg) || 0) * Math.PI / 180;
+  const cos = Math.cos(th), sin = Math.sin(th);
+  const ox = Array.isArray(offsetEN) ? Number(offsetEN[0]) || 0 : 0;
+  const oy = Array.isArray(offsetEN) ? Number(offsetEN[1]) || 0 : 0;
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += Number(p[0]); cy += Number(p[1]); }
+  cx /= pts.length; cy /= pts.length;
+  return pts.map(p => {
+    const dx = (Number(p[0]) - cx) * k, dy = (Number(p[1]) - cy) * k;
+    return [cx + dx * cos - dy * sin + ox, cy + dx * sin + dy * cos + oy];
+  });
+}
+
+/* Enveloppe convexe 2D (chaîne monotone), sans point de fermeture répété. */
+export function convexHull2D(pts) {
+  const p = (Array.isArray(pts) ? pts : [])
+    .filter(q => Array.isArray(q) && Number.isFinite(Number(q[0])) && Number.isFinite(Number(q[1])))
+    .map(q => [Number(q[0]), Number(q[1])])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const bas = [], haut = [];
+  for (const q of p) {
+    while (bas.length >= 2 && cross(bas[bas.length - 2], bas[bas.length - 1], q) <= 0) bas.pop();
+    bas.push(q);
+  }
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i];
+    while (haut.length >= 2 && cross(haut[haut.length - 2], haut[haut.length - 1], q) <= 0) haut.pop();
+    haut.push(q);
+  }
+  bas.pop(); haut.pop();
+  return bas.concat(haut);
+}
+
+/* DXF ASCII (R12+) : lecture en flux de couples (code, valeur). Entités
+   retenues : LINE, LWPOLYLINE (fermée ou non), POLYLINE + VERTEX/SEQEND, POINT.
+   Chaque entité : { kind: 'line'|'poly'|'point', layer, pts?, ferme?, pos? }. */
+export function parseDxfText(text, { fileName = 'reference.dxf' } = {}) {
+  if (typeof text !== 'string' || !text.trim()) fail('EMPTY_FILE');
+  if (text.length > MAX_IMPORT_BYTES) fail('FILE_TOO_LARGE');
+  const lignes = text.split(/\r?\n/);
+  const paires = [];
+  for (let i = 0; i + 1 < lignes.length; i += 2) {
+    const code = parseInt(lignes[i].trim(), 10);
+    if (Number.isFinite(code)) paires.push([code, lignes[i + 1].trim()]);
+  }
+  const entities = [];
+  let courant = null, groupes = [], polyOuvert = null;
+  const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+  const groupesDe = () => {
+    const g = {};
+    for (const [c, v] of groupes) {
+      if (c === 8) g.layer = v;
+      else if (c === 70) g.f70 = num(v);
+      else if (c === 90) g.count = num(v);
+      else if (c === 10 || c === 11) (g.x = g.x || []).push(num(v));
+      else if (c === 20 || c === 21) (g.y = g.y || []).push(num(v));
+    }
+    return g;
+  };
+  const fermer = () => {
+    if (!courant) return;
+    const g = groupesDe();
+    const layer = g.layer || '0';
+    if (courant === 'LINE' && g.x?.length >= 2 && g.y?.length >= 2)
+      entities.push({ kind: 'line', layer, pts: [[g.x[0], g.y[0]], [g.x[1], g.y[1]]] });
+    else if (courant === 'LWPOLYLINE' && g.x?.length >= 2) {
+      const pts = g.x.map((x, i) => [x, g.y[i] ?? 0]);
+      const ferme = (g.f70 & 1) === 1;
+      entities.push({ kind: ferme ? 'poly' : 'line', layer, pts, ferme });
+    } else if (courant === 'POLYLINE') {
+      polyOuvert = { kind: (g.f70 & 1) === 1 ? 'poly' : 'line', layer, pts: [], ferme: (g.f70 & 1) === 1 };
+    } else if (courant === 'VERTEX' && polyOuvert && g.x?.length) {
+      polyOuvert.pts.push([g.x[0], g.y[0] ?? 0]);
+    } else if (courant === 'SEQEND' && polyOuvert) {
+      if (polyOuvert.pts.length >= 2) entities.push(polyOuvert);
+      polyOuvert = null;
+    } else if (courant === 'POINT' && g.x?.length)
+      entities.push({ kind: 'point', layer, pos: [g.x[0], g.y[0] ?? 0] });
+    groupes = [];
+  };
+  for (const [code, valeur] of paires) {
+    if (code === 0) { fermer(); courant = valeur; }
+    else if (courant) groupes.push([code, valeur]);
+  }
+  fermer();
+  if (polyOuvert && polyOuvert.pts.length >= 2) entities.push(polyOuvert);
+  return { fileName, entities, layers: [...new Set(entities.map(e => e.layer))] };
+}
+
+/* DXF → GeoJSON WGS 84 : transformation (échelle/rotation/décalage) appliquée
+   dans le CRS source, puis reprojection. LWPOLYLINE fermée → Polygon. */
+export function dxfToGeoJSON(dxf, { sourceCrs = 'EPSG:4326', scale, rotationDeg, offsetEN } = {}) {
+  const crs = normalizeCrs(sourceCrs);
+  const tr = { scale, rotationDeg, offsetEN };
+  const features = [];
+  for (const e of dxf.entities || []) {
+    if (e.kind === 'point') {
+      const [x, y] = transformXY([e.pos], tr)[0];
+      features.push({
+        type: 'Feature',
+        properties: { layer: e.layer, kind: 'point', source: 'dxf' },
+        geometry: { type: 'Point', coordinates: toWgs84(x, y, crs) }
+      });
+    } else {
+      const pts = transformXY(e.pts, tr).map(([x, y]) => toWgs84(x, y, crs));
+      if (e.kind === 'poly' && e.ferme && pts.length >= 3) {
+        const ring = pts.concat([pts[0]]);
+        features.push({
+          type: 'Feature',
+          properties: { layer: e.layer, kind: 'poly', source: 'dxf' },
+          geometry: { type: 'Polygon', coordinates: [ring] }
+        });
+      } else if (pts.length >= 2) {
+        features.push({
+          type: 'Feature',
+          properties: { layer: e.layer, kind: 'line', source: 'dxf' },
+          geometry: { type: 'LineString', coordinates: pts }
+        });
+      }
+    }
+  }
+  return {
+    type: 'FeatureCollection',
+    name: dxf.fileName,
+    sourceCrs: crs,
+    features
+  };
+}
+
+/* OBJ texte : sommets `v x y z` et faces `f i j k ...` (index 1, gérer i/j/k). */
+export function parseObjText(text, { fileName = 'modele.obj' } = {}) {
+  if (typeof text !== 'string' || !text.trim()) fail('EMPTY_FILE');
+  if (text.length > MAX_IMPORT_BYTES) fail('FILE_TOO_LARGE');
+  const vertices = [], faces = [];
+  for (const ligne of text.split(/\r?\n/)) {
+    const m = /^\s*(\S+)\s*(.*)$/.exec(ligne);
+    if (!m) continue;
+    const [, mot, reste] = m;
+    if (mot === 'v') {
+      const [x, y, z] = reste.trim().split(/\s+/).map(Number);
+      if ([x, y, z].every(Number.isFinite)) vertices.push([x, y, z]);
+    } else if (mot === 'f') {
+      const idx = reste.trim().split(/\s+/)
+        .map(t => parseInt(String(t).split('/')[0], 10) - 1)
+        .filter(i => Number.isInteger(i) && i >= 0);
+      if (idx.length >= 3) faces.push(idx);
+    }
+  }
+  if (!vertices.length) fail('OBJ_NO_VERTICES');
+  return { fileName, vertices, faces };
+}
+
+/* GLB (glTF binaire) : chunk JSON + chunk BIN, accessor POSITION float32/VEC3. */
+export function parseGlb(u8) {
+  if (!(u8 instanceof Uint8Array) || u8.length < 12) fail('INVALID_GLB');
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  if (dv.getUint32(0, true) !== 0x20544C46) fail('INVALID_GLB');           // 'glTF'
+  const version = dv.getUint32(4, true);
+  if (version !== 2) fail('INVALID_GLB');
+  const total = dv.getUint32(8, true);
+  if (total > u8.length) fail('INVALID_GLB');
+  let offset = 12, json = null, bin = null;
+  while (offset + 8 <= total) {
+    const clen = dv.getUint32(offset, true);
+    const ctype = dv.getUint32(offset + 4, true);
+    const start = offset + 8;
+    if (start + clen > u8.length) fail('INVALID_GLB');
+    if (ctype === 0x4E4F534A) json = new TextDecoder().decode(u8.subarray(start, start + clen));
+    else if (ctype === 0x004E4942) bin = u8.subarray(start, start + clen);
+    offset = start + clen;
+  }
+  if (!json || !bin) fail('INVALID_GLB');
+  let doc;
+  try { doc = JSON.parse(json); } catch { fail('INVALID_GLB'); }
+  const prim = doc.meshes?.[0]?.primitives?.[0];
+  const accIdx = prim?.attributes?.POSITION;
+  const accessor = Number.isInteger(accIdx) ? doc.accessors?.[accIdx] : null;
+  if (!accessor || accessor.componentType !== 5126 || accessor.type !== 'VEC3') fail('GLB_NO_POSITION');
+  const view = doc.bufferViews?.[accessor.bufferView || 0];
+  if (!view) fail('INVALID_GLB');
+  const base = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+  const count = accessor.count;
+  const bdv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+  const vertices = [];
+  for (let i = 0; i < count; i++) {
+    const o = base + i * 12;
+    if (o + 12 > bin.length) fail('INVALID_GLB');
+    vertices.push([bdv.getFloat32(o, true), bdv.getFloat32(o + 4, true), bdv.getFloat32(o + 8, true)]);
+  }
+  return { vertices, faces: [], json: doc };
+}
+
+/* OBJ/GLB → GeoJSON : empreinte convexe (Polygon) + centroïde (Point),
+   après transformation dans le CRS source puis reprojection WGS 84. */
+export function meshToGeoJSON(mesh, { sourceCrs = 'EPSG:4326', scale, rotationDeg, offsetEN, fileName = 'modele' } = {}) {
+  const crs = normalizeCrs(sourceCrs);
+  const tr = { scale, rotationDeg, offsetEN };
+  const plats = (mesh.vertices || []).map(v => [Number(v[0]), Number(v[1])]);
+  if (!plats.length) fail('MESH_NO_VERTICES');
+  const transformes = transformXY(plats, tr);
+  const hull = convexHull2D(transformes);
+  let cx = 0, cy = 0;
+  for (const p of transformes) { cx += p[0]; cy += p[1]; }
+  cx /= transformes.length; cy /= transformes.length;
+  const toLl = ([x, y]) => toWgs84(x, y, crs);
+  const ring = hull.length >= 3 ? hull.concat([hull[0]]) : transformes.concat([transformes[0]]);
+  return {
+    type: 'FeatureCollection',
+    name: fileName,
+    sourceCrs: crs,
+    features: [
+      {
+        type: 'Feature',
+        properties: { kind: 'mesh-reference', vertices: mesh.vertices.length, faces: (mesh.faces || []).length, fileName, source: fileName.endsWith('.glb') ? 'glb' : 'obj' },
+        geometry: { type: 'Polygon', coordinates: [ring.map(toLl)] }
+      },
+      {
+        type: 'Feature',
+        properties: { kind: 'mesh-centroid', fileName },
+        geometry: { type: 'Point', coordinates: toLl([cx, cy]) }
+      }
+    ]
+  };
+}

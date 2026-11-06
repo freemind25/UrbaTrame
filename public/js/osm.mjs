@@ -33,7 +33,10 @@ export function normalizeElements(into, elements) {
       out.pois.push({
         k: transit ? 'transit' : 'poi', n: t.name || '',
         x: e.lon, y: e.lat,
-        a: t.amenity || '', s: t.shop || '', l: t.leisure || '', to: t.tourism || ''
+        a: t.amenity || '', s: t.shop || '', l: t.leisure || '', to: t.tourism || '',
+        /* nature du point (natural=tree pour les arbres 3D, phase B) et
+           hauteur éventuelle lue dans le tag height */
+        nat: t.natural || '', h: heightOf(t) || 0
       });
       continue;
     }

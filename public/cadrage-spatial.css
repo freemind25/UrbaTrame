@@ -17,3 +17,7 @@
 .topo-legend-note{color:#859087;font-size:.61rem;line-height:1.4}
 .topo-legend-empty{color:#7b867e;font-size:.68rem}
 @media(max-width:580px){.topo-map-info{grid-template-columns:1fr}}
+
+.analysis-chart svg{display:block;width:100%;height:auto;border:1px solid #dce3dd;border-radius:9px;background:#fbfcf9}
+.analysis-chart{margin:9px 0}
+.analysis-detail{margin:6px 0}.analysis-detail p{margin:4px 0}.field-label.inline{display:flex;align-items:center;gap:8px;margin:8px 0 0}.field-label.inline input,.field-label.inline select{width:auto;margin:0}

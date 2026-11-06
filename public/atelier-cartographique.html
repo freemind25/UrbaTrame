@@ -50,7 +50,7 @@
             <h2 id="import-title">Ajouter une couche</h2>
           </div>
           <label class="file-drop" id="dropZone" for="fileInput">
-            <input id="fileInput" type="file" accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz,application/geo+json,application/json,text/csv,text/tab-separated-values,application/geopackage+sqlite3,image/tiff,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz">
+            <input id="fileInput" type="file" accept=".dxf,.obj,.glb,.geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz,application/geo+json,application/json,text/csv,text/tab-separated-values,application/geopackage+sqlite3,image/tiff,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz">
             <span class="drop-icon" aria-hidden="true">＋</span>
             <span class="drop-title">Choisir un fichier</span>
             <span class="drop-subtitle">GeoJSON · CSV/TSV · GeoPackage · GeoTIFF · KML/KMZ</span>
@@ -100,6 +100,22 @@
             </label>
             <p class="csv-crs-help">Prise en charge : EPSG:4326, EPSG:3857 et UTM WGS 84 (EPSG:32601–32660 / 32701–32760). Vérifiez le code du fichier avant l’import.</p>
             <button id="addCsvLayer" class="button-primary" type="button">Ajouter les points CSV</button>
+          </section>
+          <section id="meshMapping" class="csv-mapping" hidden aria-labelledby="mesh-title">
+            <h3 id="mesh-title">Référencer un DXF / OBJ / GLB</h3>
+            <p>Le fichier est lu localement, transformé (échelle, rotation, décalage est/nord en mètres du CRS source) puis converti en WGS 84 pour l’affichage et l’export. L’empreinte du maillage est affichée ; le maillage brut reste dans les propriétés de la couche.</p>
+            <label class="field-label" for="meshCrs">CRS source (code EPSG)
+              <input id="meshCrs" type="text" list="supportedCrs" value="EPSG:4326" maxlength="20" autocomplete="off">
+            </label>
+            <label class="field-label" for="meshOffsetE">Décalage est (m)
+              <input id="meshOffsetE" type="number" step="any" value="0"></label>
+            <label class="field-label" for="meshOffsetN">Décalage nord (m)
+              <input id="meshOffsetN" type="number" step="any" value="0"></label>
+            <label class="field-label" for="meshRotation">Rotation (°)
+              <input id="meshRotation" type="number" step="any" value="0"></label>
+            <label class="field-label" for="meshScale">Échelle (×)
+              <input id="meshScale" type="number" step="any" min="0.000001" value="1"></label>
+            <button id="addMeshLayer" class="button-primary" type="button">Ajouter la couche de référence</button>
           </section>
           <p id="importStatus" class="status" role="status" aria-live="polite">Aucun fichier chargé.</p>
         </section>

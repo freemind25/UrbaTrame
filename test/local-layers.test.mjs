@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   MAX_IMPORT_BYTES, MAX_FEATURES, MAX_COORDINATE_POSITIONS, parseGeoJSONText, parseDelimitedText,
   detectCoordinateFields, csvToGeoJSON, extentOfFeatures, exportVisibleGeoJSON,
-  normalizeCrs, toWgs84, countFeaturePositions
-} from '../public/js/atelier/local-layers.mjs';
+  normalizeCrs, toWgs84, countFeaturePositions, parseDxfText, parseObjText, parseGlb, dxfToGeoJSON, meshToGeoJSON, transformXY, convexHull2D} from '../public/js/atelier/local-layers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -179,5 +178,90 @@ describe('UrbaTrame · couches vectorielles locales', () => {
     for (const file of ['public/atelier.html', 'public/atelier-analyse.html', 'public/atelier-s5.html']) {
       assert.match(fs.readFileSync(path.join(ROOT, file), 'utf8'), /href="\/atelier-cartographique\.html"/);
     }
+  });
+});
+
+describe('phase C — références DXF / OBJ / GLB', () => {
+  const DXF = ['0','SECTION','2','ENTITIES',
+    '0','LINE','8','ROADS','10','569000.0','20','4016000.0','11','569100.0','21','4016050.0',
+    '0','LWPOLYLINE','8','BATI','90','4','70','1','10','569200.0','20','4016100.0','10','569300.0','20','4016100.0','10','569300.0','20','4016200.0','10','569200.0','20','4016200.0',
+    '0','POLYLINE','8','ANCIEN','70','0','0','VERTEX','8','ANCIEN','10','569400.0','20','4016300.0','0','VERTEX','8','ANCIEN','10','569500.0','20','4016300.0','0','SEQEND',
+    '0','POINT','8','POI','10','569150.0','20','4016030.0',
+    '0','ENDSEC','0','EOF'].join('\n');
+
+  test('parseDxfText : LINE, LWPOLYLINE fermée, POLYLINE+VERTEX, POINT, calques', () => {
+    const d = parseDxfText(DXF, { fileName: 't.dxf' });
+    assert.equal(d.entities.length, 4);
+    const byLayer = Object.fromEntries(d.entities.map(e => [e.layer, e]));
+    assert.equal(byLayer.ROADS.kind, 'line');
+    assert.equal(byLayer.BATI.kind, 'poly');
+    assert.equal(byLayer.BATI.pts.length, 4);
+    assert.equal(byLayer.ANCIEN.kind, 'line');
+    assert.equal(byLayer.POI.kind, 'point');
+  });
+
+  test('dxfToGeoJSON : UTM 32N → WGS 84 plausible (lat ~36, lon ~6.7)', () => {
+    const d = parseDxfText(DXF, { fileName: 't.dxf' });
+    const gj = dxfToGeoJSON(d, { sourceCrs: 'EPSG:32632' });
+    assert.equal(gj.features.length, 4);
+    assert.equal(gj.sourceCrs, 'EPSG:32632');
+    const poly = gj.features.find(f => f.properties.layer === 'BATI');
+    assert.equal(poly.geometry.type, 'Polygon', 'LWPOLYLINE fermée → Polygon');
+    const [lon, lat] = poly.geometry.coordinates[0][0];
+    /* easting 569 km en zone 32 (méridien central 9°E) → lon ≈ 9,77 ; lat ≈ 36,29 */
+    assert.ok(lat > 35.5 && lat < 37 && lon > 9.5 && lon < 10, `lon=${lon} lat=${lat}`);
+    /* transformation : échelle ×2 + décalage 1000 m E / 500 m N */
+    const gj2 = dxfToGeoJSON(d, { sourceCrs: 'EPSG:32632', scale: 2, offsetEN: [1000, 500] });
+    const p1 = gj.features.find(f => f.properties.layer === 'POI').geometry.coordinates;
+    const p2 = gj2.features.find(f => f.properties.layer === 'POI').geometry.coordinates;
+    assert.ok(Math.abs(p2[0] - p1[0]) > 0.005, 'décalage appliqué en longitude');
+  });
+
+  test('parseObjText + meshToGeoJSON : empreinte convexe + centroïde', () => {
+    const obj = parseObjText('v 0 0 0\nv 10 0 0\nv 10 10 5\nv 0 10 0\nf 1 2 3 4\n');
+    assert.equal(obj.vertices.length, 4);
+    assert.deepEqual(obj.faces[0], [0, 1, 2, 3]);
+    const gj = meshToGeoJSON(obj, { sourceCrs: 'EPSG:4326', scale: 0.0001, rotationDeg: 0, offsetEN: [6.6, 36.3], fileName: 'm.obj' });
+    assert.equal(gj.features.length, 2);
+    assert.equal(gj.features[0].geometry.type, 'Polygon');
+    assert.equal(gj.features[0].properties.kind, 'mesh-reference');
+    assert.equal(gj.features[0].properties.vertices, 4);
+    const [lon, lat] = gj.features[1].geometry.coordinates;
+    /* centroïde = centre du maillage (5,5) + décalage (6,6 / 36,3), l’échelle ne s’applique qu’autour du centre */
+    assert.ok(Math.abs(lon - 11.6) < 1e-9 && Math.abs(lat - 41.3) < 1e-9, `centroïde ${lon},${lat}`);
+  });
+
+  test('parseGlb : chunk JSON + BIN, accessor POSITION float32', () => {
+    const json = JSON.stringify({ asset: { version: '2.0' }, meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+      accessors: [{ bufferView: 0, componentType: 5126, count: 4, type: 'VEC3', min: [0, 0, 0], max: [10, 10, 0] }],
+      bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 48 }] });
+    const jb = new TextEncoder().encode(json);
+    const bin = new ArrayBuffer(48);
+    const dv = new DataView(bin);
+    [[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]].forEach((v, i) => v.forEach((c, j) => dv.setFloat32(i * 12 + j * 4, c, true)));
+    const total = 12 + 8 + jb.length + 8 + 48;
+    const glb = new Uint8Array(total);
+    glb.set([0x46, 0x4c, 0x54, 0x20, 2, 0, 0, 0, total & 255, (total >> 8) & 255, (total >> 16) & 255, (total >> 24) & 255], 0);
+    glb.set([jb.length & 255, (jb.length >> 8) & 255, (jb.length >> 16) & 255, (jb.length >> 24) & 255, 0x4a, 0x53, 0x4f, 0x4e], 12);
+    glb.set(jb, 20);
+    const o2 = 20 + jb.length;
+    glb.set([48, 0, 0, 0, 0x42, 0x49, 0x4e, 0x00], o2);
+    glb.set(new Uint8Array(bin), o2 + 8);
+    const mesh = parseGlb(glb);
+    assert.equal(mesh.vertices.length, 4);
+    assert.deepEqual(mesh.vertices[2], [10, 10, 0]);
+    assert.throws(() => parseGlb(new Uint8Array(10)), /INVALID_GLB/);
+  });
+
+  test('transformXY : échelle, rotation 90° autour du centroïde, décalage', () => {
+    const tr = transformXY([[0, 0], [10, 0]], { scale: 2, rotationDeg: 90, offsetEN: [100, 200] });
+    assert.ok(Math.abs(tr[0][0] - 105) < 1e-9 && Math.abs(tr[0][1] - 190) < 1e-9, JSON.stringify(tr[0]));
+    assert.ok(Math.abs(tr[1][0] - 105) < 1e-9 && Math.abs(tr[1][1] - 210) < 1e-9, JSON.stringify(tr[1]));
+    assert.deepEqual(transformXY([[1, 1]], {}), [[1, 1]]);
+  });
+
+  test('convexHull2D : enveloppe d’un carré avec point intérieur', () => {
+    const hull = convexHull2D([[0, 0], [10, 0], [10, 10], [0, 10], [5, 5]]);
+    assert.equal(hull.length, 4);
   });
 });

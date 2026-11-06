@@ -67,7 +67,7 @@ describe('UrbaTrame · contrôles d’interface de l’atelier cartographique', 
   test('le relevé terrain, les formats KML/KMZ et le cadrage GNSS restent dans l’Atelier existant', () => {
     for (const id of ['surveyTemplateLibrary', 'surveyTemplateName', 'surveyFieldDefinitions', 'surveyFormFields', 'deleteSurveyTemplate', 'createSurveyLayer', 'readGps', 'captureGpsPoint', 'surveyCenterLat', 'surveyCenterLon', 'surveyViewSpan', 'geoidFile', 'confirmGeoidUse', 'exportCsv', 'exportKml', 'exportKmz', 'exportGpkg'])
       assert.match(html, new RegExp(`id="${id}"`));
-    assert.ok(html.includes('accept=".geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz'));
+    assert.ok(html.includes('accept=".dxf,.obj,.glb,.geojson,.json,.csv,.tsv,.gpkg,.tif,.tiff,.kml,.kmz'));
     assert.match(html, /UBX→RINEX/);
     assert.match(html, /plafond 3 000 m/);
     assert.match(js, /from '\.\/field-survey\.mjs'/);

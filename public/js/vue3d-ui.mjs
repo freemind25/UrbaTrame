@@ -25,12 +25,22 @@ const validISODate = value => {
   const d = new Date(value + 'T00:00:00Z');
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
 };
-const PROJECTION_PRESETS = {
-  perspective: { cap: null, inclinaison: null },
-  axonometric: { cap: 45, inclinaison: 55 },
-  'two-point': { cap: 45, inclinaison: 45 },
-  'one-point': { cap: 0, inclinaison: 50 }
+/* Préréglages de projection (phase B) : les 4 modes historiques, plus quatre
+   axonométries directionnelles (depuis le NO/NE/SO/SE) et une vue à hauteur
+   d'œil. Chaque préréglage porte le mode moteur, le cap, l'inclinaison et
+   éventuellement le champ de vision ; label = [fr, en]. */
+export const PROJECTION_PRESETS = {
+  perspective: { projection: 'perspective', cap: null, inclinaison: null, champ: null, label: ['Perspective libre', 'Free perspective'] },
+  axonometric: { projection: 'axonometric', cap: 45, inclinaison: 55, champ: null, label: ['Axonométrie', 'Axonometric'] },
+  'two-point': { projection: 'two-point', cap: 45, inclinaison: 45, champ: null, label: ['Perspective à 2 points', 'Two-point perspective'] },
+  'one-point': { projection: 'one-point', cap: 0, inclinaison: 50, champ: null, label: ['Perspective à 1 point', 'One-point perspective'] },
+  'axono-nw': { projection: 'axonometric', cap: 315, inclinaison: 55, champ: null, label: ['Axonométrie depuis le NO', 'Axonometric from NW'] },
+  'axono-ne': { projection: 'axonometric', cap: 45, inclinaison: 55, champ: null, label: ['Axonométrie depuis le NE', 'Axonometric from NE'] },
+  'axono-sw': { projection: 'axonometric', cap: 225, inclinaison: 55, champ: null, label: ['Axonométrie depuis le SO', 'Axonometric from SW'] },
+  'axono-se': { projection: 'axonometric', cap: 135, inclinaison: 55, champ: null, label: ['Axonométrie depuis le SE', 'Axonometric from SE'] },
+  oeil: { projection: 'perspective', cap: null, inclinaison: 14, champ: 62, label: ['Vue à hauteur d’œil', 'Eye-level view'] }
 };
+const modeDe = cle => (PROJECTION_PRESETS[cle] || PROJECTION_PRESETS.perspective).projection;
 
 const FR = {
   titre: 'Vue 3D', heure: 'Heure', cap: 'Rotation', pente: 'Inclinaison',
@@ -46,10 +56,11 @@ export function ouvrir3D(o) {
   const lang = o.langue === 'en' ? 'en' : 'fr';
   const t = (fr, en) => (lang === 'en' ? en : fr);
   const sunDate = validISODate(o.sunDate) ? o.sunDate : todayLocalISO();
-  const projection = Object.hasOwn(PROJECTION_PRESETS, o.projection) ? o.projection : 'perspective';
-  const preset = PROJECTION_PRESETS[projection];
+  const presetKey = Object.hasOwn(PROJECTION_PRESETS, o.projection) ? o.projection : 'perspective';
+  const preset = PROJECTION_PRESETS[presetKey];
   const initialCap = preset.cap ?? (Number.isFinite(Number(o.cap)) ? Number(o.cap) : 0);
   const initialTilt = preset.inclinaison ?? (Number.isFinite(Number(o.inclinaison)) ? Number(o.inclinaison) : 50);
+  const initialChamp = preset.champ ?? 45;
 
   const racine = document.createElement('div');
   racine.className = 'v3d';
@@ -63,10 +74,8 @@ export function ouvrir3D(o) {
         <input type="date" id="v3d-date" value="${sunDate}"></label>
       <label class="v3d-c v3d-projection"><span>${t('Projection', 'Projection')}</span>
         <select id="v3d-projection" aria-label="${t('Mode de projection', 'Projection mode')}">
-          <option value="perspective" ${projection === 'perspective' ? 'selected' : ''}>${t('Perspective libre', 'Free perspective')}</option>
-          <option value="axonometric" ${projection === 'axonometric' ? 'selected' : ''}>${t('Axonométrie', 'Axonometric')}</option>
-          <option value="two-point" ${projection === 'two-point' ? 'selected' : ''}>${t('Perspective à 2 points', 'Two-point perspective')}</option>
-          <option value="one-point" ${projection === 'one-point' ? 'selected' : ''}>${t('Perspective à 1 point', 'One-point perspective')}</option>
+          ${Object.entries(PROJECTION_PRESETS).map(([cle, p]) =>
+            `<option value="${cle}" ${presetKey === cle ? 'selected' : ''}>${t(p.label[0], p.label[1])}</option>`).join('\n          ')}
         </select></label>
       <label class="v3d-c"><span>${t('Rotation', 'Rotation')}</span>
         <input type="range" id="v3d-cap" min="-180" max="180" step="2" value="${initialCap}"></label>
@@ -103,11 +112,12 @@ export function ouvrir3D(o) {
   /* ── état ── */
   const V = globalThis.FMVue3D;
   const et = {
-    cap: initialCap, inclinaison: initialTilt, projection, heure: o.heure ?? 12, sunDate,
+    cap: initialCap, inclinaison: initialTilt, projection: presetKey, champ: initialChamp,
+    heure: o.heure ?? 12, sunDate,
     palette: 0, rayon: o.rayon, fond: !!o.fondParDefaut, ombres: true,
     selection: null, batiments: o.batiments || [], routes: o.routes || [],
     terrain: o.terrain || null, relief: true,   // le relief est acquis par défaut ; la case le débraye
-    eaux: o.eaux || [], images: new Map(), chargement: 0
+    eaux: o.eaux || [], arbres: o.arbres || [], images: new Map(), chargement: 0
   };
 
   /* ── taille du canevas ── */
@@ -143,13 +153,14 @@ export function ouvrir3D(o) {
     if (!V) return;
     const cam = V.camera({
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap,
-      inclinaison: et.inclinaison, projection: et.projection,
+      inclinaison: et.inclinaison, projection: modeDe(et.projection), champ: et.champ,
       largeur: cv.width, hauteur: cv.height, recul: 1.08
     });
     const soleil = V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon);
     const sc = V.scene(et.batiments, cam, {
       palette: et.palette, soleil, echelleH: 4,
       terrain: et.relief ? et.terrain : null,
+      arbres: et.arbres,
       /* sans ombre : le soleil monte au zénith, les ombres disparaissent */
       ...(et.ombres ? {} : { soleil: { hauteur: Math.PI / 2, azimut: 180, vecteur: [0, 0, 1] } })
     });
@@ -206,6 +217,7 @@ export function ouvrir3D(o) {
   function freePerspectiveOnManualCameraChange() {
     if (et.projection === 'perspective') return;
     et.projection = 'perspective';
+    et.champ = 45;
     q('#v3d-projection').value = 'perspective';
   }
 
@@ -218,6 +230,7 @@ export function ouvrir3D(o) {
     const next = PROJECTION_PRESETS[value];
     if (next.cap !== null) et.cap = next.cap;
     if (next.inclinaison !== null) et.inclinaison = next.inclinaison;
+    if (next.champ !== null) et.champ = next.champ;
     q('#v3d-cap').value = et.cap;
     q('#v3d-inc').value = et.inclinaison;
     dessiner();
@@ -315,8 +328,8 @@ export function ouvrir3D(o) {
   q('#v3d-svg').addEventListener('click', () => {
     const svg = V.versSVG(et.batiments, {
       lat: o.lat, lon: o.lon, rayon: et.rayon, cap: et.cap, inclinaison: et.inclinaison,
-      projection: et.projection, palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
-      routes: et.routes, eaux: et.eaux, terrain: et.relief ? et.terrain : null,
+      projection: modeDe(et.projection), champ: et.champ, palette: et.palette, largeur: 1600, hauteur: 1200, echelleH: 4,
+      routes: et.routes, eaux: et.eaux, arbres: et.arbres, terrain: et.relief ? et.terrain : null,
       soleil: V.soleil(V.instantLocal(et.heure, o.lat, o.lon, et.sunDate), o.lat, o.lon),
       attribution: et.sunDate + ' · ' + et.heure + ' h · ' + (et.fond
         ? '© OpenStreetMap contributors (ODbL)' : '© OpenStreetMap contributors (ODbL) · UrbaTrame')

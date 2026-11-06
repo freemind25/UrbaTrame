@@ -96,6 +96,17 @@ export function sansAccent(s) {
 
 /* entites : { t: 'poly'|'ligne'|'texte'|'point', calque, pts|a|b|pos, txt, h, z, ferme }
    calques : { nom, couleur } */
+/* Classes de bâti (urban:EXPORT) : 6 calques nommés en DXF à la place du
+   calque unique BATI, quand l'option `buildingClasses` est demandée. */
+export const BUILDING_CLASS_LAYERS = Object.freeze({
+  residential: 'BUILDINGS_RESIDENTIAL',
+  public: 'BUILDINGS_PUBLIC',
+  commercial: 'BUILDINGS_COMMERCIAL',
+  industrial: 'BUILDINGS_INDUSTRIAL',
+  utility: 'BUILDINGS_UTILITY',
+  other: 'BUILDINGS_OTHER'
+});
+
 export function dxf(entites, calques, o) {
   o = o || {};
   const l = [];
@@ -275,6 +286,12 @@ export function entitesTopo(ctx, o) {
     { nom: 'EMPRISE', couleur: 'rouge' },
     { nom: 'TEXTE', couleur: 'bleu' }
   ];
+  if (o.buildingClasses) {
+    const idxBati = calques.findIndex(c => c.nom === 'BATI');
+    if (idxBati >= 0)
+      calques.splice(idxBati, 1,
+        ...Object.values(BUILDING_CLASS_LAYERS).map(nom => ({ nom, couleur: 'blanc' })));
+  }
   if (o.roadWidths) calques.splice(3, 0,
     { nom: 'ROADS_AREA', couleur: 'gris' }, { nom: 'PATHS_AREA', couleur: 'clair' });
   if (o.bridges) calques.splice(calques.findIndex(c => c.nom === 'RAIL'), 0,
@@ -319,13 +336,16 @@ export function entitesTopo(ctx, o) {
     const ring = anneauPropre(clipped || []);
     if (!ring) continue;
     const entier = local.every(([x, y]) => dedans(x, y));
-    entites.push({ t: 'poly', calque: 'BATI', pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true, z, class: b.class || 'other' });
+    const calqueBati = o.buildingClasses
+      ? (BUILDING_CLASS_LAYERS[b.class || 'other'] || 'BUILDINGS_OTHER')
+      : 'BATI';
+    entites.push({ t: 'poly', calque: calqueBati, pts: ring.map(([x, y]) => rep.vers(x, y)), ferme: true, z, class: b.class || 'other' });
     /* Les trous ne sont conservés que lorsqu'ils sont entièrement dans
        l'emprise; les anneaux OSM restent des données sources, non du cadastre. */
     if (entier) for (const hole of b.trous || []) {
       const h = anneauDans(hole.map(([lat, lon]) => enLocal(lat, lon, lat0, lon0)));
       const holeRing = anneauPropre(h || []);
-      if (holeRing) entites.push({ t: 'poly', calque: 'BATI', pts: holeRing.map(([x, y]) => rep.vers(x, y)), ferme: true, z });
+      if (holeRing) entites.push({ t: 'poly', calque: calqueBati, pts: holeRing.map(([x, y]) => rep.vers(x, y)), ferme: true, z });
     }
   }
 
@@ -441,7 +461,7 @@ export function entitesTopo(ctx, o) {
     (ctx && ctx.siteName ? ctx.siteName + ' - ' : '') +
       (T ? T.min.toFixed(1) + ' a ' + T.max.toFixed(1) + ' m' : 'altimetrie absente'),
     'Equidistance ' + (equi || '-') + ' m ; ' + nbCourbes + ' courbes ; bati ' +
-      entites.filter(e => e.calque === 'BATI').length + ' emprises',
+      entites.filter(e => e.calque === 'BATI' || /^BUILDINGS_/.test(e.calque)).length + ' emprises',
     'Repere : ' + rep.note,
     o.boundary?.length >= 3 ? 'Limite de projet tracee par l utilisateur - non cadastrale' : '',
     'Donnees (c) OpenStreetMap (ODbL) - relief Terrarium'

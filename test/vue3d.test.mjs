@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { loadKernel, makeCtx, sample } from '../tools/kernel.mjs';
 import { buildingsQuery, DEPS } from '../public/js/plan-2d.mjs';
 import { batimentsDepuisOverpass, batimentsDepuisTuiles } from '../public/js/osm.mjs';
+import { normalizeElements } from '../public/js/osm.mjs';
 
 loadKernel();
 const V = globalThis.FMVue3D;
@@ -636,5 +637,56 @@ describe('vue interactive : rendu sur canevas', () => {
     const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, largeur: 400, hauteur: 400, projection: 'axonometric' });
     const sc = V.scene([{ g: carre(LAT, LON), h: 12 }], cam, {});
     assert.doesNotThrow(() => V.dessiner(fauxContexte(), sc, { routes: [] }));
+  });
+});
+
+describe('arbres 3D (phase B) — maillage, scène, export SVG', () => {
+  test('maillageArbre : tronc + cône, 17 sommets / 24 faces, hauteur conservée', () => {
+    const m = V.maillageArbre({ hauteur: 10 });
+    assert.equal(m.sommets.length, 17);
+    assert.equal(m.faces.length, 24);
+    assert.equal(m.hauteur, 10);
+    assert.ok(m.rayon >= 1.1 && m.rayon <= 4);
+    assert.ok(Math.max(...m.sommets.map(s => s[2])) === 10, 'apex à la hauteur demandée');
+    const n = V.normaleFace(m.sommets, m.faces[m.faces.length - 1]);
+    assert.ok(Math.abs(Math.hypot(n[0], n[1], n[2]) - 1) < 1e-9, 'normale unitaire');
+    /* rayon plafonné */
+    assert.ok(V.maillageArbre({ hauteur: 60 }).rayon <= 4);
+  });
+
+  test('la scène extrude les arbres OSM en faces peintes (type arbre)', () => {
+    const cam = V.camera({ lat: LAT, lon: LON, rayon: 300, cap: 35, inclinaison: 42, projection: 'axonometric', largeur: 400, hauteur: 400 });
+    const sc = V.scene([], cam, {
+      arbres: [{ lat: LAT, lon: LON, h: 10, n: 'Chêne test' }, { lat: LAT + 0.0005, lon: LON, h: 0 }],
+      soleil: { hauteur: 1, azimut: 180, vecteur: [0, 0, 1] }, palette: 0
+    });
+    const arbres = sc.faces.filter(f => f.type === 'arbre');
+    assert.ok(arbres.length >= 8, 'faces d’arbres visibles : ' + arbres.length);
+    assert.ok(arbres.every(f => /^(#|rgb)/.test(f.fill)), 'remplissage couleur');
+    assert.ok(arbres.every(f => f.pts3.length === 3 || f.pts3.length === 4));
+  });
+
+  test('corpsSVG / versSVG incluent les arbres dans le dessin', () => {
+    const o = { lat: LAT, lon: LON, rayon: 300, cap: 35, inclinaison: 42, projection: 'axonometric', largeur: 400, hauteur: 400 };
+    const soleil = { hauteur: 1, azimut: 180, vecteur: [0, 0, 1] };
+    const sans = V.corpsSVG([], { ...o, soleil });
+    const avec = V.corpsSVG([], { ...o, arbres: [{ lat: LAT, lon: LON, h: 12 }], soleil });
+    const nbSans = (sans.svg.match(/<polygon/g) || []).length;
+    const nbAvec = (avec.svg.match(/<polygon/g) || []).length;
+    assert.ok(nbAvec - nbSans >= 5, `les arbres ajoutent des polygones : ${nbSans} → ${nbAvec}`);
+    const svg = V.versSVG([], { ...o, arbres: [{ lat: LAT, lon: LON, h: 12 }], soleil: { hauteur: 1, azimut: 180, vecteur: [0, 0, 1] } });
+    assert.ok(svg.startsWith('<svg') && svg.includes('</svg>'));
+  });
+
+  test('normalizeElements conserve natural=tree (nat + hauteur) dans les POI', () => {
+    const out = normalizeElements(null, [
+      { type: 'node', lat: LAT, lon: LON, tags: { natural: 'tree', height: '12 m', name: 'Grand arbre' } },
+      { type: 'node', lat: LAT, lon: LON + 0.001, tags: { amenity: 'cafe' } }
+    ]);
+    const arbre = out.pois.find(p => p.nat === 'tree');
+    assert.ok(arbre, 'arbre repéré');
+    assert.equal(arbre.h, 12);
+    assert.equal(arbre.n, 'Grand arbre');
+    assert.equal(out.pois.find(p => p.a === 'cafe').nat, '');
   });
 });

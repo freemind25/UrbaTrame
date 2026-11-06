@@ -2,7 +2,7 @@ import {
   MAX_IMPORT_BYTES, MAX_FEATURES, MAX_COORDINATE_POSITIONS, MAX_LAYERS, MAX_TOTAL_FEATURES, MAX_TOTAL_POSITIONS,
   parseGeoJSONText, parseDelimitedText, countFeaturePositions,
   detectCoordinateFields, csvToGeoJSON, extentOfFeatures,
-  exportVisibleGeoJSON
+  exportVisibleGeoJSON, parseDxfText, parseObjText, parseGlb, dxfToGeoJSON, meshToGeoJSON
 } from './local-layers.mjs';
 import { summarizeFeatures } from './local-analysis.mjs';
 import { buildDashboardSummary } from './dashboard.mjs';
@@ -27,7 +27,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
-const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
+const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, pendingMesh: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
 const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
 const MAX_SAVED_SURVEY_TEMPLATES = 20;
 function readSavedSurveyTemplates() {
@@ -51,6 +51,7 @@ const layerList = $('#layerList');
 const svg = $('#localMap');
 const mapEmpty = $('#mapEmpty');
 const csvMapping = $('#csvMapping');
+const meshMapping = $('#meshMapping');
 const csvLongitude = $('#csvLongitude');
 const csvLatitude = $('#csvLatitude');
 
@@ -2137,8 +2138,8 @@ $('#addShapefile').addEventListener('click', async () => {
 async function handleFile(file) {
   if (!file) return;
   const request = ++state.importRequest;
-  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null;
-  csvMapping.hidden = true; shapeMapping.hidden = true;
+  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null; state.pendingMesh = null;
+  csvMapping.hidden = true; shapeMapping.hidden = true; meshMapping.hidden = true;
   if (file.size > MAX_IMPORT_BYTES) {
     status(errorMessage(Object.assign(new Error(), { code: 'FILE_TOO_LARGE' })), 'error');
     fileInput.value = '';
@@ -2182,6 +2183,25 @@ async function handleFile(file) {
       if (!added) fileInput.value = '';
       return;
     }
+    if (extension === 'dxf' || extension === 'obj' || extension === 'glb') {
+      if (extension === 'glb') {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (request !== state.importRequest) return;
+        const mesh = parseGlb(bytes);
+        state.pendingMesh = { kind: 'glb', mesh, fileName: file.name };
+      } else {
+        const text = await file.text();
+        if (request !== state.importRequest) return;
+        state.pendingMesh = extension === 'dxf'
+          ? { kind: 'dxf', parsed: parseDxfText(text, { fileName: file.name }), fileName: file.name }
+          : { kind: 'obj', mesh: parseObjText(text, { fileName: file.name }), fileName: file.name };
+      }
+      meshMapping.hidden = false;
+      const nb = state.pendingMesh.kind === 'dxf' ? state.pendingMesh.parsed.entities.length : state.pendingMesh.mesh.vertices.length;
+      status(`Fichier ${extension.toUpperCase()} lu localement (${nb} ${state.pendingMesh.kind === 'dxf' ? 'entités' : 'sommets'}). Réglez le référencement puis ajoutez la couche.`, 'success');
+      fileInput.value = '';
+      return;
+    }
     const text = await file.text();
     if (request !== state.importRequest) return;
     if (extension === 'csv' || extension === 'tsv') {
@@ -2201,11 +2221,34 @@ async function handleFile(file) {
   } catch (error) {
     if (request !== state.importRequest) return;
     status(errorMessage(error), 'error');
-    csvMapping.hidden = true; shapeMapping.hidden = true;
-    state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null;
+    csvMapping.hidden = true; shapeMapping.hidden = true; meshMapping.hidden = true;
+    state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null; state.pendingMesh = null;
     fileInput.value = '';
   }
 }
+
+$('#addMeshLayer').addEventListener('click', () => {
+  const pending = state.pendingMesh;
+  if (!pending) return;
+  try {
+    const opts = {
+      sourceCrs: $('#meshCrs').value.trim() || 'EPSG:4326',
+      scale: Number($('#meshScale').value) || 1,
+      rotationDeg: Number($('#meshRotation').value) || 0,
+      offsetEN: [Number($('#meshOffsetE').value) || 0, Number($('#meshOffsetN').value) || 0],
+      fileName: pending.fileName
+    };
+    const geojson = pending.kind === 'dxf'
+      ? dxfToGeoJSON(pending.parsed, opts)
+      : meshToGeoJSON(pending.mesh, opts);
+    addLayer(geojson, pending.fileName, `${$('#sourceReference').value || pending.fileName} · référence ${pending.kind.toUpperCase()} référencée (${opts.sourceCrs}, ×${opts.scale}, rot ${opts.rotationDeg}°, décalage ${opts.offsetEN[0]} m E / ${opts.offsetEN[1]} m N)`);
+    state.pendingMesh = null;
+    meshMapping.hidden = true;
+    fileInput.value = '';
+  } catch (error) {
+    status(errorMessage(error), 'error');
+  }
+});
 
 fileInput.addEventListener('change', () => handleFile(fileInput.files?.[0]));
 dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('is-dragging'); });

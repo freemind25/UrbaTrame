@@ -163,8 +163,60 @@
           </div>
         </details>
 
+        <details class="panel" open>
+          <summary><span class="step">06 / ANALYSER LE SITE</span><strong>Ratios, coupe A→B et rapport</strong></summary>
+          <div class="panel-body">
+            <p class="privacy-small">L’analyse se fait localement, dans ce navigateur, à partir des couches déjà chargées (étape 05) et du relief. Elle porte sur le périmètre dessiné, ou sur le cercle visible si aucun périmètre n’est défini. Les mesures sont des approximations pédagogiques : ni relevé cadastral, ni limite juridique.</p>
+            <div class="button-row"><button id="analyzeSite" class="button-primary" type="button" disabled>Analyser le site</button><button id="exportRatiosCsv" class="button-secondary" type="button" disabled>Ratios (CSV)</button></div>
+            <label class="field-label" for="sunDateTime">Date et heure pour le soleil (SVF au centre)
+              <input id="sunDateTime" type="datetime-local">
+            </label>
+            <div id="analysisStatus" class="status" role="status" aria-live="polite">Aucune analyse effectuée. Chargez d’abord les données OSM.</div>
+            <div id="analysisMetrics" class="metric-grid"></div>
+            <div id="analysisChart" class="analysis-chart"></div>
+            <div id="analysisUsage" class="fine-status"></div>
+            <div id="analysisDetail" class="analysis-detail"></div>
+            <div class="button-row"><button id="startSection" class="button-secondary" type="button" disabled>Coupe sur la carte</button><button id="finishSectionBtn" class="button-primary" type="button" disabled>Terminer la coupe</button></div>
+            <div class="button-row"><label class="field-label inline" for="sectionExaggeration">Exagération verticale
+              <select id="sectionExaggeration"><option value="1">×1</option><option value="2">×2</option><option value="5">×5</option></select></label>
+              <button id="exportSectionSvg" class="button-secondary" type="button" disabled>Coupe (SVG)</button><button id="exportSectionPng" class="button-secondary" type="button" disabled>Coupe (PNG)</button></div>
+            <div id="sectionStatus" class="status" role="status" aria-live="polite">Aucune coupe tracée. Activez l’outil, cliquez sur la carte pour poser plusieurs points (A…B), puis « Terminer la coupe » ; le relief doit être chargé.</div>
+            <div id="sectionChart" class="analysis-chart"></div>
+            <button id="exportSiteReport" class="button-primary full" type="button" disabled>Rapport de site (PDF A4)</button>
+            <p class="fine-status">Le rapport reprend le cadrage, les ratios, les usages du bâti et la coupe éventuelle, avec les sources et les limites d’usage.</p>
+          </div>
+        </details>
+
         <details class="panel">
-          <summary><span class="step">06 / ANNOTER</span><strong>Accès, équipements et observations</strong></summary>
+          <summary><span class="step">07 / RELIEF AVANCÉ</span><strong>Pente, hydrologie, plaques de découpe</strong></summary>
+          <div class="panel-body">
+            <label class="field-label" for="reliefAnalysis">Analyse du relief (DEM Terrarium, indicatif)
+              <select id="reliefAnalysis" disabled>
+                <option value="off">Aucune</option>
+                <option value="pente">Pente (dégradé)</option>
+                <option value="exposition">Exposition des versants</option>
+                <option value="twi">Indice d’humidité (TWI)</option>
+                <option value="ecoulement">Écoulement D8 + cours d’eau (simulation)</option>
+                <option value="bassin">Bassin versant amont (cliquez un point sur la carte)</option>
+              </select>
+            </label>
+            <label class="field-label inline" for="contourPas">Pas des courbes de niveau
+              <select id="contourPas" disabled><option value="auto">Auto</option><option value="10">10 m</option><option value="5">5 m</option><option value="2">2 m</option><option value="1">1 m</option></select>
+            </label>
+            <div id="reliefStatus" class="status" role="status" aria-live="polite">Chargez le relief (étape 05) pour activer ces analyses.</div>
+            <label class="field-label inline" for="laserPas">Pas des plaques de découpe
+              <select id="laserPas" disabled><option value="10">10 m</option><option value="5" selected>5 m</option><option value="2">2 m</option><option value="1">1 m</option></select>
+            </label>
+            <div class="button-row"><button id="platesPreviewBtn" class="button-secondary" type="button" disabled>Pile éclatée (aperçu)</button>
+              <button id="exportPlatesSvg" class="button-secondary" type="button" disabled>Plaques (SVG)</button>
+              <button id="exportPlatesDxf" class="button-secondary" type="button" disabled>Plaques (DXF)</button></div>
+            <div id="platesPreview" class="analysis-chart"></div>
+            <p class="fine-status">Plaques par niveau d’altitude, pièces fermées et numérotées (pas choisi), export SVG/DXF — sans pilote laser propriétaire. Approximation DEM, « computed, not surveyed ».</p>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><span class="step">08 / ANNOTER</span><strong>Accès, équipements et observations</strong></summary>
           <div class="panel-body">
             <label class="field-label" for="annotationType">Type d’annotation
               <select id="annotationType">

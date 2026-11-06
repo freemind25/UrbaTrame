@@ -76,8 +76,9 @@
     const projection = modes.has(o.projection) ? o.projection : 'perspective';
     const requestedCap = Number(o.cap);
     const capDeg = projection === 'one-point' ? 0
-      : projection === 'two-point' || projection === 'axonometric' ? 45
-        : Number.isFinite(requestedCap) ? requestedCap : 0;
+      : projection === 'axonometric' ? (Number.isFinite(requestedCap) ? requestedCap : 45)
+        : projection === 'two-point' ? 45
+          : Number.isFinite(requestedCap) ? requestedCap : 0;
     /* Inclinaison : 0 = vue verticale (zénith), 90 = rasante. L'axonométrie
        emploie l'angle isométrique exact, mesuré depuis la verticale. */
     const requestedTilt = Number(o.inclinaison ?? 50);
@@ -237,6 +238,40 @@
     const q = p.slice();
     if (q[0][0] !== q[q.length - 1][0] || q[0][1] !== q[q.length - 1][1]) q.push(q[0]);
     return q;
+  }
+
+  /* ═════════════ 4 ter · arbres 3D (phase B) ═════════════
+     Un arbre OSM (natural=tree, hauteur taguée ou estimée) est extrudé en
+     tronc (cylindre 8 pans) + couronne (cône 8 pans) : 17 sommets, 24 faces. */
+  function normaleFace(sommets, face) {
+    const a = sommets[face[0]], b = sommets[face[1]], c = sommets[face.length > 2 ? 2 : 1];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const l = Math.hypot(n[0], n[1], n[2]) || 1;
+    return [n[0] / l, n[1] / l, n[2] / l];
+  }
+
+  function maillageArbre(o) {
+    const hauteur = Math.max(0, Number((o || {}).hauteur) || 0);
+    const rayon = Math.min(4, Math.max(1.1, hauteur * 0.35));   // couronne plafonnée à 4 m
+    const N = 8;                                                  // 8 pans
+    const troncH = Math.max(0.6, hauteur * 0.35);
+    const sommets = [];
+    for (let k = 0; k < N; k++) {
+      const a = 2 * Math.PI * k / N;
+      sommets.push([Math.cos(a) * 0.18, Math.sin(a) * 0.18, 0]);
+    }
+    for (let k = 0; k < N; k++) {
+      const a = 2 * Math.PI * k / N;
+      sommets.push([Math.cos(a) * rayon * 0.55, Math.sin(a) * rayon * 0.55, troncH]);
+    }
+    sommets.push([0, 0, hauteur]);                                // apex
+    const faces = [];
+    for (let k = 0; k < N; k++) faces.push([k, (k + 1) % N, N + ((k + 1) % N), N + k]);   // tronc
+    for (let k = 0; k < N; k++) faces.push([N + k, N + ((k + 1) % N), 2 * N]);             // cône
+    for (let k = 0; k < N; k++) faces.push([(k + 1) % N, k, 0]);                           // base
+    return { sommets, faces, hauteur, rayon };
   }
 
   /* ═════════════ 4 bis · relief (modèle numérique de terrain) ═════════════
@@ -526,12 +561,45 @@
       ring.push({ b, c: [cx, cy], h, z: zBase });
     }
 
+    /* ── arbres 3D (natural=tree) : tronc + cône, posés sur le relief ── */
+    const facesArbres = [];
+    const vert = [.30, .48, .20], tronc = [.42, .33, .22];
+    for (const a of opts.arbres || []) {
+      const h = Number(a.h) > 0 ? Number(a.h) : 0;
+      if (h <= 0 || !Number.isFinite(a.lat) || !Number.isFinite(a.lon)) continue;
+      const [lx, ly] = cam.toLocal(a.lat, a.lon);
+      const la = cam.lat0 + ly / 111320, lo = cam.lon0 + lx / (111320 * cam.cosLat);
+      const zBase = terr ? terr.z(la, lo) : (sol || 0);
+      const m = maillageArbre({ hauteur: h * echelleH });
+      for (const f of m.faces) {
+        const pts3 = f.map(idx => {
+          const [sx, sy, sz] = m.sommets[idx];
+          return [lx + sx, ly + sy, zBase + sz];
+        });
+        const n = normaleFace(m.sommets, f);
+        const camPts = decouper(pts3.map(q => cam.projLocal(q[0], q[1], q[2])), cam.proche);
+        if (camPts.length < 3) continue;
+        const ecr = camPts.map(cam.ecran).filter(Boolean);
+        if (ecr.length !== camPts.length) continue;
+        const prof = camPts.reduce((s2, p2) => s2 + p2[2], 0) / camPts.length;
+        const estTronc = f.every(idx => idx < 8);
+        facesArbres.push({
+          type: 'arbre', arbre: a, prof,
+          pts: ecr.map(p2 => [p2[0], p2[1]]),
+          pts3,
+          fill: nuance(estTronc ? tronc : vert, n, sun.vecteur, k)
+        });
+      }
+    }
+
     /* Tri : les bâtiments du plus lointain au plus proche, puis leurs faces —
        grouper par bâtiment évite qu'un toit lointain passe devant le mur d'un
        voisin plus proche (le tri face à face, seul, le faisait). */
     groupes.sort((x, y) => y.prof - x.prof);
     for (const gr of groupes) gr.faces.sort((x, y) => y.prof - x.prof);
-    const faces = groupes.reduce((acc, gr) => acc.concat(gr.faces), []);
+    const faces = groupes.reduce((acc, gr) => acc.concat(gr.faces), [])
+      .concat(facesArbres)
+      .sort((x, y) => y.prof - x.prof);
 
     /* `terrainRef` : altitude absolue du zéro local — les exports s'en servent
        pour écrire des altitudes vraies (celles d'un plan topographique). */
@@ -681,7 +749,8 @@
     const sun = o.soleil || { hauteur: 1, azimut: 180, vecteur: [0, 0, 1] };
     const sc = scene(batiments, cam, {
       palette: o.palette, soleil: sun, echelleH: o.echelleH,
-      terrain: o.relief === false ? null : o.terrain
+      terrain: o.relief === false ? null : o.terrain,
+      arbres: o.arbres || []
     });
     const W = cam.W, H = cam.H;
 
@@ -956,6 +1025,7 @@
     soleil, instantLocal, camera, scene, designer, corpsSVG, planche, dessiner,
     versSVG, enveloppe, anneau, dans, nuance, nuanceN, horizon, toitSVG, centroidePoly,
     prepareTerrain, maillageRelief, RELIEF_MARGE, PAL, H_DEFAUT,
+    maillageArbre, normaleFace,
     tuileXY, tuileBoite, tuilesPour, urlTuile, coinMercator
   };
 })(globalThis);

@@ -688,3 +688,24 @@ describe('maquette 3D : OBJ et STL', () => {
     assert.equal(JSON.stringify(ctx.D), avantCtx);
   });
 });
+
+describe('bâti éclaté en 6 couches nommées (phase B)', () => {
+  test('buildingClasses : 6 couches nommées prévues, les utilisées déclarées, plus de BATI', () => {
+    const r = X.dxfTopo(ctx, { buildingClasses: true });
+    for (const couche of ['BUILDINGS_RESIDENTIAL', 'BUILDINGS_PUBLIC', 'BUILDINGS_COMMERCIAL', 'BUILDINGS_INDUSTRIAL', 'BUILDINGS_UTILITY', 'BUILDINGS_OTHER'])
+      assert.ok(r.calquesTous.some(c => c.nom === couche), 'couche prévue ' + couche);
+    const entites = polylignes(lireDXF(r.dxf));
+    const bati = entites.filter(e => /^BUILDINGS_/.test(e.calque));
+    assert.ok(bati.length > 50, 'entités réparties : ' + bati.length);
+    assert.ok(r.calques.some(c => /^BUILDINGS_/.test(c.nom)), 'couches BUILDINGS_* utilisées déclarées');
+    assert.ok(!r.calques.some(c => c.nom === 'BATI'), 'couche BATI non déclarée');
+    assert.ok(!entites.some(e => e.calque === 'BATI'), 'plus de couche BATI unique');
+    assert.ok(bati.every(e => X.BUILDING_CLASS_LAYERS[e.class] === e.calque || e.class === undefined), 'calque = classe');
+  });
+
+  test('sans l’option, la couche BATI unique est conservée', () => {
+    const dxf = X.dxfTopo(ctx, {}).dxf;
+    assert.ok(dxf.includes('BATI'));
+    assert.ok(!dxf.includes('BUILDINGS_RESIDENTIAL'));
+  });
+});

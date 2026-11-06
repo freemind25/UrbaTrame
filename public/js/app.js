@@ -248,6 +248,8 @@ function vue3D(opts = {}) {
     batiments: (S.D.build || []).length ? S.D.build : null,
     routes: S.D.roads || [],
     eaux: (S.D.green || []).filter(x => x.k === 'w').map(x => x.g),
+    /* arbres OSM (natural=tree) extrudés en 3D, hauteur du tag si présente */
+    arbres: (S.D.pois || []).filter(p => p.nat === 'tree').map(p => ({ lat: p.y, lon: p.x, h: p.h || 8, n: p.n || '' })),
     terrain: S.terrain || null,
     device: S.device, compte: S.session?.account, jeton: S.session?.token,
     fondParDefaut: false

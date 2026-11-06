@@ -112,6 +112,7 @@ const SELECTORS = {
     'way["amenity"~"school|university|college|hospital|clinic|library|theatre|cinema|place_of_worship|marketplace"]'
   ],
   green: [
+    'node["natural"="tree"]',
     'way["natural"~"wood|water|scrub|wetland"]',
     'way["waterway"]',
     'way["leisure"~"park|garden|nature_reserve"]',
