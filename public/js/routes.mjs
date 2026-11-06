@@ -55,9 +55,25 @@ export class Routes {
     this.log = onLog;
     this.overpassEndpoints = overpassEndpoints;
     this.overpassRotation = overpassRotation;
+    /* Règle perf 3 : requêtes identiques en vol partagées (un seul appel réseau). */
+    this.inflight = new Map();
   }
 
-  async post2d(body, { timeout = 15_000, publicCall = false } = {}) {
+  _dedup(key, make) {
+    const pending = this.inflight.get(key);
+    if (pending) return pending;
+    const p = Promise.resolve()
+      .then(make)
+      .finally(() => { this.inflight.delete(key); });
+    this.inflight.set(key, p);
+    return p;
+  }
+
+  post2d(body, opts = {}) {
+    return this._dedup('2d:' + JSON.stringify(body), () => this._post2d(body, opts));
+  }
+
+  async _post2d(body, { timeout = 15_000, publicCall = false } = {}) {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), timeout);
     try {
@@ -75,7 +91,11 @@ export class Routes {
     } finally { clearTimeout(t); }
   }
 
-  async util(params, timeout = 15_000) {
+  util(params, timeout = 15_000) {
+    return this._dedup('util:' + new URLSearchParams(params).toString(), () => this._util(params, timeout));
+  }
+
+  async _util(params, timeout = 15_000) {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), timeout);
     try {
