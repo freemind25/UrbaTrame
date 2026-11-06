@@ -370,7 +370,8 @@ function createCodecraftRelay() {
     try {
       const signal = AbortSignal.timeout(30_000);
       const upstream = route === 'catalog'
-        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json' }, signal })
+        /* l'amont exige la clé AUSSI pour GET /v1/models (401 missing_api_key sinon) */
+        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json', Authorization: `Bearer ${key}` }, signal })
         : await fetch(CODECRAFT_UPSTREAM + '/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
