@@ -650,7 +650,8 @@ async function loadModels() {
   catch (error) { setStatus(elements.aiStatus, error.message, 'error'); return; }
   elements.loadModels.disabled = true;
   elements.loadModels.textContent = 'Chargement…';
-  setStatus(elements.aiStatus, `Requête authentifiée vers ${provider === 'openrouter' || provider === 'codecraft' ? 'OpenRouter' : 'APInex'}; aucune image n’est jointe à cette requête.`, '');
+  const label = provider === 'openrouter' ? 'OpenRouter' : provider === 'codecraft' ? 'CodeCraft (relais serveur, clé côté serveur)' : 'APInex';
+  setStatus(elements.aiStatus, `Requête authentifiée vers ${label}; aucune image n’est jointe à cette requête.`, '');
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);

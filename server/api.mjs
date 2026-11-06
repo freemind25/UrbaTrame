@@ -16,6 +16,7 @@ import { terrain } from './sources/terrain.mjs';
 import { glo30 } from './sources/glo30.mjs';
 import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
+import { createQuota } from './quota.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
 
 function mapSourceUnavailable(res, error) {
@@ -336,12 +337,71 @@ export function createAnalysisHandler({ licence, quota, runs }) {
   };
 }
 
+/* ── Relais CodeCraft (/api/util/codecraft) ──────────────────────────────
+   La clé du fournisseur reste côté serveur (env CODECRAFT_API_KEY), jamais
+   envoyée au navigateur. Durci après revue 2026-11-06 :
+   - timeout RÉEL (AbortSignal.timeout) — l'option `timeout:` de fetch était
+     ignorée par undici, un amont lent pouvait bloquer la fonction 60 s ;
+   - validation stricte de model / route / prompt (plafonds) ;
+   - quota par IP (1 requête en vol + cooldown 60 s) pour ne pas brûler la clé
+     du propriétaire via des appels répétés non authentifiés ;
+   - aucune fuite du détail amont (on journalise seulement le statut HTTP). */
+const CODECRAFT_UPSTREAM = 'https://codecraftapi.com/v1';
+const CODECRAFT_MODEL_RE = /^[a-z0-9_.:/-]{1,120}$/i;
+const CODECRAFT_PROMPT_MAX = 100_000;
+
+function createCodecraftRelay() {
+  const relayQuota = createQuota({ cooldownMs: 60_000, retryWindowMs: 8_000 });
+  return async function codecraftRelay(req, res, ip) {
+    const body = await readBody(req, 1_000_000);
+    const params = new URLSearchParams(body.toString('utf8'));
+    if (params.get('action') !== 'codecraft') return send(res, 400, { error: 'INVALID_ACTION' });
+    const key = process.env.CODECRAFT_API_KEY;
+    if (!key) return send(res, 503, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' });
+    const model = String(params.get('model') || '');
+    const prompt = String(params.get('prompt') || '');
+    const route = String(params.get('route') || 'chat');
+    if (!CODECRAFT_MODEL_RE.test(model) || model.includes('://') || /\s/.test(model)) return send(res, 400, { error: 'INVALID_MODEL' });
+    if (route !== 'chat' && route !== 'catalog') return send(res, 400, { error: 'INVALID_ROUTE' });
+    if (route === 'chat' && (!prompt || prompt.length > CODECRAFT_PROMPT_MAX)) return send(res, 400, { error: 'INVALID_PROMPT' });
+    const g = relayQuota.gate(ip);
+    if (g.error) return send(res, g.status, { error: g.error, retryAfter: g.retryAfter });
+    relayQuota.hold(g.st, ip);
+    try {
+      const signal = AbortSignal.timeout(30_000);
+      const upstream = route === 'catalog'
+        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json' }, signal })
+        : await fetch(CODECRAFT_UPSTREAM + '/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 800, temperature: 0.2 }),
+            signal
+          });
+      const text = await upstream.text();
+      if (text.length > 1_000_000) return send(res, 502, { error: 'CODECRAFT_UPSTREAM_TOO_LARGE' });
+      let data;
+      try { data = JSON.parse(text); } catch { return send(res, 502, { error: 'CODECRAFT_UPSTREAM_INVALID_JSON' }); }
+      if (!upstream.ok) {
+        log('codecraft amont HTTP', upstream.status); // jamais de contenu de prompt journalisé
+        return send(res, 502, { error: 'CODECRAFT_UPSTREAM_ERROR', upstreamStatus: upstream.status });
+      }
+      return send(res, 200, { ok: true, response: data });
+    } catch (error) {
+      log('codecraft échec', String(error?.name || 'ERR'));
+      return send(res, 504, { error: 'CODECRAFT_REQUEST_FAILED' });
+    } finally {
+      relayQuota.release(g.st, ip);
+    }
+  };
+}
+
 export function createApi({ licence, quota, runs, publicDir, studentAuth = null }) {
   const status = createStatusHandler({ licence, studentAuth });
   const utility = createUtilityHandler({ licence });
   const analysis = createAnalysisHandler({ licence, quota, runs });
   const atelier = createAtelierHandlers();
   const authHandlers = createStudentAuthHandlers(studentAuth);
+  const codecraftRelay = createCodecraftRelay();
   const protectedPaths = new Set([
     '/api/util', '/analysis/2d',
     '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
@@ -377,65 +437,8 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/terrain') return atelier.terrain(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
-    if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft')) {
-      const body = await readBody(req, 1_000_000);
-      const text = body.toString('utf8');
-      const params = new URLSearchParams(text);
-      if (!params.has('action') || params.get('action') !== 'codecraft') {
-        return send(res, 400, { error: 'INVALID_ACTION' });
-      }
-      const key = process.env.CODECRAFT_API_KEY;
-      if (!key) return send(res, 500, { error: 'CODECRAFT_KEY_NOT_CONFIGURED' }); // ensure key is configured
-      const model = params.get('model') || '';
-      const prompt = params.get('prompt') || '';
-      const route = params.get('route') || 'chat';
-      if (!model) return send(res, 400, { error: 'MISSING_MODEL' });
-      try {
-        // Determine target endpoint based on route
-        if (route === 'catalog') {
-          // For catalog: forward to /models endpoint (GET)
-          const codecraftResponse = await fetch('https://codecraftapi.com/v1/models', {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json'
-            },
-            timeout: 30000
-          });
-          const data = await codecraftResponse.json();
-          if (!codecraftResponse.ok) {
-            return send(res, codecraftResponse.status || 500, {
-              error: data?.error?.message || 'CodeCraft API error'
-            });
-          }
-          return send(res, 200, { ok: true, response: data });
-        } else {
-          // For chat: forward to /chat/completions endpoint (POST)
-          const codecraftResponse = await fetch('https://codecraftapi.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${key}`
-            },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              max_tokens: 800,
-              temperature: 0.2
-            }),
-            timeout: 30000
-          });
-          const data = await codecraftResponse.json();
-          if (!codecraftResponse.ok) {
-            return send(res, codecraftResponse.status || 500, {
-              error: data?.error?.message || 'CodeCraft API error'
-            });
-          }
-          return send(res, 200, { ok: true, response: data });
-        }
-      } catch (error) {
-        return send(res, 504, { error: 'CODECRAFT_REQUEST_FAILED', detail: error.message });
-      }
-    }
+    if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft'))
+      return codecraftRelay(req, res, clientIp(req));
     if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip, studentUser);
     if (req.method === 'GET') return serveStatic(req, res, url.pathname + url.search, publicDir); // search transmis : ?v= pilote le cache immutable (règle 27)
 
