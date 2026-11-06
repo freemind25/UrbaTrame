@@ -678,7 +678,13 @@ async function loadModels() {
         })
       }
     } finally { clearTimeout(timeout); }
-    if (!response.ok) throw new Error(`Le catalogue a répondu HTTP ${response.status}. Vérifiez la clé, l’accès API et les conditions du fournisseur.`);
+    if (!response.ok) {
+      let code = '';
+      try { code = (await response.json())?.error || ''; } catch { /* body non JSON */ }
+      if (code === 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF')
+        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403). Côté tableau de bord CodeCraft/Cloudflare : autoriser les ASN AWS (AS16509) ; sinon choisissez OpenRouter, APInex ou un endpoint perso.');
+      throw new Error(`Le catalogue a répondu HTTP ${response.status}. Vérifiez la clé, l’accès API et les conditions du fournisseur.`);
+    }
     const payload = await response.json();
     const models = freeModelsFromCatalog(payload, provider);
     state.aiModels.clear();
