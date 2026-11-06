@@ -139,6 +139,32 @@ describe('consolidation des fonctions Vercel', () => {
     }
   });
 
+  test('relais CodeCraft : le catalogue GET /models transmet aussi la clé serveur', async () => {
+    const previousKey = process.env.CODECRAFT_API_KEY;
+    const previousFetch = globalThis.fetch;
+    const calls = [];
+    process.env.CODECRAFT_API_KEY = 'test-only-key';
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url: String(url), options });
+      return { ok: true, status: 200, text: async () => '{"data":[]}' };
+    };
+    try {
+      const res = response();
+      await handler(request('POST', '/api?__path=%2Futil%2Fcodecraft', new URLSearchParams({ action: 'codecraft', model: 'codecraft/test', prompt: 'load', route: 'catalog' }).toString(), {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-forwarded-for': '198.51.100.77'
+      }), res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, 'https://codecraftapi.com/v1/models');
+      assert.equal(calls[0].options.headers.Authorization, 'Bearer test-only-key');
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
+      else process.env.CODECRAFT_API_KEY = previousKey;
+    }
+  });
+
   test('relais CodeCraft : signale 503 si la clé serveur manque', async () => {
     const previousKey = process.env.CODECRAFT_API_KEY;
     delete process.env.CODECRAFT_API_KEY;
