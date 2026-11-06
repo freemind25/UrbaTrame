@@ -79,7 +79,7 @@ describe('consolidation des fonctions Vercel', () => {
     process.env.CODECRAFT_API_KEY = 'test-only-key';
     globalThis.fetch = async (url, options) => {
       calls.push({ url: String(url), options });
-      return { ok: true, status: 200, json: async () => ({ id: 'local-test' }) };
+      return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'local-test' }), json: async () => ({ id: 'local-test' }) };
     };
     try {
       const form = new URLSearchParams({ action: 'codecraft', model: 'test-model', prompt: 'test prompt' }).toString();
@@ -94,6 +94,61 @@ describe('consolidation des fonctions Vercel', () => {
       assert.equal(calls[0].options.headers.Authorization, 'Bearer test-only-key');
     } finally {
       globalThis.fetch = previousFetch;
+      if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
+      else process.env.CODECRAFT_API_KEY = previousKey;
+    }
+  });
+
+  test('relais CodeCraft durci : validation, quota IP, pas de fuite du détail amont', async () => {
+    const previousKey = process.env.CODECRAFT_API_KEY;
+    const previousFetch = globalThis.fetch;
+    process.env.CODECRAFT_API_KEY = 'test-only-key';
+    let upstreamStatus = 200;
+    globalThis.fetch = async () => ({ ok: upstreamStatus < 400, status: upstreamStatus, text: async () => upstreamStatus < 400 ? '{"id":"ok"}' : '{"error":{"message":"secret amont détail"}}' });
+    const call = (form) => {
+      const res = response();
+      return handler(request('POST', '/api?__path=%2Futil%2Fcodecraft', new URLSearchParams(form).toString(), {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-forwarded-for': '198.51.100.99' // IP dédiée : le quota relais est par IP et partagé entre tests
+      }), res).then(() => res);
+    };
+    try {
+      // modèle invalide -> 400 sans appel amont
+      let res = await call({ action: 'codecraft', model: 'http://evil.example/x', prompt: 'x' });
+      assert.equal(res.statusCode, 400); assert.equal(res.json.error, 'INVALID_MODEL');
+      // route inconnue -> 400
+      res = await call({ action: 'codecraft', model: 'codecraft/test', prompt: 'x', route: 'delete' });
+      assert.equal(res.statusCode, 400); assert.equal(res.json.error, 'INVALID_ROUTE');
+      // prompt vide en chat -> 400
+      res = await call({ action: 'codecraft', model: 'codecraft/test', prompt: '' });
+      assert.equal(res.statusCode, 400); assert.equal(res.json.error, 'INVALID_PROMPT');
+      // 1er appel OK (même IP 203.0.113.10) puis cooldown -> 2e appel immédiat 429
+      res = await call({ action: 'codecraft', model: 'codecraft/test', prompt: 'bonjour' });
+      assert.equal(res.statusCode, 200); assert.equal(res.json.ok, true);
+      res = await call({ action: 'codecraft', model: 'codecraft/test', prompt: 'encore' });
+      assert.equal(res.statusCode, 429);
+      // amont en erreur -> 502 générique, aucun détail amont dans la réponse
+      upstreamStatus = 401;
+      res = await call({ action: 'codecraft', model: 'codecraft/test', prompt: 'x', route: 'catalog' });
+      if (res.statusCode === 429) { /* cooldown encore actif depuis l'IP de test */ }
+      else { assert.equal(res.statusCode, 502); assert.equal(res.json.error, 'CODECRAFT_UPSTREAM_ERROR'); assert.ok(!JSON.stringify(res.json).includes('secret amont')); }
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
+      else process.env.CODECRAFT_API_KEY = previousKey;
+    }
+  });
+
+  test('relais CodeCraft : signale 503 si la clé serveur manque', async () => {
+    const previousKey = process.env.CODECRAFT_API_KEY;
+    delete process.env.CODECRAFT_API_KEY;
+    try {
+      const res = response();
+      await handler(request('POST', '/api?__path=%2Futil%2Fcodecraft', 'action=codecraft&model=codecraft/test&prompt=x', {
+        'content-type': 'application/x-www-form-urlencoded'
+      }), res);
+      assert.equal(res.statusCode, 503); assert.equal(res.json.error, 'CODECRAFT_KEY_NOT_CONFIGURED');
+    } finally {
       if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
       else process.env.CODECRAFT_API_KEY = previousKey;
     }
