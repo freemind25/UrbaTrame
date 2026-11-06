@@ -278,6 +278,7 @@ function renderCatalog() {
     if (!items.length) continue;
     const g = document.createElement('section');
     g.className = 'group';
+    g.dataset.gk = gk;
     const okCount = items.filter(a => S.sel.has(a.id)).length;
     g.innerHTML = `<h3>${T(label[0], label[1])}<span>${okCount}/${items.length}</span></h3>
       <div class="items"><button class="mini" data-all="${gk}">${T('tout', 'all')}</button>
@@ -300,21 +301,41 @@ function renderCatalog() {
         if (e.target.checked) S.sel.add(a.id); else S.sel.delete(a.id);
         if (a.id === 'volumes' && e.target.checked) ensureVue3D();
         store.set('sel', [...S.sel]);
-        updateGenBtn(); renderCatalog();
+        /* règle perf 26 : synchro incrémentale — une seule ligne + le compteur
+           du groupe, au lieu de reconstruire tout le catalogue */
+        row.classList.toggle('on', e.target.checked);
+        syncGroupCount(g);
+        updateGenBtn();
       });
       host.appendChild(g);
       g.querySelector('.items').after(row);
     }
     g.querySelector('[data-all]')?.addEventListener('click', () => {
-      items.filter(a => a.impl && unlocked(a.id)).forEach(a => S.sel.add(a.id));
-      store.set('sel', [...S.sel]); renderCatalog(); updateGenBtn();
+      items.filter(a => a.impl && unlocked(a.id)).forEach(a => { S.sel.add(a.id); syncRow(a.id); });
+      store.set('sel', [...S.sel]); syncGroupCount(g); updateGenBtn();
     });
     g.querySelector('[data-none]')?.addEventListener('click', () => {
-      items.forEach(a => S.sel.delete(a.id));
-      store.set('sel', [...S.sel]); renderCatalog(); updateGenBtn();
+      items.forEach(a => { S.sel.delete(a.id); syncRow(a.id); });
+      store.set('sel', [...S.sel]); syncGroupCount(g); updateGenBtn();
     });
   }
   updateGenBtn();
+}
+
+/* Synchro incrémentale d'une ligne du catalogue depuis S.sel (règle perf 26). */
+function syncRow(id) {
+  const input = $('#catalog')?.querySelector(`.item input[data-id="${id}"]`);
+  if (!input) return;
+  input.checked = S.sel.has(id);
+  input.closest('.item').classList.toggle('on', input.checked);
+}
+
+/* Met à jour le compteur « n/m » d'un groupe sans re-rendre ses lignes. */
+function syncGroupCount(g) {
+  const items = CAT.filter(a => a.g === g.dataset.gk);
+  const ok = items.filter(a => S.sel.has(a.id)).length;
+  const span = g.querySelector('h3 span');
+  if (span) span.textContent = `${ok}/${items.length}`;
 }
 
 function selected() { return CAT.filter(a => S.sel.has(a.id) && a.impl && unlocked(a.id)).map(a => a.id); }
