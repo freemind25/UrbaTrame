@@ -76,13 +76,23 @@ export function createStudentAuth({
     });
     if (issued?.status !== 'issued') return { ...GENERIC_OTP_RESPONSE };
 
+    /* Règle perf 7 : l'envoi du mail part en arrière-plan — la réponse HTTP ne
+       dépend plus de la latence du relais SMTP (déjà plafonnée par les timeouts
+       du transport : 8 s connexion / 12 s socket). L'envoi est déclenché tout de
+       suite ; en cas d'échec, le challenge est invalidé (fail closed) et journalisé
+       sans jamais loguer l'adresse ni le code OTP.
+       Note serverless : après la réponse, l'instance peut être gelée — le garde-fou
+       reste le cooldown de renvoi + l'invalidation côté verify. */
+    let delivery;
     try {
-      await sendOtpEmail({ to: email, code, expiresAt });
+      delivery = sendOtpEmail({ to: email, code, expiresAt });
     } catch (error) {
-      try { await repository.invalidateOtpChallenge(challengeId, new Date(now())); } catch { /* fail closed */ }
-      /* Ne jamais journaliser l'adresse ni le code OTP. */
-      console.error('UT_AUTH_EMAIL_DELIVERY_FAILED', String(error?.code || error?.name || 'EMAIL_ERROR').slice(0, 64));
+      delivery = Promise.reject(error);
     }
+    Promise.resolve(delivery).catch(async error => {
+      try { await repository.invalidateOtpChallenge(challengeId, new Date(now())); } catch { /* fail closed */ }
+      console.error('UT_AUTH_EMAIL_DELIVERY_FAILED', String(error?.code || error?.name || 'EMAIL_ERROR').slice(0, 64));
+    });
     return { ...GENERIC_OTP_RESPONSE };
   }
 
