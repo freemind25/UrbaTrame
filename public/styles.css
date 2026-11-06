@@ -509,3 +509,12 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
 .skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid var(--ring)}
 
 @media (pointer:coarse){button,.button-primary,.button-secondary,.tool-button,.file-button,.level-card,.search-result,.topnav a,.panel>summary,.resource-action,.library-card a{min-height:44px;padding-top:10px;padding-bottom:10px}}
+
+/* Règle perf 1 : squelettes de chargement (formes grises animées). */
+.skel{position:relative;overflow:hidden;background:var(--muted);border-radius:10px}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:skel 1.2s infinite}
+@keyframes skel{to{transform:translateX(100%)}}
+.skel-row{height:44px;margin:6px 0}
+.skel-card{height:220px}
+@media (prefers-reduced-motion:reduce){.skel::after{animation:none;opacity:.4}}

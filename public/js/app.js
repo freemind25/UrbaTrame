@@ -574,7 +574,7 @@ function renderCards() {
           <button title="PNG ×3" data-png>PNG</button>
         </span>
       </header>
-      <div class="body">${renderOne(id)}</div>
+      <div class="body">${S.busy ? '<div class="skel skel-card"></div>' : renderOne(id)}</div>
       <footer class="note">${id === 'wind'
         ? T('NASA POWER · MERRA-2 · 10 m · direction = provenance du vent · flux régional, pas de vent local CFD', 'NASA POWER · MERRA-2 · 10 m · direction = where wind comes from · regional flow, not local CFD')
         : id === 'obmoccupancy'
@@ -1202,6 +1202,7 @@ async function generate() {
   S.obm = null;
 
   S.busy = true;
+  renderCards(); /* squelettes des cartes pendant la génération (règle perf 1) */
   $('#analysisMap')?.classList.add('is-busy');
   const list = stages(p, null);
   const state = {}; state.prepare = 'done';
@@ -1499,6 +1500,9 @@ async function doSearch(event) {
 
   log('géocodage · ' + q);
   setSearchStatus(T('Recherche en cours…', 'Searching…'), 'loading');
+  /* règle perf 1 : squelette pendant l'attente réseau */
+  const sr = $('#searchResults');
+  if (sr) { sr.hidden = false; sr.innerHTML = '<div class="skel skel-row"></div>'.repeat(3); }
   try {
     const payload = await S.routes.geocode(q);
     if (requestId !== siteSearchRevision) return;
