@@ -9,6 +9,7 @@ import { Routes, errText } from './routes.mjs';
 import { store, deviceId, cacheClear, cacheGet } from './persist.mjs';
 import { normalizeElements, dedupe } from './osm.mjs';
 import { ouvrir3D } from './vue3d-ui.mjs';
+import { ensureVue3D } from './lazy-vue3d.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
 import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
@@ -240,7 +241,8 @@ const unlocked = id => {
    Ouvre la fenêtre de volumes bâtis : mêmes données que l'analyse « Volumes 3D »
    quand elles sont déjà chargées, sinon le serveur les fournit (action
    `buildings`), avec repli sur les tuiles osmbuildings.org si on le demande. */
-function vue3D(opts = {}) {
+async function vue3D(opts = {}) {
+  await ensureVue3D();
   return ouvrir3D({
     lat: S.site.lat, lon: S.site.lon, rayon: S.site.R,
     nom: S.site.name, langue: S.lang,
@@ -276,6 +278,7 @@ function renderCatalog() {
     if (!items.length) continue;
     const g = document.createElement('section');
     g.className = 'group';
+    g.dataset.gk = gk;
     const okCount = items.filter(a => S.sel.has(a.id)).length;
     g.innerHTML = `<h3>${T(label[0], label[1])}<span>${okCount}/${items.length}</span></h3>
       <div class="items"><button class="mini" data-all="${gk}">${T('tout', 'all')}</button>
@@ -296,22 +299,43 @@ function renderCatalog() {
         <span class="limit">${limit} m</span>`;
       row.querySelector('input').addEventListener('change', e => {
         if (e.target.checked) S.sel.add(a.id); else S.sel.delete(a.id);
+        if (a.id === 'volumes' && e.target.checked) ensureVue3D();
         store.set('sel', [...S.sel]);
-        updateGenBtn(); renderCatalog();
+        /* règle perf 26 : synchro incrémentale — une seule ligne + le compteur
+           du groupe, au lieu de reconstruire tout le catalogue */
+        row.classList.toggle('on', e.target.checked);
+        syncGroupCount(g);
+        updateGenBtn();
       });
       host.appendChild(g);
       g.querySelector('.items').after(row);
     }
     g.querySelector('[data-all]')?.addEventListener('click', () => {
-      items.filter(a => a.impl && unlocked(a.id)).forEach(a => S.sel.add(a.id));
-      store.set('sel', [...S.sel]); renderCatalog(); updateGenBtn();
+      items.filter(a => a.impl && unlocked(a.id)).forEach(a => { S.sel.add(a.id); syncRow(a.id); });
+      store.set('sel', [...S.sel]); syncGroupCount(g); updateGenBtn();
     });
     g.querySelector('[data-none]')?.addEventListener('click', () => {
-      items.forEach(a => S.sel.delete(a.id));
-      store.set('sel', [...S.sel]); renderCatalog(); updateGenBtn();
+      items.forEach(a => { S.sel.delete(a.id); syncRow(a.id); });
+      store.set('sel', [...S.sel]); syncGroupCount(g); updateGenBtn();
     });
   }
   updateGenBtn();
+}
+
+/* Synchro incrémentale d'une ligne du catalogue depuis S.sel (règle perf 26). */
+function syncRow(id) {
+  const input = $('#catalog')?.querySelector(`.item input[data-id="${id}"]`);
+  if (!input) return;
+  input.checked = S.sel.has(id);
+  input.closest('.item').classList.toggle('on', input.checked);
+}
+
+/* Met à jour le compteur « n/m » d'un groupe sans re-rendre ses lignes. */
+function syncGroupCount(g) {
+  const items = CAT.filter(a => a.g === g.dataset.gk);
+  const ok = items.filter(a => S.sel.has(a.id)).length;
+  const span = g.querySelector('h3 span');
+  if (span) span.textContent = `${ok}/${items.length}`;
 }
 
 function selected() { return CAT.filter(a => S.sel.has(a.id) && a.impl && unlocked(a.id)).map(a => a.id); }
@@ -550,7 +574,7 @@ function renderCards() {
           <button title="PNG ×3" data-png>PNG</button>
         </span>
       </header>
-      <div class="body">${renderOne(id)}</div>
+      <div class="body">${S.busy ? '<div class="skel skel-card"></div>' : renderOne(id)}</div>
       <footer class="note">${id === 'wind'
         ? T('NASA POWER · MERRA-2 · 10 m · direction = provenance du vent · flux régional, pas de vent local CFD', 'NASA POWER · MERRA-2 · 10 m · direction = where wind comes from · regional flow, not local CFD')
         : id === 'obmoccupancy'
@@ -1155,14 +1179,21 @@ function drawLoader(list, state, startedAt) {
 
 /* ═══════════════ génération ═══════════════ */
 async function generate() {
+  /* Règle perf 14 : verrou optimiste immédiat — le clic met à jour l'UI tout de
+     suite (bouton désactivé, S.busy) et un double-clic ne lance pas 2 générations,
+     même pendant l'éventuel chargement du moteur 3D. */
   if (S.busy) return;
+  S.busy = true;
+  const genBtn = $('#gen');
+  if (genBtn) genBtn.disabled = true;
+  if (S.sel.has('volumes')) await ensureVue3D();
   const ids = selected();
-  if (!ids.length) { toast(T('Sélectionnez au moins une analyse', 'Pick at least one analysis'), false); return; }
-  if (S.site.lat == null) { toast(T('Cherchez d\'abord un lieu', 'Search a place first'), false); return; }
+  if (!ids.length) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(T('Sélectionnez au moins une analyse', 'Pick at least one analysis'), false); return; }
+  if (S.site.lat == null) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(T('Cherchez d\'abord un lieu', 'Search a place first'), false); return; }
 
   let p;
   try { p = plan(ids, S.site.R, S.site.lat, S.site.lon); }
-  catch (e) { toast(errText(e.message, S.lang), false); log('plan refusé : ' + e.message); return; }
+  catch (e) { S.busy = false; if (genBtn) genBtn.disabled = false; toast(errText(e.message, S.lang), false); log('plan refusé : ' + e.message); return; }
   if (p.skipped.length)
     log(`rayon ${S.site.R} m : ${p.skipped.length} analyse(s) ignorée(s) (${p.skipped.join(', ')})`);
   const requestedSite = {
@@ -1176,7 +1207,7 @@ async function generate() {
   S.terrain = null;
   S.obm = null;
 
-  S.busy = true;
+  renderCards(); /* squelettes des cartes pendant la génération (règle perf 1) */
   $('#analysisMap')?.classList.add('is-busy');
   const list = stages(p, null);
   const state = {}; state.prepare = 'done';
@@ -1327,6 +1358,7 @@ async function generate() {
     drawLoader([], state, t0);
     if (run) S.routes.end(run, { device: S.device, session: S.session });
     S.busy = false;
+    if (genBtn) genBtn.disabled = false;
     $('#analysisMap')?.classList.remove('is-busy');
   }
 }
@@ -1474,6 +1506,9 @@ async function doSearch(event) {
 
   log('géocodage · ' + q);
   setSearchStatus(T('Recherche en cours…', 'Searching…'), 'loading');
+  /* règle perf 1 : squelette pendant l'attente réseau */
+  const sr = $('#searchResults');
+  if (sr) { sr.hidden = false; sr.innerHTML = '<div class="skel skel-row"></div>'.repeat(3); }
   try {
     const payload = await S.routes.geocode(q);
     if (requestId !== siteSearchRevision) return;
@@ -2085,6 +2120,7 @@ async function init() {
   await refreshEntitlement();
 
   const mayUseApp = !S.studentAuthRequired || Boolean(S.studentUser);
+  if (mayUseApp && (qp.get('vue3d') === '1' || S.sel.has('volumes'))) ensureVue3D();
   if (mayUseApp && qp.get('vue3d') === '1') setTimeout(() => vue3D(), 400);
   if (mayUseApp && qp.get('upgrade')) openPlans();
   if (mayUseApp && qp.get('sample') === '1') setTimeout(loadSample, 300);

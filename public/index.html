@@ -1,28 +1,30 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/urbatrame-favicon.png" type="image/png" sizes="128x128">
+  <link rel="icon" href="/favicon.svg?v=20261106p3" type="image/svg+xml">
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261106p3" type="image/png" sizes="128x128">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#153e3d">
 <title>UrbaTrame — analyse des sites urbains</title>
 <meta name="description" content="UrbaTrame : analyses de sites urbains, synthèse quantitative, scénario indicatif, exports vectoriels, 3D et relief fondés sur des données cartographiques.">
-<script type="module" src="/js/student-auth-ui.mjs"></script>
-<link rel="stylesheet" href="styles.css?v=header-clean">
-<script src="js/catalog.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/vue3d.js"></script>
-<script src="js/renderers-core.js"></script>
-<script src="js/renderers-pro.js"></script>
-<script src="js/renderers-obm.js"></script>
-<script src="js/renderers-boards.js"></script>
+<script type="module" src="/js/student-auth-ui.mjs?v=20261106p3"></script>
+<link rel="stylesheet" href="/tokens.css?v=20261106p3">
+  <link rel="stylesheet" href="styles.css?v=header-clean">
+<script src="js/catalog.js?v=20261106p3"></script>
+<script src="js/engine.js?v=20261106p3"></script>
+<script type="module" src="/js/lazy-vue3d.mjs?v=20261106p3"></script>
+<script src="js/renderers-core.js?v=20261106p3"></script>
+<script src="js/renderers-pro.js?v=20261106p3"></script>
+<script src="js/renderers-obm.js?v=20261106p3"></script>
+<script src="js/renderers-boards.js?v=20261106p3"></script>
 </head>
 <body>
 
+  <a class="skip-link" href="#main" data-fr="Aller au contenu principal" data-en="Skip to main content">Aller au contenu principal</a>
 <header class="top">
     <div class="brand">
-    <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.png" alt=""></span>
+    <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261106p3" width="40" height="40" alt=""></span>
     <span class="brand-copy">
       <span class="logo">UrbaTrame</span>
       <span class="sub" data-fr="Analyse des sites urbains" data-en="Urban site analysis">Analyse des sites urbains</span>
@@ -49,7 +51,7 @@
     <section class="panel">
       <label class="lab" data-fr="1 · Lieu" data-en="1 · Place">1 · Lieu</label>
       <div class="row">
-        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon" autocomplete="off" aria-controls="searchResults">
+        <input id="q" type="text" data-fr="Ville, adresse ou lat,lon" data-en="City, address or lat,lon" placeholder="Ville, adresse ou lat,lon" autocomplete="off" aria-controls="searchResults" aria-label="Ville, adresse ou lat,lon">
         <button id="search" class="primary ut-glow" type="button" aria-controls="searchResults" aria-expanded="false" data-fr="Chercher" data-en="Search">Chercher</button>
       </div>
       <p id="searchStatus" class="search-status" role="status" aria-live="polite" hidden></p>
@@ -64,18 +66,18 @@
     <section class="panel">
       <label class="lab" data-fr="2 · Site" data-en="2 · Site">2 · Site</label>
       <div class="row" id="radiusWrap">
-        <span class="lab2" data-fr="rayon" data-en="radius">rayon</span>
+        <label class="lab2" for="radius" data-fr="rayon" data-en="radius">rayon</label>
         <input id="radius" type="range" min="200" max="3000" step="50" value="600">
         <output id="radiusOut">600 m</output>
       </div>
       <div class="row">
-        <span class="lab2" data-fr="forme" data-en="shape">forme</span>
+        <label class="lab2" for="shape" data-fr="forme" data-en="shape">forme</label>
         <select id="shape">
           <option value="circle" data-fr="Cercle" data-en="Circle">Cercle</option>
           <option value="rect" data-fr="Carré arrondi" data-en="Rounded square">Carré arrondi</option>
           <option value="square" data-fr="Carré" data-en="Square">Carré</option>
         </select>
-        <span class="lab2" data-fr="heure" data-en="hour">heure</span>
+        <label class="lab2" for="time" data-fr="heure" data-en="hour">heure</label>
         <output id="timeOut">12:00</output>
         <input id="time" type="range" min="4" max="21" step="0.25" value="12">
       </div>
@@ -116,7 +118,8 @@
     <p class="warn" id="warn"></p>
   </aside>
 
-  <main>
+  <main id="main">
+  <h1 class="sr-only">UrbaTrame — analyse des sites urbains</h1>
     <div class="toolbar">
       <button id="gen" class="gen" data-fr="Générer les analyses" data-en="Generate analyses">Générer les analyses</button>
       <button id="siteReportBtn" class="report-trigger" data-fr="Synthèse & scénario" data-en="Site summary & scenario">Synthèse & scénario</button>
@@ -215,7 +218,7 @@
        data-en="Saved in this browser only. Projects retain the place, analysis selection, assumptions and map appearance (palettes, titles and text visibility)—not datasets or rendered maps; rerun analyses after loading. The share file contains the site coordinates.">Sauvegardés dans ce navigateur uniquement. Les projets conservent le lieu, la sélection, les hypothèses et l’apparence des cartes (palettes, titres et affichage du texte) — pas les jeux de données ni les cartes rendues; relancez les analyses à l’ouverture. Le fichier partagé contient les coordonnées du site.</p>
     <div class="workspace-save">
       <label for="workspaceName" data-fr="Nom du projet ou modèle" data-en="Project or template name">Nom du projet ou modèle</label>
-      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet">
+      <input id="workspaceName" type="text" maxlength="80" data-fr="Nom du projet" data-en="Project name" placeholder="Nom du projet" aria-label="Nom du projet">
       <div class="workspace-save-actions">
         <button id="saveWorkspaceProject" class="primary" data-fr="Enregistrer le projet" data-en="Save project">Enregistrer le projet</button>
         <button id="saveWorkspaceTemplate" data-fr="Enregistrer comme modèle" data-en="Save as template">Enregistrer comme modèle</button>
@@ -282,6 +285,6 @@
         data-en="Map data © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, optional occupancy layer) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
 </footer>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=20261106p3"></script>
 </body>
 </html>

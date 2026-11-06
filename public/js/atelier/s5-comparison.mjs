@@ -165,12 +165,12 @@ function renderControlPoints() {
 
     const oldButton = makeElement('button', '', point.old ? `✓ Historique · ${Math.round(point.old.x)},${Math.round(point.old.y)}` : 'Pointer historique');
     oldButton.type = 'button'; oldButton.dataset.pick = 'old';
-    oldButton.setAttribute('aria-label', `Choisir la position historique pour ${point.name}`);
+    oldButton.setAttribute('aria-label', `${oldButton.textContent} — choisir la position historique pour ${point.name}`);
     oldButton.addEventListener('click', () => beginPointPick(point, 'old'));
 
     const currentButton = makeElement('button', '', point.current ? `✓ Actuelle · ${Math.round(point.current.x)},${Math.round(point.current.y)}` : 'Pointer actuelle');
     currentButton.type = 'button'; currentButton.dataset.pick = 'current';
-    currentButton.setAttribute('aria-label', `Choisir la position actuelle pour ${point.name}`);
+    currentButton.setAttribute('aria-label', `${currentButton.textContent} — choisir la position actuelle pour ${point.name}`);
     currentButton.addEventListener('click', () => beginPointPick(point, 'current'));
 
     const remove = makeElement('button', 'remove-point', '×');

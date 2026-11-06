@@ -437,7 +437,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
       }
     }
     if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip, studentUser);
-    if (req.method === 'GET') return serveStatic(req, res, url.pathname, publicDir);
+    if (req.method === 'GET') return serveStatic(req, res, url.pathname + url.search, publicDir); // search transmis : ?v= pilote le cache immutable (règle 27)
 
     send(res, 405, 'POST only', 'text/plain');
   };

@@ -3,6 +3,7 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 
 export const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -79,6 +80,14 @@ export const clientIp = req =>
   (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
   req.socket.remoteAddress || '0.0.0.0';
 
+/* Règle perf 27 : un asset servit avec ?v=<version> est immuable (nom + empreinte
+   de version dans l'URL) -> cache navigateur d'un an. Sans ?v=, on reste prudent. */
+export function cacheControlFor(urlPath, ext) {
+  if (ext === '.html') return 'no-store';
+  const hasV = /[?&]v=[^&]+/.test(urlPath);
+  return hasV ? 'public, max-age=31536000, immutable' : 'public, max-age=300';
+}
+
 export async function serveStatic(req, res, urlPath, publicDir) {
   let rel = decodeURIComponent(urlPath.split('?')[0]);
   if (rel === '/' || rel === '') rel = '/index.html';
@@ -88,13 +97,25 @@ export async function serveStatic(req, res, urlPath, publicDir) {
     const st = await fsp.stat(full);
     if (st.isDirectory()) return serveStatic(req, res, path.join(rel, 'index.html'), publicDir);
     const ext = path.extname(full).toLowerCase();
-    const data = await fsp.readFile(full);
-    res.writeHead(200, {
+    let data = await fsp.readFile(full);
+    /* Règle perf 9 : compression des réponses texte (prod Vercel le fait déjà en
+       brotli automatiquement ; ceci couvre le serveur local). > 1 Ko seulement. */
+    const compressible = /\.(html|css|js|mjs|json|svg|xml|txt|md|webmanifest)$/.test(ext);
+    let encoding = null;
+    if (compressible && data.length > 1024) {
+      const accept = String(req.headers?.['accept-encoding'] || '');
+      if (/\bbr\b/.test(accept)) { data = zlib.brotliCompressSync(data, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: data.length > 500_000 ? 5 : 11 } }); encoding = 'br'; }
+      else if (/\bgzip\b/.test(accept)) { data = zlib.gzipSync(data, { level: 6 }); encoding = 'gzip'; }
+    }
+    const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'X-EM-Trace': TRACE,
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=300'
-    });
+      'Cache-Control': cacheControlFor(urlPath, ext),
+      'Vary': 'Accept-Encoding'
+    };
+    if (encoding) headers['Content-Encoding'] = encoding;
+    res.writeHead(200, headers);
     res.end(data);
   } catch {
     send(res, 404, 'Not found', 'text/plain');
