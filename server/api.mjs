@@ -349,6 +349,8 @@ export function createAnalysisHandler({ licence, quota, runs }) {
 const CODECRAFT_UPSTREAM = 'https://codecraftapi.com/v1';
 const CODECRAFT_MODEL_RE = /^[a-z0-9_.:/-]{1,120}$/i;
 const CODECRAFT_PROMPT_MAX = 100_000;
+/* UA explicite : certains WAF (Cloudflare) répondent 403 text/html aux UA par défaut des datacenters */
+const CODECRAFT_UA = 'UrbaTrame/0.1 (+https://freemap-rose.vercel.app)';
 
 function createCodecraftRelay() {
   const relayQuota = createQuota({ cooldownMs: 60_000, retryWindowMs: 8_000 });
@@ -371,10 +373,10 @@ function createCodecraftRelay() {
       const signal = AbortSignal.timeout(30_000);
       const upstream = route === 'catalog'
         /* l'amont exige la clé AUSSI pour GET /v1/models (401 missing_api_key sinon) */
-        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json', Authorization: `Bearer ${key}` }, signal })
+        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json', Authorization: `Bearer ${key}`, 'User-Agent': CODECRAFT_UA }, signal })
         : await fetch(CODECRAFT_UPSTREAM + '/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'User-Agent': CODECRAFT_UA },
             body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 800, temperature: 0.2 }),
             signal
           });
