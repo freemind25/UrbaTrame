@@ -1588,7 +1588,7 @@ $('#loadAiModels').addEventListener('click', async () => {
       : '';
     statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s).' + hint + ' Choisissez le modèle dans la liste « Modèle chargé du catalogue » (elle recopie l’ID) ; aucun envoi automatique vers un modèle payant.';
   } catch (error) {
-    const hint = 'Routeur local FreeLLMAPI : autorisez l’origine de ce site en CORS — ' + 'docker run -d -p 3001:3001 -e DASHBOARD_ORIGINS=https://freemap-rose.vercel.app tashfeenahmed/freellmapi' + ' — puis saisissez la clé unifiée du routeur.';
+    const hint = 'Routeur local FreeLLMAPI : autorisez l’origine de ce site en CORS — ' + 'docker run -d --name freellmapi -p 3001:3001 -e DASHBOARD_ORIGINS=https://freemap-rose.vercel.app -v freellmapi-data:/app/server/data ghcr.io/tashfeenahmed/freellmapi:latest' + ' — puis saisissez la clé unifiée du routeur.';
     statusEl.textContent = (error?.message || 'Catalogue indisponible (réseau ou CORS).') + (provider === 'freellmapi' ? ' ' + hint : '');
   } finally {
     button.disabled = false;

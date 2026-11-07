@@ -133,5 +133,6 @@ describe('garde-fou : fournisseur FreeLLMAPI (routeur local) branché dans S5', 
     assert.ok(html.includes('github.com/tashfeenahmed/freellmapi'), 'lien GitHub MIT');
     assert.ok(html.includes('DASHBOARD_ORIGINS=https://freemap-rose.vercel.app'), 'commande docker CORS dans la note S5');
     assert.ok(js.includes('DASHBOARD_ORIGINS=https://freemap-rose.vercel.app'), 'hint CORS dans le catch de loadModels');
+    assert.ok((html + js).includes('ghcr.io/tashfeenahmed/freellmapi:latest'), 'image ghcr.io officielle dans la commande docker');
   });
 });
