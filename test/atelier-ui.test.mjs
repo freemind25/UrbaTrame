@@ -108,6 +108,8 @@ describe('UrbaTrame · catalogue des modèles dans le panneau IA cartographique'
     assert.ok(js.includes("$('#aiModelSelect').addEventListener('change'"), 'select recopiant l’ID dans #aiModel');
     assert.ok(js.includes("$('#aiModelSelectField').hidden = false"), 'liste déroulante affichée après chargement');
     assert.ok(js.includes('Modèle chargé du catalogue'), 'label de la liste déroulante');
+    assert.ok(js.includes("provider === 'codecraft'"), 'hint WAF affiché dès la sélection CodeCraft');
+    assert.ok(js.includes('https://codecraftapi.com/v1/chat/completions + votre clé cc_'), 'hint avec endpoint direct + clé');
     assert.ok(js.includes('$/1M jetons'), 'label avec prix publié quand disponible');
   });
 });
