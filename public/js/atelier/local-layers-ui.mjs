@@ -1491,6 +1491,15 @@ function selectedAiLayers() {
 $('#aiProvider').addEventListener('change', () => {
   state.aiPrice = null; state.pendingAiGeoJSON = null; $('#aiValidateResult').checked = false;
   $('#aiPriceStatus').textContent = 'Le contrôle des tarifs ne transmet ni clé, ni consigne, ni géométrie.';
+  $('#aiModelList').replaceChildren();
+  const select = $('#aiModelSelect');
+  select.replaceChildren(new Option('Catalogue non chargé', ''));
+  $('#aiModelSelectField').hidden = true;
+  updateAiControls();
+});
+$('#aiModelSelect').addEventListener('change', () => {
+  const id = $('#aiModelSelect').value;
+  if (id) $('#aiModel').value = id;
   updateAiControls();
 });
 $('#aiModel').addEventListener('input', () => {
@@ -1546,22 +1555,28 @@ $('#loadAiModels').addEventListener('click', async () => {
     const free = freeModelsFromCatalog(payload, provider);
     const freeIds = new Set(free.map(model => model.id));
     const list = $('#aiModelList');
+    const select = $('#aiModelSelect');
     list.replaceChildren();
+    select.replaceChildren(new Option('Choisir un modèle du catalogue…', ''));
     for (const model of all.slice(0, 300)) {
       const id = String(model?.id || model?.name || '');
       if (!id) continue;
+      const price = Number(model?.pricing?.prompt ?? model?.pricing?.input);
+      const label = freeIds.has(id) ? id + ' · gratuit déclaré'
+        : (Number.isFinite(price) ? id + ' · entrée ~' + (price * 1_000_000).toFixed(2).replace('.', ',') + ' $/1M jetons'
+        : id + ' · tarif à vérifier');
       const option = document.createElement('option');
       option.value = id;
-      const price = Number(model?.pricing?.prompt ?? model?.pricing?.input);
-      option.label = freeIds.has(id) ? 'gratuit déclaré'
-        : (Number.isFinite(price) ? 'entrée ~' + (price * 1_000_000).toFixed(2).replace('.', ',') + ' $/1M jetons'
-        : 'tarif à vérifier');
+      option.label = label;
       list.appendChild(option);
+      select.add(new Option(label, id));
     }
+    $('#aiModelSelectField').hidden = false;
+    select.selectedIndex = 0;
     const hint = free.length === 0
       ? ' Aucun tarif nul n’est publié dans ce catalogue : un éventuel palier gratuit est au niveau du compte — consultez le tableau de bord / les tarifs du fournisseur avant l’envoi.'
       : '';
-    statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s).' + hint + ' Suggestions renseignées dans la liste du champ « ID du modèle » ; aucun envoi automatique vers un modèle payant.';
+    statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s).' + hint + ' Choisissez le modèle dans la liste « Modèle chargé du catalogue » (elle recopie l’ID) ; aucun envoi automatique vers un modèle payant.';
   } catch (error) {
     statusEl.textContent = error?.message || 'Catalogue indisponible (réseau ou CORS).';
   } finally {
