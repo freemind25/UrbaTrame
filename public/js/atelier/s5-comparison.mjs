@@ -682,7 +682,7 @@ async function loadModels() {
       let code = '';
       try { code = (await response.json())?.error || ''; } catch { /* body non JSON */ }
       if (code === 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF')
-        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403). Côté tableau de bord CodeCraft/Cloudflare : autoriser les ASN AWS (AS16509) ; sinon choisissez OpenRouter, APInex ou un endpoint perso.');
+        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403 sur l’ASN AWS — même avec un profil navigateur complet). Contournements : (1) autoriser AS16509 côté tableau de bord CodeCraft/Cloudflare, ou variable CODECRAFT_UPSTREAM sur Vercel vers un relais perso ; (2) immédiat, choisissez « Autre endpoint » avec https://codecraftapi.com/v1 et votre clé cc_… (appel direct navigateur, non bloqué) ; (3) OpenRouter ou APInex.');
       throw new Error(`Le catalogue a répondu HTTP ${response.status}. Vérifiez la clé, l’accès API et les conditions du fournisseur.`);
     }
     const payload = await response.json();

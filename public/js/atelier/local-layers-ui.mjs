@@ -1582,7 +1582,7 @@ $('#runAi').addEventListener('click', async () => {
       let cc = '';
       try { cc = (await response.json())?.error || ''; } catch { /* body non JSON */ }
       if (cc === 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF')
-        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403). Autorisez les ASN AWS (AS16509) côté CodeCraft/Cloudflare, ou choisissez OpenRouter / APInex / endpoint perso.');
+        throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403 sur l’ASN AWS). Contournements : autoriser AS16509 côté CodeCraft/Cloudflare (ou CODECRAFT_UPSTREAM sur Vercel vers un relais perso), ou appeler https://codecraftapi.com/v1 directement depuis le navigateur avec votre clé cc_… via « Autre endpoint », ou choisir OpenRouter / APInex.');
       throw new Error(`Fournisseur IA · HTTP ${response.status}. Vérifiez clé, modèle, CORS, quota et solde.`);
     }
     const responseJson = JSON.parse(await readResponseTextLimited(response, 512 * 1024, 'AI_RESPONSE_TOO_LARGE'));
