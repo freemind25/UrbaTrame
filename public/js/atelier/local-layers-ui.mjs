@@ -1495,6 +1495,10 @@ $('#aiProvider').addEventListener('change', () => {
   const select = $('#aiModelSelect');
   select.replaceChildren(new Option('Catalogue non chargé', ''));
   $('#aiModelSelectField').hidden = true;
+  const provider = $('#aiProvider').value;
+  $('#aiModelStatus').textContent = provider === 'codecraft'
+    ? 'CodeCraft via le relais serveur est bloqué par le WAF de codecraftapi.com (403 sur l’ASN AWS de Vercel). Utilisez plutôt « Endpoint fourni par vous » : https://codecraftapi.com/v1/chat/completions + votre clé cc_… (appel direct navigateur, CORS autorisé) — ou autorisez AS16509 côté Cloudflare.'
+    : 'Le catalogue n’est chargé qu’à votre clic, avec votre clé, sans aucune donnée de couche.';
   updateAiControls();
 });
 $('#aiModelSelect').addEventListener('change', () => {
