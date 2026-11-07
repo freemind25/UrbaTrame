@@ -1552,10 +1552,16 @@ $('#loadAiModels').addEventListener('click', async () => {
       if (!id) continue;
       const option = document.createElement('option');
       option.value = id;
-      option.label = freeIds.has(id) ? 'gratuit déclaré' : 'tarif à vérifier';
+      const price = Number(model?.pricing?.prompt ?? model?.pricing?.input);
+      option.label = freeIds.has(id) ? 'gratuit déclaré'
+        : (Number.isFinite(price) ? 'entrée ~' + (price * 1_000_000).toFixed(2).replace('.', ',') + ' $/1M jetons'
+        : 'tarif à vérifier');
       list.appendChild(option);
     }
-    statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s). Suggestions renseignées dans la liste du champ « ID du modèle » ; aucun envoi automatique vers un modèle payant.';
+    const hint = free.length === 0
+      ? ' Aucun tarif nul n’est publié dans ce catalogue : un éventuel palier gratuit est au niveau du compte — consultez le tableau de bord / les tarifs du fournisseur avant l’envoi.'
+      : '';
+    statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s).' + hint + ' Suggestions renseignées dans la liste du champ « ID du modèle » ; aucun envoi automatique vers un modèle payant.';
   } catch (error) {
     statusEl.textContent = error?.message || 'Catalogue indisponible (réseau ou CORS).';
   } finally {

@@ -102,5 +102,7 @@ describe('UrbaTrame · catalogue des modèles dans le panneau IA cartographique'
     assert.ok(js.includes("$('#loadAiModels').disabled = !provider"), 'bouton désactivé sans fournisseur/clé');
     assert.ok(js.includes("from './s5-core.mjs'"), 'import s5-core');
     assert.ok(js.includes("'/models'"), 'appel du catalogue /models');
+    assert.ok(js.includes('palier gratuit est au niveau du compte'), 'hint palier compte quand 0 gratuit déclaré');
+    assert.ok(js.includes('$/1M jetons'), 'label avec prix publié quand disponible');
   });
 });
