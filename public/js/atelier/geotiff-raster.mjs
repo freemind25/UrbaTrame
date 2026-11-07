@@ -36,7 +36,7 @@ function checkNorthUp(image) {
     fail('RASTER_ROTATED_UNSUPPORTED');
 }
 
-function rasterRange(values, width, height, samples, noData) {
+export function rasterRange(values, width, height, samples, noData) {
   const min = Array(samples).fill(Infinity), max = Array(samples).fill(-Infinity);
   const counts = Array(samples).fill(0);
   let validPixels = 0;

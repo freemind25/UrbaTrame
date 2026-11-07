@@ -19,6 +19,7 @@ import { parseKmlText, layersToKml } from './kml.mjs';
 import { createStoredZip } from './zip-writer.mjs';
 import { exportVisibleCsv, normalizeFieldTemplate, defaultFieldTemplate, parseFieldTemplate, serializeFieldTemplate, buildSurveyProperties, MAX_FIELD_TEMPLATE_BYTES, MAX_SURVEY_FIELDS } from './field-survey.mjs';
 import { createGeoPackage } from './geopackage-export.mjs';
+import { terrioSupported, importFileWithTerrio } from './terrio-import.mjs';
 import { parseGtxGrid, interpolateGeoidUndulation, orthometricHeight, MAX_GTX_BYTES } from './geoid-gtx.mjs';
 import { appendTopographicLayer, terrainExtent, TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from '../terrain/topographic.mjs';
 
@@ -159,6 +160,8 @@ function errorMessage(error) {
   if (code === 'GPKG_INVALID' || code === 'GPKG_NOT_VALID' || code === 'GPKG_SCHEMA_INVALID') return 'GeoPackage invalide ou schéma SQLite incomplet.';
   if (code === 'GPKG_NO_VECTOR_LAYERS') return 'Ce GeoPackage ne contient aucune couche d’entités vectorielles prise en charge.';
   if (code === 'GPKG_TOO_MANY_LAYERS') return 'Ce GeoPackage contient plus de 12 couches vectorielles; importez un fichier plus ciblé.';
+  if (code === 'TERRIO_TOO_MANY_LAYERS') return 'Ce fichier contient plus de 12 couches vectorielles; importez un fichier plus ciblé.';
+  if (code === 'TERRIO_NO_VECTOR_LAYERS') return 'Aucune couche vectorielle trouvée dans ce fichier.';
   if (code === 'GPKG_TOO_MANY_FEATURES') return 'Une couche du GeoPackage dépasse 20 000 entités.';
   if (code === 'GPKG_TOO_MANY_TOTAL_FEATURES') return 'Le GeoPackage dépasse la limite totale de 60 000 entités.';
   if (code === 'GPKG_TOO_MANY_TOTAL_POSITIONS') return 'Le GeoPackage dépasse la limite totale de 300 000 positions.';
@@ -2153,6 +2156,30 @@ async function handleFile(file) {
   }
   const extension = file.name.split('.').pop()?.toLowerCase();
   try {
+    if (terrioSupported(extension)) {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (request !== state.importRequest) return;
+        status('Lecture locale du fichier via terrio (WebAssembly Rust)…');
+        const result = await importFileWithTerrio(bytes, file.name);
+        if (request !== state.importRequest) return;
+        if (result.kind === 'vector') {
+          const added = addLayers(result.layers.map(layer => ({
+            geojson: layer.geojson, fileName: layer.fileName, name: layer.name, sourceCrs: layer.sourceCrs
+          })), $('#sourceReference').value);
+          if (!added) fileInput.value = '';
+          return;
+        }
+        const added = addRasterLayer(result.raster, bytes, $('#sourceReference').value);
+        if (!added) fileInput.value = '';
+        return;
+      } catch (error) {
+        if (request !== state.importRequest) return;
+        if (error?.code === 'TERRIO_PARSE_FAILED' || error?.code === 'TERRIO_ENGINE_UNAVAILABLE' || error?.code === 'TERRIO_UNSUPPORTED_EXTENSION') {
+          console.warn('[terrio] lecture impossible, repli sur le lecteur historique :', error?.message || error);
+        } else throw error;
+      }
+    }
     if (extension === 'gpkg') {
       status('Chargement du lecteur GeoPackage; le fichier est traité uniquement dans ce navigateur…');
       const SQL = await loadSqlRuntime();
