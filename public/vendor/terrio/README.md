@@ -1,0 +1,429 @@
+# terrio (WebAssembly)
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/opengeos/terrio/main/docs/assets/terrio-wordmark-dark.svg">
+    <img src="https://raw.githubusercontent.com/opengeos/terrio/main/docs/assets/terrio-wordmark.svg" alt="terrio" height="72">
+  </picture>
+</p>
+
+[![npm](https://img.shields.io/npm/v/terrio-js.svg)](https://www.npmjs.com/package/terrio-js) [![CI](https://github.com/opengeos/terrio/actions/workflows/ci.yml/badge.svg)](https://github.com/opengeos/terrio/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/opengeos/terrio/blob/main/LICENSE)
+
+[terrio](https://github.com/opengeos/terrio), pure-Rust geospatial data I/O, compiled to
+WebAssembly for browsers and Node.js. Datasets are opened from bytes, with a file name telling the
+format, and written back to bytes.
+
+```js
+import init, { open, fromGeoJSON, rasterFromArray, transformPoints, describeCrs } from "terrio-js";
+
+await init(); // in Node.js: await init({ module_or_path: fs.readFileSync(wasmPath) })
+
+const bytes = new Uint8Array(await (await fetch("dem.tif")).arrayBuffer());
+const dem = open(bytes, "dem.tif");
+dem.info();                       // the summary `terrio info --json` prints
+dem.width, dem.height, dem.count, dem.dtype, dem.crs, dem.transform, dem.nodata
+const band = dem.readBand(1);     // Float32Array, Uint8Array... row after row
+const tile = dem.readBand(1, [0, 0, 256, 256]);   // a window [col_off, row_off, width, height]
+const cog = dem.toBytes("dem_cog.tif", { format: "COG", compress: "DEFLATE" });
+
+const roads = open(geojsonBytes, "roads.geojson");
+roads.toGeoJSON();                // a FeatureCollection object
+const fgb = roads.toBytes("roads.fgb", { tSrs: "EPSG:3857", where: "lanes > 2" });
+const ipc = roads.toArrowIPC(0, { geometryEncoding: "geoarrow" }); // Arrow IPC stream, GeoArrow geometries
+const back = fromArrowIPC(ipc, "roads");
+
+const [xs, ys] = transformPoints([-122.4], [37.8], "EPSG:4326", "EPSG:32610");
+registerGrid("us_nga_egm96_15.tif", gridBytes);  // datum shift and geoid grids, from bytes
+const [lon, lat, h] = transformPoints([-100], [40], "EPSG:4979", "EPSG:4326+5773", [100]);
+
+// Point clouds: LAS, LAZ, COPC, PLY and E57.
+const lidar = openPoints(lazBytes, "tile.laz");
+lidar.format, lidar.pointCount, lidar.crs, lidar.info();
+const ground = lidar.read({ classes: [2], bounds: [x0, y0, x1, y1] }); // COPC: also maxLevel, resolution
+ground.get("z");                  // Float64Array; intensity is a Uint16Array...
+ground.toBytes("ground.copc.laz"); // LAS, LAZ, COPC, PLY or E57
+ground.grid(1, { stat: ["idw"] }); // a raster Dataset
+ground.toVectorBytes("ground.fgb", ["z", "intensity"]);
+pointsFromArrays({ x, y, z, classification }, "EPSG:32610");
+```
+
+In WebAssembly, these formats are read from and written to memory:
+
+| | Read | Write |
+|---|---|---|
+| Raster | GeoTIFF/COG (LZW, Deflate, PackBits, ZSTD, LZMA, JPEG, WebP, LERC, JPEG XL), JPEG 2000 (JP2 and J2K), GRIB 1 and 2 (read band by band), netCDF, HDF5, Zarr and GeoZarr (zipped, or with `openZarr`), Esri ASCII grid, GeoPackage, PMTiles and MBTiles (read by window, zoom levels as overviews) | GeoTIFF, COG (lossless compressions, ZSTD included), JPEG 2000, Esri ASCII grid, GeoPackage, PMTiles, MBTiles |
+| Vector | GeoJSON, TopoJSON, ESRIJSON, ESRIPBF, FlatGeobuf\*, GeoPackage, GeoParquet, CSV, XLSX, KML, KMZ, GML, GPX, DWG and DXF (full module), OSM PBF, zip archives of these, Shapefile and MapInfo (MIF/MID) in zip archives | GeoJSON, TopoJSON, FlatGeobuf, GeoPackage, XLSX, KML, KMZ, GML, GPX, DWG and DXF (full module) |
+| Point cloud | LAS, LAZ, COPC, PLY, E57 | LAS, LAZ, COPC, PLY, E57 |
+
+\* FlatGeobuf files are read by terrio's own driver, with 64-bit offsets. `open` decodes a layer
+whole, within WebAssembly's 4 GB of memory; with the file's bytes, that takes about four times the
+file's size for lines and five for polygons (3.2 GB and 5.4 GB in native builds): an 867 MB file of
+2 million OpenStreetMap lines opens in about 3 seconds in Node.js, and a 1 GB file of 2.3 million
+polygons runs out of memory, but in the memory64 module (see below). `openUrl` reads files with a
+spatial index by bounding box, decoding only the features found; a file without one is still read
+whole.
+
+JPEG 2000 files decode with the codec of GDAL's JP2OpenJPEG driver (a Rust port of OpenJPEG), with
+their GeoJP2 or GMLJP2 georeferencing: a Sentinel-2 band (`T10SEG_..._B04.jp2`, 10980 x 10980)
+opens in about 6 seconds in Node.js. Written with a nodata value, a JPEG 2000 comes back as a zip
+archive of the `.jp2` file and the `.aux.xml` sidecar that holds the value, as GDAL writes it;
+`open` reads that archive back.
+
+
+## A smaller download: `terrio-js/core`
+
+The package holds two WebAssembly modules with the same API. `terrio-js` has every format above;
+`terrio-js/core` leaves out the heaviest ones (GeoParquet and Arrow IPC, netCDF and HDF5, point
+clouds, JPEG 2000, GRIB, Zarr, AVIF tiles and OpenStreetMap) and keeps GeoTIFF/COG with all its
+compressions, GeoJSON and the other text formats, FlatGeobuf, GeoPackage, Shapefile, PMTiles and
+MBTiles, the CRS transformations and the operations, with a smaller download. The full module also
+includes DWG/DXF through the `cad` feature; the core module leaves CAD out. See the
+[CAD supported subset](../docs/formats.md#cad-drawings-dwg-and-dxf).
+
+Measured from the optimized CAD-enabled [CI package at `b371d79`](https://github.com/opengeos/terrio/actions/runs/40144408237)
+(`wasm-release` profile, wasm-opt `-Oz`). MB are decimal (1,000,000 bytes); compression uses
+gzip level 9 with no timestamp and Brotli quality 11. These are a recorded build snapshot,
+not a guarantee for other Rust/wasm-opt versions:
+
+| Module | `.wasm` | gzip | Brotli |
+|---|---|---|---|
+| `terrio-js` | 22.10 MB | 7.71 MB | 5.67 MB |
+| `terrio-js/core` | 9.67 MB | 3.36 MB | 2.56 MB |
+
+```js
+import init, { open, features } from "terrio-js/core";
+
+await init();
+features(); // { build: "terrio-js/core", features: ["flatgeobuf", "lerc", "lzma", "sqlite", "tiles"] }
+```
+
+A format the module leaves out fails with a message that says so (``built without the `jp2`
+feature: terrio-js/core leaves it out, the full module (terrio-js) has it``). A page that needs those
+formats only now and then can start with the core module and load the full one when it meets them,
+with a dynamic `import("terrio-js")`: datasets belong to the module that opened them, so a dataset
+is passed only to the functions of its own module.
+
+Both modules are built for size: whole-program LTO, the codecs optimized for speed and the rest
+for size, and wasm-opt -Oz.
+
+## Threads: `terrio-js/load` and `terrio-js/threads`
+
+A third module, `terrio-js/threads`, has every format and a thread pool of Web Workers (or
+Node.js worker threads) over shared memory: GeoTIFF tiles and strips, JPEG 2000 tiles and Zarr
+chunks decode in parallel, and GeoTIFF/COG tiles, overviews and Zarr chunks are compressed in
+parallel, as natively. `terrio-js/load` picks it where WebAssembly threads run (Node.js 22 or
+later, and pages that are cross-origin isolated, served with `Cross-Origin-Opener-Policy:
+same-origin` and `Cross-Origin-Embedder-Policy: require-corp`), starts its pool, and loads the
+single-threaded module everywhere else:
+
+```js
+import { load } from "terrio-js/load";
+
+const terrio = await load();      // or load({ threads: 4 }), load({ threads: false }), load({ core: true })
+terrio.features();                // { build: "terrio-js/threads", threads: 8, ... } or { build: "terrio-js", threads: 1, ... }
+const dem = terrio.open(bytes, "dem.tif");
+```
+
+The threaded module can also be imported and started by hand: `import init, { initThreadPool }
+from "terrio-js/threads"`, then `await init()` and `await initThreadPool(navigator.hardwareConcurrency)`.
+Its results are those of the single-threaded module, byte for byte. With 16 threads, against one
+(a Xeon w7-3445, best of three):
+
+| | Node.js 26 | Chromium | Firefox |
+|---|---|---|---|
+| 3612 x 3612 Float32 LZW GeoTIFF, decoded | 542 → 92 ms | 580 → 91 ms | 622 → 113 ms |
+| The same, written as a DEFLATE COG with overviews | 2467 → 302 ms | 2460 → 306 ms | 2680 → 340 ms |
+| 10980 x 10980 Sentinel-2 JPEG 2000 band, decoded | 6.8 → 0.9 s | 6.6 → 0.9 s | 6.7 → 0.9 s |
+
+Work on vector features (parsing and writing GeoJSON, FlatGeobuf, GeoPackage...) stays on the
+calling thread in WebAssembly: its many small allocations contend on WebAssembly's allocator, one
+lock for all threads, and ran several times slower on more threads.
+
+## Datasets larger than 4 GB: `terrio-js/memory64`
+
+WebAssembly modules have 32-bit memories, at most 4 GB. The `terrio-js/memory64` module (every
+format, single-threaded) is built for WebAssembly's 64-bit memories (memory64), up to 16 GB, the
+limit of V8. `load({ memory64: true })` loads it where the runtime has memory64 (Node.js 24 and
+later, Chrome and Edge 133, Firefox 134), and the usual 32-bit module elsewhere (Safari), which
+`onFallback` reports and `features().build` tells:
+
+```js
+import { load, memory64Supported } from "terrio-js/load";
+
+const terrio = await load({ memory64: true });
+const ds = terrio.open(bytes, "polygons.fgb");   // a 1.27 GB FlatGeobuf of 289,890 polygons
+terrio.features().memory;                        // 8 GB of memory: beyond a 32-bit module's reach
+```
+
+That FlatGeobuf, 290 thousand US county polygons, opens in 4 seconds in Node.js with 7.5 GB of
+module memory, where the 32-bit modules run out of memory. It is 7 to 17% slower than the 32-bit
+module (64-bit addresses and bounds checks), and larger: 25.4 MB, 6.4 MB gzipped (4.4 MB Brotli).
+Use it for the datasets that need it. It is single-threaded, and `readBand` windows are numbers of
+pixels below 2^32, as in the other modules.
+
+It is built with the parts of the toolchain still in progress: `wasm64-unknown-unknown` is a
+tier 3 Rust target without a prebuilt standard library ([platform support](https://doc.rust-lang.org/rustc/platform-support/wasm64-unknown-unknown.html)),
+built on nightly with `-Z build-std`; its SIMD intrinsics, which zlib-rs uses, are unstable
+([rust-lang/rust#90599](https://github.com/rust-lang/rust/issues/90599)); wasm-pack builds for
+wasm32 only, so `js/build.mjs` runs cargo and wasm-bindgen (which supports wasm64) itself; and the
+wasm-opt wasm-pack downloads (binaryen 117) cannot read 64-bit tables, so the module is not
+passed through it. Three crates treat WebAssembly as wasm32 only, and the build patches copies of
+them (`target_arch = "wasm32"` read as `target_family = "wasm"`): `tar`, which wbraster depends
+on, acadrust and `arrow-buffer`; getrandom, which seeds ahash's hash maps, has no wasm64 backend
+and is given one (`crypto.getRandomValues`).
+
+## Building
+
+```sh
+node js/build.mjs                         # the npm package in js/pkg: all modules, built for size
+node --test js/tests/package.test.mjs     # (threads and memory64 need the nightly js/build.mjs names)
+TERRIO_JS_LOAD=../pkg/load.js node --test js/tests/node.test.mjs   # the suite on the threaded module
+TERRIO_JS_LOAD=../pkg/load.js TERRIO_MEMORY64=1 TERRIO_LARGE_TESTS=1 node --test js/tests/node.test.mjs  # memory64, > 4 GB
+node js/tests/browser.mjs ../terrio-data  # in headless browsers (Playwright), timings included
+wasm-pack build js --release --target nodejs --out-dir pkg-node --out-name terrio
+node --test js/tests/node.test.mjs        # TERRIO_TEST_DATA=... adds real files checked against GDAL
+# terrio-js/core, and the tests of the formats it has:
+wasm-pack build js --release --target nodejs --out-dir pkg-node/core --out-name terrio --no-pack -- --no-default-features --features core
+TERRIO_JS_PKG=../pkg-node/core/terrio.js node --test js/tests/node.test.mjs
+node js/bench/bench.mjs ../terrio-data    # timings of decoding and writing real files
+```
+
+### Warp source overviews
+
+```js
+const preview = warp(dataset, { ts: [256, 256], overview: "AUTO" });
+const finer = warp(dataset, { ts: [256, 256], overview: "AUTO-1" });
+const full = warp(dataset, { ts: [256, 256], overview: "NONE" });
+const level = warp(dataset, { overview: 1 });
+```
+
+`AUTO` is the default. Datasets, file bytes and mixed or repeated datasets in
+mosaics preserve their stored pyramids. The output grid is planned at full
+resolution before source levels are selected. `toBytes` also accepts `overviews`
+(decimation factors) and `overviewResampling` when writing GeoTIFF pyramids.
+
+### Fill nodata
+
+```js
+const filled = fillNodata(dem, { maxDistance: 100, smoothingIterations: 1 });
+const nearest = fillNodata(image, { band: 2, mask: validity, interpolation: "nearest" });
+```
+
+`fillNodata` is a named export. Inputs and masks accept the same datasets or file bytes
+as the other operations. A mask is zero at holes and nonzero at donor pixels. Without
+one, the source's mask or nodata is used. The result contains one band, retaining its
+type, nodata and georeferencing; valid samples remain unchanged. `maxDistance: 0`
+searches the whole image. Smoothing leaves original valid pixels and first/last rows
+unchanged. As in GDAL, interpolation uses Float32 samples.
+
+### Serialized VRTs
+
+```js
+const virtual = openVrt(xml, { "dem.tif": imageBytes });
+const crop = virtual.readBand(1, [32, 48, 128, 128]);
+```
+
+`openVrt` resolves source names to `Uint8Array` bytes, retaining lazy GeoTIFF and
+VRT window reads in the browser and Node.js. It supports scalar built-in derived
+bands, full/separable kernel filters, mask sources and serialized warped VRTs
+(affine/reprojection, GCP/TPS/homography/RPC). External pixel functions, complex
+buffers and serialized cutline/alpha/geolocation warps are unsupported.
+
+`transformPoints`, `Dataset.toBytes` and `warp` accept `allowBallpark: false` and
+`onlyBest: true` to control horizontal datum-operation fallbacks; `transformPoints` and
+`Dataset.toBytes` also accept `promoteTo3d: true`, which takes 2D CRSs' heights as ellipsoidal
+heights (GDAL's `PromoteTo3D`). Vector conversions transform existing Z values
+and preserve 2D geometries as 2D. Read diagnostics
+with `takeWarnings()` after an operation. `warp` also accepts `kernelVersion: "3.13"`
+for GDAL 3.13 resampling; `"3.12"` remains the default. GeoTIFF/COG outputs preserve
+PixelIsPoint metadata and corner georeferencing.
+
+`blend(color, overlay, {operator: "multiply", opacity: 75})` composes same-sized
+Byte datasets (gray, gray-alpha, RGB or RGBA). All ten GDAL raster blend operators
+are available. Alpha controls transparency; nodata/masks are ignored. Inputs and
+output are materialized; see the CLI blend reference for band-count rules.
+
+
+### Footprint indexes and GTI catalogs
+
+```js
+const index = terrio.rasterIndex({"tile.tif": raster}, {
+  outputCrs: "EPSG:4326", bandCount: 1, ot: "Float32", nodata: [-9999],
+});
+const bytes = index.toBytes("catalog.gpkg");
+const polygons = index.layer();
+const vectors = terrio.vectorIndex({"roads.geojson": roads}, {sourceLayerIndexes: [0]});
+```
+
+The source object maps stored locations to raster/vector Datasets, uploaded
+`Uint8Array`/`{bytes,filename}` files, or GeoJSON (vectors only). Native filesystem
+discovery is unavailable in WASM. `DatasetIndex` retains `count`, `metadata`,
+`layer()` and `toBytes(filename?, {format}?)`; keep this object to preserve GTI
+metadata when encoding GeoPackage/FlatGeobuf. `.shp.zip` encodes a Shapefile archive.
+Options use camelCase versions of the [CLI subset](../docs/cli.md#rastervector-indexes-and-gti-creation),
+including `locationName`, `sourceCrsFieldName`, `sourceCrsFormat`, `fetchMetadata`
+(triples), `minPixelSize`, `maxPixelSize`, `resolution`, `bbox`, `bandCount`, `ot`,
+`nodata`, `colorInterpretations`, `mask` and `metadata`. Vector selectors are
+`sourceLayerNames`/`sourceLayerIndexes`; the latter remain original zero-based layer
+numbers. Acceptance flags and `datasetNameOnly` match the CLI. Strings represent
+non-finite nodata, e.g. `["nan"]`.
+
+### Contours, footprints and geometry analysis
+
+```js
+const lines = terrio.contour(raster, {interval: 10, withZ: true, fieldName: "elevation"});
+const area = terrio.footprint(raster, {bands: [1], singlepart: true, attributes: {source: "scene"}});
+const report = terrio.checkGeometry(vector);
+const repaired = terrio.makeValid(vector);
+const buffered = terrio.buffer(repaired, 100, {quadrantSegments: 30});
+const groups = terrio.dissolve(buffered, {fields: ["region"]});
+```
+
+Results are vector `Dataset` objects. Raster inputs accept uploaded bytes or
+shared datasets; contour/footprint hold full input pixels in memory. Contour
+also supports `band`, `levels`, `offset`, `nodata`, `ignoreNodata` and `layerName`. Nonfinite nodata overrides use strings `"nan"`,
+`"inf"` or `"-inf"`; raw nonfinite numbers and null are rejected.
+Footprint supports `intersection`, a same-grid `mask` dataset/upload and explicit
+text `attributes`; no source-path field is added automatically.
+
+Omitted or empty footprint bands selects every band, combined by union unless
+intersection is requested. Footprint attribute fields are sorted alphabetically.
+Footprint validity uses finite samples and the dataset nodata value. Alpha bands
+and external mask files are not interpreted implicitly; supply an explicit mask
+when those pixels should be excluded.
+
+Vector functions process every input layer, accepting datasets, uploaded files
+or GeoJSON. This deliberately differs from Python, whose analysis functions return
+one selected `Layer`; JavaScript returns a `Dataset` retaining all layers.
+When exporting with `toBytes`, single-layer formats require explicit selection
+(e.g. `{layers: ["roads"]}`); they now reject multi-layer input instead of
+silently writing the first layer. Layer-preserving formats retain every layer.
+Buffers use planar CRS units and preserve attributes/IDs. Dissolve
+can group by field names. `checkGeometry` retains geometry and appends validity
+and reason fields. `makeValid` keeps attributes/IDs/CRS and already-valid Z/M;
+repaired geometry is constructed in XY. These use the CLI's shared Rust engines
+and retain their documented scope and limits.
+
+### Zonal statistics and multipart splitting
+
+```js
+const stats = terrio.zonalStats(zones, [dem, imagery], {
+  bands: [1], prefixes: ["dem", "scene"], stats: ["count", "mean", "median"],
+  allTouched: true, tSrs: "EPSG:3857", decimalPlaces: 2,
+});
+const parts = terrio.singlepart(countries);
+```
+
+Results are vector `Dataset` objects containing every input layer. This follows the
+other JavaScript analysis functions; Python returns one selected `Layer`. Zones accept
+datasets, uploads or GeoJSON. Rasters accept datasets/uploads, one or an array; all
+pixels are materialized, including lazy sources. Repeated raster entries are
+materialized separately; inputs are not cached or deduplicated. Options and limits
+match Python/CLI:
+bands default to `[1]`; count/min/max/mean/sum/population stddev default statistics,
+optional median; center or `allTouched` membership; per-raster CRS transforms;
+nodata/nonfinite exclusion; zero count/null statistics for empty zones; output
+reprojection and 0–15 decimal rounding. Default prefixes are `raster1`, `raster2`, etc.,
+producing `PREFIX_bN_STATISTIC`; the CLI instead defaults to each input path stem. Set
+explicit prefixes for identical field names. Explicit prefixes must be nonblank, one per
+raster. Field-name collisions, including repeated prefixes/bands or existing zone
+fields, receive `_2`, `_3`, etc. suffixes from the shared engine. For fractional coverage, set `fractional: true`; for weighted statistics, pass a
+weighting dataset/upload in `weights`, optional `weightBand` (default 1), and select
+`weighted_mean`, `weighted_sum` or `weighted_stddev` in `stats`. The weighting raster
+must match every value grid and CRS. Coverage count is Real; source geometry and
+attributes are retained. See the [CLI scope and formulas](https://terrio.dev/cli/#fractional-coverage-and-weighting-rasters).
+
+`singlepart` recursively splits collections/multipart geometry, preserving
+attributes, Z/M and CRS, and assigns sequential IDs from one per layer. Null and
+empty single geometries remain; empty multipart geometries yield no features.
+Single-layer exports of multi-layer results require explicit layer selection.
+
+### Pipelines
+
+`pipeline(command, inputs?, options?)` uses the same Rust pipeline engine as the
+CLI and Python. `command` accepts supported GDAL-style steps or saved GDALG JSON
+text. Steps follow POSIX quoting, so a backslash outside quotes escapes the next
+character: quote Windows paths in single quotes (`'C:\data\in.tif'`) or use
+forward slashes. Browser inputs are aliases mapped to `Dataset`, `Uint8Array`,
+`{ bytes, filename }`, or GeoJSON values; no filesystem path is opened implicitly.
+
+```js
+const result = terrio.pipeline(
+  "read image ! select 1 ! materialize ! write selected.tif",
+  { image: dataset },
+);
+const selected = result.dataset;
+const files = result.outputBytes(); // { "selected.tif": Uint8Array }
+```
+
+`outputNames` lists explicitly requested outputs. `dataset` is undefined for a
+saved-definition output; its JSON is available through `outputBytes()`. Imported
+GDALG JSON can use `{ baseFile: "folder/definition.gdalg.json" }` for relative
+reference resolution; supply corresponding input aliases. Outputs remain in
+memory. Raster band/crop views retain window and overview reads. Vector `select`
+requires `_ogr_geometry_` to retain geometry and CRS. Supported steps and their
+limits are listed in the CLI pipeline reference.
+
+Use `{ inputKind: "raster" }` or `{ inputKind: "vector" }` to force the input
+family, including ambiguous uploaded files; `"auto"` chooses detection. This
+option overrides a `raster` or `vector` prefix in the command string.
+
+## RPF table of contents
+
+```js
+const toc = terrio.rpftocCreate([
+  {filename: "zone/000C9010.ON2", bytes: frameBytes},
+], {producerId: "ACME", countryCode: "US", classification: "U"});
+```
+
+`rpftocCreate` returns A.TOC bytes referring to existing CADRG frame files. Keep
+the named frames at those safe relative paths beside the TOC. The adapter copies
+only bounded metadata ranges from each uploaded `Uint8Array`, without decoding
+compressed pixels. Options are `scale` (otherwise inferred per series),
+`producerId` (five ASCII bytes), `producerName` (27), `countryCode` (two uppercase
+letters or empty) and `classification` (`U`, `R`, `C`, `S`, `T`). Corners must
+match the selected scale/zone; legacy polar interval fields are normalized.
+CIB/non-CADRG products are unsupported and fail the operation; unsupported or
+malformed recognized NITF inputs are not skipped. Encoded TRE metadata must fit 99,999
+bytes; oversized indexes fail. Frame images are referenced rather than embedded.
+
+## Retile and publish raster folders
+
+```js
+const files = new Map();
+const options = {tileSize: [512, 512], overlap: 16, levels: 3, csv: "tiles.csv"};
+const plan = terrio.planRetile(dataset, options);
+const report = terrio.retile(dataset, options,
+  (name, bytes) => files.set(name, bytes),
+  name => files.get(name) ?? null);
+```
+
+Inputs accept shared datasets, uploaded bytes or arrays of them. The synchronous
+output callback receives each image and CSV/index companion. Optional read-back
+returns a `Uint8Array` or null; it avoids regenerating parents evicted from the
+64 MiB/256-tile cache. Callback exceptions propagate unchanged. Keeping every
+file in a `Map` uses caller memory; persistent stores can retain the bytes
+outside WASM. Native filesystem resume is not exposed in JavaScript. Inputs must remain
+unchanged during generation; write-only regeneration assumes stable samples.
+
+Retile uses matching-CRS north-up inputs, recursive factor-two pyramids and
+one-based row/column filenames. Options accept camelCase or snake_case.
+`rasterTiles(input, {publication: {viewers: ["all"], kml: true}}, onFile)`
+adds applicable browser viewers, MapML, STACTA and KML files. The callback must
+save companion files as well as images. See the [CLI reference](../docs/cli.md#retile)
+for output layouts, supported options, limits and measured GDAL differences.
+
+## Selective scientific package
+
+For a single-threaded NetCDF/HDF5 package using the existing `netcdf-hdf5`
+Cargo feature, see [Scientific WASM builds](../docs/scientific-wasm-build.md).
+`node js/build.mjs --no-default-features --features netcdf-hdf5 --out-dir pkg-scientific`
+builds only that module, with generated declarations and project license notices.
+Use a fresh output directory. This is a custom feature selection, not another
+published npm preset; `terrio-js/core` does not include NetCDF/HDF5.
+
+Packaging regressions run without Rust or WASM tools:
+
+```sh
+node --test js/tests/build*.test.mjs
+```
