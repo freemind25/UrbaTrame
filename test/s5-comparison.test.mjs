@@ -100,6 +100,9 @@ describe('catalogues d’inférence et sortie IA S5', () => {
       { id: 'modele-payant', pricing: { prompt: '0.001', completion: '0' } }
     ] }, 'custom');
     assert.deepEqual(custom.map(model => model.id), ['cc-modele', 'mon-modele:free']);
+    // FreeLLMAPI : les ID en « :free » du catalogue sont reconnus comme gratuits
+    const freellm = freeModelsFromCatalog({ data: [{ id: 'glm-5.3:free' }, { id: 'qwen3.8-max' }, { id: 'payant', pricing: { prompt: '1', completion: '1' } }] }, 'freellmapi');
+    assert.deepEqual(freellm.map(model => model.id), ['glm-5.3:free']);
   });
 
   test('JSON IA tolère les clôtures Markdown, filtre les coordonnées invalides et borne la sortie', () => {
@@ -111,5 +114,22 @@ describe('catalogues d’inférence et sortie IA S5', () => {
     assert.equal(result.observations[0].confirmed, false);
     assert.equal(result.observations[0].origin, 'IA');
     assert.throws(() => parseAiJson('aucun objet'), /JSON/);
+  });
+});
+
+describe('garde-fou : fournisseur FreeLLMAPI (routeur local) branché dans S5', () => {
+  test('option HTML, base localhost:3001, catalogue direct, note confidentialité', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const js = fs.readFileSync(path.join(root, 'public/js/atelier/s5-comparison.mjs'), 'utf8');
+    const html = fs.readFileSync(path.join(root, 'public/atelier-s5.html'), 'utf8');
+    assert.ok(html.includes('value="freellmapi"'), 'option freellmapi dans le select');
+    assert.ok(js.includes("'freellmapi'"), 'provider freellmapi câblé');
+    assert.ok(js.includes('http://localhost:3001/v1'), 'base par défaut du routeur local');
+    assert.ok(js.includes("provider === 'freellmapi' ? 'FreeLLMAPI"), 'label FreeLLMAPI');
+    assert.ok(html.includes('freellmapi.co/privacy'), 'note confidentialité liée');
+    assert.ok(html.includes('github.com/tashfeenahmed/freellmapi'), 'lien GitHub MIT');
   });
 });

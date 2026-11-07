@@ -6,17 +6,17 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Atelier cartographique UrbaTrame : importer et superposer des couches vectorielles GeoPackage, GeoJSON, CSV, Shapefile et des rasters GeoTIFF locaux.">
   <title>UrbaTrame — Atelier cartographique</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261107carto4" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261107carto4">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261107carto4">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261107carto4"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261107carto4"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261107carto5" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261107carto5">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261107carto5">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261107carto5"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261107carto5"></script>
 </head>
 <body>
   <a class="skip-link" href="#main" data-fr="Aller au contenu principal" data-en="Skip to main content">Aller au contenu principal</a>
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261107carto4" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261107carto5" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -315,7 +315,7 @@
           <div class="panel-heading"><div><span class="step">07 / IA FACULTATIVE</span><h2 id="ai-title">Synthèse assistée</h2></div></div>
           <p class="service-warning">Désactivée par défaut. Vous choisissez un fournisseur et un modèle, fournissez votre propre clé, vérifiez ses tarifs/quotas/rétention, puis confirmez l’envoi. Seules les couches choisies (20 premières entités chacune, attributs et coordonnées) et votre consigne quittent l’onglet vers le service indiqué; OpenRouter les route vers un fournisseur d’inférence, un endpoint personnalisé peut aussi les retransmettre. Aucune géométrie IA n’est ajoutée sans validation étudiante.</p>
           <label class="field-label" for="aiProvider">Fournisseur
-            <select id="aiProvider"><option value="">Choisir — IA inactive</option><option value="openrouter">OpenRouter (routage ZDR demandé)</option><option value="apinex">APInex</option><option value="codecraft">CodeCraft</option><option value="custom">Endpoint OpenAI-compatible fourni par vous</option></select>
+            <select id="aiProvider"><option value="">Choisir — IA inactive</option><option value="openrouter">OpenRouter (routage ZDR demandé)</option><option value="apinex">APInex</option><option value="freellmapi">FreeLLMAPI (routeur local, gratuits)</option><option value="codecraft">CodeCraft</option><option value="custom">Endpoint OpenAI-compatible fourni par vous</option></select>
           </label>
           <label id="aiEndpointField" class="field-label" for="aiEndpoint" hidden>Endpoint HTTPS personnalisé
             <input id="aiEndpoint" type="url" maxlength="500" placeholder="https://votre-fournisseur/v1/chat/completions">
@@ -343,7 +343,7 @@
           <label class="field-label" for="aiPrompt">Consigne d’analyse / de synthèse
             <textarea id="aiPrompt" rows="4" maxlength="1500" placeholder="Décrivez la question d’étude. Évitez les données personnelles."></textarea>
           </label>
-          <p class="ai-safety-note">L’IA peut aider à comparer/superposer les cartes et proposer une carte de synthèse. Elle ne certifie ni le géoréférencement ni les faits. Interdit d’inventer limites cadastrales/juridiques ou zonages. Toute sortie doit être sourcée, datée, vérifiée et validée par l’étudiant. OpenRouter : requête limitée aux fournisseurs compatibles avec <code>zdr=true</code> et <code>data_collection=deny</code>; si aucun ne convient, la requête échoue. Les endpoints personnalisés ont leurs propres coûts et règles, non vérifiés par UrbaTrame.</p>
+          <p class="ai-safety-note">L’IA peut aider à comparer/superposer les cartes et proposer une carte de synthèse. Elle ne certifie ni le géoréférencement ni les faits. Interdit d’inventer limites cadastrales/juridiques ou zonages. Toute sortie doit être sourcée, datée, vérifiée et validée par l’étudiant. OpenRouter : requête limitée aux fournisseurs compatibles avec <code>zdr=true</code> et <code>data_collection=deny</code>; si aucun ne convient, la requête échoue. Les endpoints personnalisés ont leurs propres coûts et règles, non vérifiés par UrbaTrame. FreeLLMAPI (routeur local) : vos invites partent vers les fournisseurs amont gratuits configurés dans votre routeur, dont beaucoup conservent les données pour l’entraînement — n’y envoyez aucune donnée personnelle.</p>
           <label class="consent-row"><input id="aiConsent" type="checkbox"> J’ai vérifié les conditions et j’autorise l’envoi des éléments affichés ci-dessus.</label>
           <button id="runAi" class="button-primary full-button" type="button" disabled>Envoyer la demande explicitement</button>
           <pre id="aiOutput" class="ai-output" aria-live="polite">Aucun appel IA n’a été effectué.</pre>
