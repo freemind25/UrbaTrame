@@ -728,7 +728,7 @@ async function loadModels() {
       ? 'Délai dépassé pendant le chargement du catalogue.'
       : error?.message || 'Impossible de charger le catalogue. Le fournisseur peut bloquer les requêtes navigateur (CORS).';
     if (provider === 'freellmapi')
-      message += ' Routeur local : autorisez l’origine https://freemap-rose.vercel.app en CORS, ex. ' + 'docker run -d -p 3001:3001 -e DASHBOARD_ORIGINS=https://freemap-rose.vercel.app tashfeenahmed/freellmapi' + ', puis utilisez la clé unifiée du routeur.';
+      message += ' Routeur local : autorisez l’origine https://freemap-rose.vercel.app en CORS, ex. ' + 'docker run -d --name freellmapi -p 3001:3001 -e DASHBOARD_ORIGINS=https://freemap-rose.vercel.app -v freellmapi-data:/app/server/data ghcr.io/tashfeenahmed/freellmapi:latest' + ', puis utilisez la clé unifiée du routeur.';
     setStatus(elements.aiStatus, message, 'error');
   } finally {
     elements.loadModels.textContent = 'Charger les modèles gratuits';
