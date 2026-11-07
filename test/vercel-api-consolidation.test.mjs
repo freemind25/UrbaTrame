@@ -170,6 +170,44 @@ describe('consolidation des fonctions Vercel', () => {
     }
   });
 
+  test('relais CodeCraft : upstream configurable par env CODECRAFT_UPSTREAM (https seul)', async () => {
+    const previousKey = process.env.CODECRAFT_API_KEY;
+    const previousUpstream = process.env.CODECRAFT_UPSTREAM;
+    const previousFetch = globalThis.fetch;
+    const calls = [];
+    process.env.CODECRAFT_API_KEY = 'test-only-key';
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url: String(url), options });
+      return { ok: true, status: 200, text: async () => '{"data":[]}' };
+    };
+    // IP de test dédiée par appel : le quota relais est par IP (cooldown 60 s)
+    let testIp = 55;
+    const callCatalog = () => {
+      const res = response();
+      return handler(request('POST', '/api?__path=%2Futil%2Fcodecraft', new URLSearchParams({ action: 'codecraft', model: 'x', route: 'catalog' }).toString(), {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-forwarded-for': `198.51.100.${testIp++}`
+      }), res).then(() => res);
+    };
+    try {
+      process.env.CODECRAFT_UPSTREAM = 'https://codecraft-proxy.example.workers.dev/v1/';
+      let res = await callCatalog();
+      assert.equal(res.statusCode, 200);
+      assert.equal(calls.at(-1).url, 'https://codecraft-proxy.example.workers.dev/v1/models');
+      // valeur non https -> repli sur l'upstream par défaut
+      process.env.CODECRAFT_UPSTREAM = 'http://evil.example/v1';
+      res = await callCatalog();
+      assert.equal(res.statusCode, 200);
+      assert.equal(calls.at(-1).url, 'https://codecraftapi.com/v1/models');
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
+      else process.env.CODECRAFT_API_KEY = previousKey;
+      if (previousUpstream === undefined) delete process.env.CODECRAFT_UPSTREAM;
+      else process.env.CODECRAFT_UPSTREAM = previousUpstream;
+    }
+  });
+
   test('relais CodeCraft : signale 503 si la clé serveur manque', async () => {
     const previousKey = process.env.CODECRAFT_API_KEY;
     delete process.env.CODECRAFT_API_KEY;

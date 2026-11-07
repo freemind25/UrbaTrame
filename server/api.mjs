@@ -346,7 +346,13 @@ export function createAnalysisHandler({ licence, quota, runs }) {
    - quota par IP (1 requête en vol + cooldown 60 s) pour ne pas brûler la clé
      du propriétaire via des appels répétés non authentifiés ;
    - aucune fuite du détail amont (on journalise seulement le statut HTTP). */
-const CODECRAFT_UPSTREAM = 'https://codecraftapi.com/v1';
+/* Upstream configurable (env CODECRAFT_UPSTREAM, https obligatoire) : permet de
+   brancher un relais perso (ex. Cloudflare Worker, dont l'ASN n'est pas bloqué)
+   si le WAF Cloudflare de codecraftapi.com bloque la sortie Vercel/AWS (403). */
+function codecraftUpstream() {
+  const raw = String(process.env.CODECRAFT_UPSTREAM || '').trim().replace(/\/+$/, '');
+  return /^https:\/\/[a-z0-9.-]+(?::\d+)?(\/[a-z0-9._~/-]*)?$/i.test(raw) ? raw : 'https://codecraftapi.com/v1';
+}
 const CODECRAFT_MODEL_RE = /^[a-z0-9_.:/-]{1,120}$/i;
 const CODECRAFT_PROMPT_MAX = 100_000;
 /* En-têtes « navigateur » complets : le WAF Cloudflare d'amont peut noter les clients
@@ -383,8 +389,8 @@ function createCodecraftRelay() {
       const signal = AbortSignal.timeout(30_000);
       const upstream = route === 'catalog'
         /* l'amont exige la clé AUSSI pour GET /v1/models (401 missing_api_key sinon) */
-        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { ...CODECRAFT_HEADERS, Authorization: `Bearer ${key}` }, signal })
-        : await fetch(CODECRAFT_UPSTREAM + '/chat/completions', {
+        ? await fetch(codecraftUpstream() + '/models', { method: 'GET', headers: { ...CODECRAFT_HEADERS, Authorization: `Bearer ${key}` }, signal })
+        : await fetch(codecraftUpstream() + '/chat/completions', {
             method: 'POST',
             headers: { ...CODECRAFT_HEADERS, 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
             body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 800, temperature: 0.2 }),
