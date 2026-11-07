@@ -577,11 +577,12 @@ function renderObservations() {
 /* Fournisseurs dont le catalogue /models peut être chargé (codecraft passe par le
    relais serveur ; custom est appelé en direct navigateur, utile si le WAF du
    fournisseur bloque la sortie serveur de Vercel). */
-const CATALOG_PROVIDERS = ['openrouter', 'apinex', 'codecraft', 'custom'];
+const CATALOG_PROVIDERS = ['openrouter', 'apinex', 'codecraft', 'custom', 'freellmapi'];
 
 function setProviderUI() {
   const provider = elements.provider.value;
-  elements.customEndpointField.hidden = provider !== 'custom';
+  elements.customEndpointField.hidden = !['custom', 'freellmapi'].includes(provider);
+  if (provider === 'freellmapi' && !elements.customEndpoint.value.trim()) elements.customEndpoint.value = 'http://localhost:3001/v1';
   elements.customModelField.hidden = provider !== 'custom';
   elements.customConfirmRow.hidden = provider !== 'custom';
   elements.modelSelectField.hidden = !CATALOG_PROVIDERS.includes(provider);
@@ -605,6 +606,15 @@ function normalizedBaseUrl() {
   if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
   if (provider === 'codecraft') return 'https://codecraftapi.com/v1';
   if (provider === 'apinex') return 'https://api.apinex.bond/v1';
+  if (provider === 'freellmapi') {
+    // Routeur local FreeLLMAPI (MIT) : http://localhost autorisé (origine potentiellement sûre).
+    const input = elements.customEndpoint.value.trim() || 'http://localhost:3001/v1';
+    const url = new URL(input);
+    const localHttp = url.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(url.hostname.toLowerCase().replace(/^\[|\]$/g, ''));
+    if (!localHttp && (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash))
+      throw new Error('Endpoint invalide : HTTPS public, ou http://localhost pour un routeur local.');
+    return url.href.replace(/\/+$/, '');
+  }
   if (provider !== 'custom') throw new Error('Choisissez un fournisseur.');
   const input = elements.customEndpoint.value.trim();
   const url = new URL(input);
@@ -658,7 +668,7 @@ async function loadModels() {
   catch (error) { setStatus(elements.aiStatus, error.message, 'error'); return; }
   elements.loadModels.disabled = true;
   elements.loadModels.textContent = 'Chargement…';
-  const label = provider === 'openrouter' ? 'OpenRouter' : provider === 'codecraft' ? 'CodeCraft (relais serveur, clé côté serveur)' : provider === 'apinex' ? 'APInex' : `l’endpoint ${new URL(endpoint).host}`;
+  const label = provider === 'openrouter' ? 'OpenRouter' : provider === 'codecraft' ? 'CodeCraft (relais serveur, clé côté serveur)' : provider === 'apinex' ? 'APInex' : provider === 'freellmapi' ? 'FreeLLMAPI (routeur local)' : `l’endpoint ${new URL(endpoint).host}`;
   setStatus(elements.aiStatus, `Requête authentifiée vers ${label}; aucune image n’est jointe à cette requête.`, '');
   try {
     const controller = new AbortController();

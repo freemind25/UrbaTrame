@@ -1499,6 +1499,7 @@ $('#aiProvider').addEventListener('change', () => {
   $('#aiModelStatus').textContent = provider === 'codecraft'
     ? 'CodeCraft via le relais serveur est bloqué par le WAF de codecraftapi.com (403 sur l’ASN AWS de Vercel). Utilisez plutôt « Endpoint fourni par vous » : https://codecraftapi.com/v1/chat/completions + votre clé cc_… (appel direct navigateur, CORS autorisé) — ou autorisez AS16509 côté Cloudflare.'
     : 'Le catalogue n’est chargé qu’à votre clic, avec votre clé, sans aucune donnée de couche.';
+  if (provider === 'freellmapi' && !$('#aiEndpoint').value.trim()) $('#aiEndpoint').value = 'http://localhost:3001/v1/chat/completions';
   updateAiControls();
 });
 $('#aiModelSelect').addEventListener('change', () => {
@@ -1519,6 +1520,10 @@ $('#aiModel').addEventListener('input', () => {
 function aiCatalogBaseUrl(provider) {
   if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
   if (provider === 'apinex') return 'https://api.apinex.bond/v1';
+  if (provider === 'freellmapi') {
+    const raw = $('#aiEndpoint').value.trim() || 'http://localhost:3001/v1/chat/completions';
+    return validateAiEndpoint(raw).href.replace(/\/chat\/completions\/?$/i, '');
+  }
   if (provider === 'custom') {
     const endpoint = validateAiEndpoint($('#aiEndpoint').value.trim());
     return endpoint.href.replace(/\/chat\/completions\/?$/i, '');
@@ -1634,7 +1639,7 @@ $('#runAi').addEventListener('click', async () => {
   if (provider === 'openrouter' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d\'abord le tarif live de ce modèle.'; return; }
   if (provider === 'codecraft' && state.aiPrice?.model !== model) { $('#aiOutput').textContent = 'Vérifiez d\'abord le tarif live du modèle CodeCraft.'; return; }
   let endpoint;
-  try { endpoint = provider === 'openrouter' ? new URL('https://openrouter.ai/api/v1/chat/completions') : provider === 'codecraft' ? new URL('/api/util/codecraft') : validateAiEndpoint($('#aiEndpoint').value.trim()); }
+  try { endpoint = provider === 'openrouter' ? new URL('https://openrouter.ai/api/v1/chat/completions') : provider === 'codecraft' ? new URL('/api/util/codecraft') : validateAiEndpoint($('#aiEndpoint').value.trim() || (provider === 'freellmapi' ? 'http://localhost:3001/v1/chat/completions' : '')); }
   catch (error) { $('#aiOutput').textContent = error.message; return; }
   const data = {
     task: prompt.slice(0, 1500),
@@ -1809,11 +1814,11 @@ function updateAiControls() {
   const provider = $('#aiProvider').value, model = $('#aiModel').value.trim();
   const selectedCount = $('#aiLayers').selectedOptions.length;
   const priceReady = provider !== 'openrouter' || state.aiPrice?.model === model;
-  $('#aiEndpointField').hidden = provider !== 'custom';
+  $('#aiEndpointField').hidden = !['custom', 'freellmapi'].includes(provider);
   $('#loadAiModels').disabled = !provider || !$('#aiApiKey').value.trim();
   $('#openRouterPricing').hidden = provider !== 'openrouter';
   $('#checkAiPrice').disabled = provider !== 'openrouter' || !model;
-  $('#runAi').disabled = !provider || !model || !$('#aiApiKey').value || !$('#aiConsent').checked || !$('#aiPrompt').value.trim() || !selectedCount || !priceReady || provider === 'custom' && !$('#aiEndpoint').value.trim();
+  $('#runAi').disabled = !provider || !model || !$('#aiApiKey').value || !$('#aiConsent').checked || !$('#aiPrompt').value.trim() || !selectedCount || !priceReady || (provider === 'custom' || provider === 'freellmapi') && !$('#aiEndpoint').value.trim();
   $('#acceptAiResult').disabled = !state.pendingAiGeoJSON || !$('#aiValidateResult').checked;
   $('#acceptAiResult').hidden = !state.pendingAiGeoJSON;
   $('#aiValidationRow').hidden = !state.pendingAiGeoJSON;
