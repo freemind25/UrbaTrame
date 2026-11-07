@@ -112,6 +112,9 @@ describe('UrbaTrame · catalogue des modèles dans le panneau IA cartographique'
     assert.ok(js.includes('http://localhost:3001/v1/chat/completions'), 'endpoint par défaut du routeur local');
     assert.ok(js.includes("if (provider === 'freellmapi')"), 'branche freellmapi dans aiCatalogBaseUrl/runAi');
     assert.ok(html.includes('fournisseurs amont gratuits configurés dans votre routeur'), 'avertissement confidentialité FreeLLMAPI');
+    assert.ok(html.includes('DASHBOARD_ORIGINS=https://freemap-rose.vercel.app'), 'commande docker avec origine CORS');
+    assert.ok(js.includes('DASHBOARD_ORIGINS=https://freemap-rose.vercel.app'), 'hint CORS dans le message d’erreur carto');
+    assert.ok(js.includes('Chargement du catalogue depuis '), 'URL cible affichée pendant le chargement');
     assert.ok(js.includes("provider === 'codecraft'"), 'hint WAF affiché dès la sélection CodeCraft');
     assert.ok(js.includes('https://codecraftapi.com/v1/chat/completions + votre clé cc_'), 'hint avec endpoint direct + clé');
     assert.ok(js.includes('$/1M jetons'), 'label avec prix publié quand disponible');
