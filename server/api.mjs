@@ -349,8 +349,18 @@ export function createAnalysisHandler({ licence, quota, runs }) {
 const CODECRAFT_UPSTREAM = 'https://codecraftapi.com/v1';
 const CODECRAFT_MODEL_RE = /^[a-z0-9_.:/-]{1,120}$/i;
 const CODECRAFT_PROMPT_MAX = 100_000;
-/* UA explicite : certains WAF (Cloudflare) répondent 403 text/html aux UA par défaut des datacenters */
-const CODECRAFT_UA = 'UrbaTrame/0.1 (+https://freemap-rose.vercel.app)';
+/* En-têtes « navigateur » complets : le WAF Cloudflare d'amont peut noter les clients
+   non navigateur (sec-* / accept-language absents, UA de datacenter), pas seulement l'ASN.
+   Le UA seul (PR #9) ne suffisait pas ; on envoie ici le profil d'un vrai navigateur. */
+const CODECRAFT_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+  'sec-ch-ua': '"Chromium";v="142", "Not_A Brand";v="99"',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin'
+};
 
 function createCodecraftRelay() {
   const relayQuota = createQuota({ cooldownMs: 60_000, retryWindowMs: 8_000 });
@@ -373,10 +383,10 @@ function createCodecraftRelay() {
       const signal = AbortSignal.timeout(30_000);
       const upstream = route === 'catalog'
         /* l'amont exige la clé AUSSI pour GET /v1/models (401 missing_api_key sinon) */
-        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { Accept: 'application/json', Authorization: `Bearer ${key}`, 'User-Agent': CODECRAFT_UA }, signal })
+        ? await fetch(CODECRAFT_UPSTREAM + '/models', { method: 'GET', headers: { ...CODECRAFT_HEADERS, Authorization: `Bearer ${key}` }, signal })
         : await fetch(CODECRAFT_UPSTREAM + '/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'User-Agent': CODECRAFT_UA },
+            headers: { ...CODECRAFT_HEADERS, 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
             body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 800, temperature: 0.2 }),
             signal
           });
