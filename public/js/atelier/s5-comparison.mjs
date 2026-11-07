@@ -612,6 +612,9 @@ function normalizedBaseUrl() {
 function selectedModelState() {
   const provider = elements.provider.value;
   if (provider === 'custom') {
+    // Modèle choisi dans le catalogue chargé en direct, sinon saisie manuelle.
+    const fromList = elements.modelSelect.value ? state.aiModels.get(elements.modelSelect.value) : null;
+    if (fromList) return { id: fromList.id, free: true, vision: fromList.vision === true || (fromList.vision === null && elements.visionConfirm.checked) };
     return {
       id: elements.customModel.value.trim(),
       free: elements.customConfirmFree.checked,
@@ -642,7 +645,7 @@ function updateAiControls() {
 
 async function loadModels() {
   const provider = elements.provider.value;
-  if (!['openrouter', 'apinex', 'codecraft'].includes(provider)) return;
+  if (!CATALOG_PROVIDERS.includes(provider)) return;
   const key = elements.apiKey.value.trim();
   if (!key) { setStatus(elements.aiStatus, 'Saisissez votre clé API avant de charger le catalogue.', 'warning'); return; }
   let endpoint;
@@ -697,11 +700,11 @@ async function loadModels() {
     }
     if (state.aiModels.size === 0) {
       elements.modelSelect.add(new Option('Aucun modèle gratuit compatible trouvé', ''));
-      setStatus(elements.aiStatus, 'Aucun modèle déclaré gratuit avec une capacité image dans la réponse. Aucun modèle payant ne sera utilisé automatiquement.', 'warning');
+      setStatus(elements.aiStatus, `Catalogue bien reçu : ${total} modèle(s) renvoyé(s), mais aucun déclaré gratuit avec image. Saisissez l’identifiant manuellement et confirmez qu’il est gratuit ; aucun modèle payant ne sera utilisé automatiquement.`, 'warning');
     } else {
       elements.modelSelect.selectedIndex = 0;
       onModelSelection();
-      setStatus(elements.aiStatus, `${state.aiModels.size} modèle(s) présenté(s) comme gratuit(s). Vérifiez le quota, la capacité image et la politique de rétention avant envoi.`, 'success');
+      setStatus(elements.aiStatus, `${state.aiModels.size} modèle(s) gratuit(s) listé(s) sur ${total} renvoyé(s) par le catalogue. Vérifiez le quota, la capacité image et la politique de rétention avant envoi.`, 'success');
     }
   } catch (error) {
     const message = error?.name === 'AbortError'

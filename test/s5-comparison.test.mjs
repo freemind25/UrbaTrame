@@ -73,6 +73,13 @@ describe('catalogues d’inférence et sortie IA S5', () => {
     assert.equal(models[2].vision, null);
     const apinex = freeModelsFromCatalog({ data: [{ id: 'free/vision-preview' }, { id: 'paid/model' }] }, 'apinex');
     assert.deepEqual(apinex.map(model => model.id), ['free/vision-preview']);
+    // endpoint perso (custom) : tarif nul déclaré ou suffixe :free, les payants exclus
+    const custom = freeModelsFromCatalog({ data: [
+      { id: 'cc-modele', pricing: { prompt: '0', completion: '0' } },
+      { id: 'mon-modele:free' },
+      { id: 'modele-payant', pricing: { prompt: '0.001', completion: '0' } }
+    ] }, 'custom');
+    assert.deepEqual(custom.map(model => model.id), ['cc-modele', 'mon-modele:free']);
   });
 
   test('JSON IA tolère les clôtures Markdown, filtre les coordonnées invalides et borne la sortie', () => {
