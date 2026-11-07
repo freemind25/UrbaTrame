@@ -92,6 +92,11 @@ describe('consolidation des fonctions Vercel', () => {
       assert.equal(calls.length, 1);
       assert.equal(calls[0].url, 'https://codecraftapi.com/v1/chat/completions');
       assert.equal(calls[0].options.headers.Authorization, 'Bearer test-only-key');
+      // profil navigateur complet envoyé à l'amont (WAF Cloudflare) :
+      assert.match(calls[0].options.headers['User-Agent'], /Chrome\/142/);
+      assert.equal(calls[0].options.headers['sec-fetch-mode'], 'cors');
+      assert.equal(calls[0].options.headers['sec-fetch-site'], 'same-origin');
+      assert.ok(String(calls[0].options.headers['Accept-Language']).startsWith('fr-FR'));
     } finally {
       globalThis.fetch = previousFetch;
       if (previousKey === undefined) delete process.env.CODECRAFT_API_KEY;
