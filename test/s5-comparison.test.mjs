@@ -57,6 +57,26 @@ describe('comparateur historique S5 · géométrie vérifiable', () => {
   });
 });
 
+describe('garde-fou : le bouton « Charger les modèles » couvre aussi « Autre endpoint »', () => {
+  test('CATALOG_PROVIDERS déclaré une fois, inclut custom, et utilisé par l’UI (setProviderUI, updateAiControls, loadModels)', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const src = fs.readFileSync(path.join(root, 'public/js/atelier/s5-comparison.mjs'), 'utf8');
+    const decls = src.match(/const CATALOG_PROVIDERS = \[([^\]]*)\];/g) || [];
+    assert.equal(decls.length, 1, 'CATALOG_PROVIDERS déclaré exactement une fois');
+    assert.ok(decls[0].includes("'custom'"), 'custom présent dans CATALOG_PROVIDERS');
+    for (const usage of ['elements.loadModels.hidden = !CATALOG_PROVIDERS.includes(provider)',
+                         'elements.modelSelectField.hidden = !CATALOG_PROVIDERS.includes(provider)',
+                         'elements.loadModels.disabled = !hasKey || !CATALOG_PROVIDERS.includes(provider)',
+                         'if (!CATALOG_PROVIDERS.includes(provider)) return;'])
+      assert.ok(src.includes(usage), `usage UI présent : ${usage.slice(0, 60)}…`);
+    assert.ok(/const total = Array\.isArray\(payload\)/.test(src), 'total du catalogue déclaré avant usage');
+    assert.ok(src.includes('`l’endpoint ${new URL(endpoint).host}`'), 'label custom dans loadModels');
+  });
+});
+
 describe('catalogues d’inférence et sortie IA S5', () => {
   test('les modèles payants et sans vision déclarée ne sont pas présentés comme gratuits image', () => {
     const catalog = { data: [
