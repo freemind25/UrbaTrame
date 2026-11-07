@@ -574,13 +574,18 @@ function renderObservations() {
   elements.applyAiDraft.disabled = !state.aiSummary;
 }
 
+/* Fournisseurs dont le catalogue /models peut être chargé (codecraft passe par le
+   relais serveur ; custom est appelé en direct navigateur, utile si le WAF du
+   fournisseur bloque la sortie serveur de Vercel). */
+const CATALOG_PROVIDERS = ['openrouter', 'apinex', 'codecraft', 'custom'];
+
 function setProviderUI() {
   const provider = elements.provider.value;
   elements.customEndpointField.hidden = provider !== 'custom';
   elements.customModelField.hidden = provider !== 'custom';
   elements.customConfirmRow.hidden = provider !== 'custom';
-  elements.modelSelectField.hidden = !['openrouter', 'apinex', 'codecraft'].includes(provider);
-  elements.loadModels.hidden = !['openrouter', 'apinex', 'codecraft'].includes(provider);
+  elements.modelSelectField.hidden = !CATALOG_PROVIDERS.includes(provider);
+  elements.loadModels.hidden = !CATALOG_PROVIDERS.includes(provider);
   elements.apiKey.disabled = !provider;
   elements.clearKey.disabled = !provider || !elements.apiKey.value;
   elements.loadModels.disabled = !provider || !elements.apiKey.value;
@@ -630,7 +635,7 @@ function updateAiControls() {
   const provider = elements.provider.value;
   const hasKey = Boolean(elements.apiKey.value.trim());
   elements.clearKey.disabled = !hasKey;
-  elements.loadModels.disabled = !hasKey || !['openrouter', 'apinex', 'codecraft'].includes(provider);
+  elements.loadModels.disabled = !hasKey || !CATALOG_PROVIDERS.includes(provider);
   let endpointOk = provider === 'openrouter' || provider === 'codecraft' || provider === 'apinex';
   if (provider === 'custom') {
     try { normalizedBaseUrl(); endpointOk = true; } catch { endpointOk = false; }
@@ -653,7 +658,7 @@ async function loadModels() {
   catch (error) { setStatus(elements.aiStatus, error.message, 'error'); return; }
   elements.loadModels.disabled = true;
   elements.loadModels.textContent = 'Chargement…';
-  const label = provider === 'openrouter' ? 'OpenRouter' : provider === 'codecraft' ? 'CodeCraft (relais serveur, clé côté serveur)' : 'APInex';
+  const label = provider === 'openrouter' ? 'OpenRouter' : provider === 'codecraft' ? 'CodeCraft (relais serveur, clé côté serveur)' : provider === 'apinex' ? 'APInex' : `l’endpoint ${new URL(endpoint).host}`;
   setStatus(elements.aiStatus, `Requête authentifiée vers ${label}; aucune image n’est jointe à cette requête.`, '');
   try {
     const controller = new AbortController();
@@ -689,6 +694,8 @@ async function loadModels() {
       throw new Error(`Le catalogue a répondu HTTP ${response.status}. Vérifiez la clé, l’accès API et les conditions du fournisseur.`);
     }
     const payload = await response.json();
+    const total = Array.isArray(payload) ? payload.length
+      : (Array.isArray(payload?.data) ? payload.data.length : (Array.isArray(payload?.models) ? payload.models.length : 0));
     const models = freeModelsFromCatalog(payload, provider);
     state.aiModels.clear();
     elements.modelSelect.replaceChildren();
