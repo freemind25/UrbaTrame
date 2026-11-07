@@ -20,6 +20,7 @@ import { createStoredZip } from './zip-writer.mjs';
 import { exportVisibleCsv, normalizeFieldTemplate, defaultFieldTemplate, parseFieldTemplate, serializeFieldTemplate, buildSurveyProperties, MAX_FIELD_TEMPLATE_BYTES, MAX_SURVEY_FIELDS } from './field-survey.mjs';
 import { createGeoPackage } from './geopackage-export.mjs';
 import { terrioSupported, importFileWithTerrio } from './terrio-import.mjs';
+import { freeModelsFromCatalog } from './s5-core.mjs';
 import { parseGtxGrid, interpolateGeoidUndulation, orthometricHeight, MAX_GTX_BYTES } from './geoid-gtx.mjs';
 import { appendTopographicLayer, terrainExtent, TERRAIN_PROVENANCE, updateElevationReadout, updateTerrainLegend } from '../terrain/topographic.mjs';
 
@@ -1499,6 +1500,69 @@ $('#aiModel').addEventListener('input', () => {
   }
   updateAiControls();
 });
+
+/* Base du catalogue /models selon le fournisseur (codecraft passe par le relais
+   serveur ; custom dérive la base de l'endpoint /chat/completions saisi). */
+function aiCatalogBaseUrl(provider) {
+  if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
+  if (provider === 'apinex') return 'https://api.apinex.bond/v1';
+  if (provider === 'custom') {
+    const endpoint = validateAiEndpoint($('#aiEndpoint').value.trim());
+    return endpoint.href.replace(/\/chat\/completions\/?$/i, '');
+  }
+  return null;
+}
+
+$('#loadAiModels').addEventListener('click', async () => {
+  const button = $('#loadAiModels'), statusEl = $('#aiModelStatus');
+  const provider = $('#aiProvider').value, key = $('#aiApiKey').value.trim();
+  if (!provider || !key) { statusEl.textContent = 'Choisissez un fournisseur et saisissez votre clé avant de charger le catalogue.'; return; }
+  button.disabled = true;
+  statusEl.textContent = 'Chargement du catalogue… aucune donnée de couche n’est envoyée.';
+  try {
+    let response;
+    if (provider === 'codecraft') {
+      response = await fetch('/api/util/codecraft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=codecraft&model=catalog&prompt=load&route=catalog',
+        credentials: 'omit'
+      });
+      if (!response.ok) {
+        let code = '';
+        try { code = (await response.json())?.error || ''; } catch { /* body non JSON */ }
+        if (code === 'CODECRAFT_UPSTREAM_BLOCKED_BY_WAF')
+          throw new Error('CodeCraft bloque la sortie serveur de Vercel (WAF Cloudflare, 403 sur l’ASN AWS). Contournement immédiat : « Endpoint fourni par vous » = https://codecraftapi.com/v1/chat/completions + votre clé cc_… (appel direct navigateur, CORS autorisé pour ce site), ou autorisez AS16509 côté Cloudflare.');
+        throw new Error('Relais CodeCraft · HTTP ' + response.status + '.');
+      }
+    } else {
+      const base = aiCatalogBaseUrl(provider);
+      response = await fetch(base + '/models', { headers: { Authorization: 'Bearer ' + key, Accept: 'application/json' }, credentials: 'omit' });
+      if (!response.ok) throw new Error('Catalogue ' + base + ' · HTTP ' + response.status + ' (clé invalide, quota ou CORS ?).');
+    }
+    const payload = await response.json();
+    const all = Array.isArray(payload) ? payload : (payload?.data || payload?.models || []);
+    const total = Array.isArray(all) ? all.length : 0;
+    const free = freeModelsFromCatalog(payload, provider);
+    const freeIds = new Set(free.map(model => model.id));
+    const list = $('#aiModelList');
+    list.replaceChildren();
+    for (const model of all.slice(0, 300)) {
+      const id = String(model?.id || model?.name || '');
+      if (!id) continue;
+      const option = document.createElement('option');
+      option.value = id;
+      option.label = freeIds.has(id) ? 'gratuit déclaré' : 'tarif à vérifier';
+      list.appendChild(option);
+    }
+    statusEl.textContent = 'Catalogue reçu : ' + total + ' modèle(s), ' + free.length + ' déclaré(s) gratuit(s). Suggestions renseignées dans la liste du champ « ID du modèle » ; aucun envoi automatique vers un modèle payant.';
+  } catch (error) {
+    statusEl.textContent = error?.message || 'Catalogue indisponible (réseau ou CORS).';
+  } finally {
+    button.disabled = false;
+    updateAiControls();
+  }
+});
 for (const selector of ['#aiApiKey', '#aiEndpoint', '#aiLayers', '#aiConsent', '#aiPrompt']) $(selector).addEventListener('input', updateAiControls);
 $('#aiLayers').addEventListener('change', updateAiControls);
 $('#checkAiPrice').addEventListener('click', async () => {
@@ -1721,6 +1785,7 @@ function updateAiControls() {
   const selectedCount = $('#aiLayers').selectedOptions.length;
   const priceReady = provider !== 'openrouter' || state.aiPrice?.model === model;
   $('#aiEndpointField').hidden = provider !== 'custom';
+  $('#loadAiModels').disabled = !provider || !$('#aiApiKey').value.trim();
   $('#openRouterPricing').hidden = provider !== 'openrouter';
   $('#checkAiPrice').disabled = provider !== 'openrouter' || !model;
   $('#runAi').disabled = !provider || !model || !$('#aiApiKey').value || !$('#aiConsent').checked || !$('#aiPrompt').value.trim() || !selectedCount || !priceReady || provider === 'custom' && !$('#aiEndpoint').value.trim();

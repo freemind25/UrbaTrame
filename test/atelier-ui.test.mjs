@@ -91,3 +91,16 @@ describe('UrbaTrame · contrôles d’interface de l’atelier cartographique', 
     assert.match(js, /OpenBuildingMap.*GFZ.*OpenStreetMap/);
   });
 });
+
+describe('UrbaTrame · catalogue des modèles dans le panneau IA cartographique', () => {
+  test('bouton, datalist et statut présents dans le HTML et câblés dans le JS', () => {
+    for (const id of ['loadAiModels', 'aiModelList', 'aiModelStatus'])
+      assert.match(html, new RegExp(`id="${id}"`));
+    assert.match(html, /id="aiModel"[^>]*list="aiModelList"/);
+    assert.ok(js.includes("$('#loadAiModels').addEventListener('click'"), 'handler clic branché');
+    assert.ok(js.includes('freeModelsFromCatalog(payload, provider)'), 'filtrage gratuit réutilisé');
+    assert.ok(js.includes("$('#loadAiModels').disabled = !provider"), 'bouton désactivé sans fournisseur/clé');
+    assert.ok(js.includes("from './s5-core.mjs'"), 'import s5-core');
+    assert.ok(js.includes("'/models'"), 'appel du catalogue /models');
+  });
+});
