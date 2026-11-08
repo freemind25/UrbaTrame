@@ -495,7 +495,7 @@ export function ouvrirExports(o) {
     await versPNG(a.svg, nomFichier('plan', 'png'), 1);
   });
 
-  for (const control of racine.querySelectorAll('[data-map-layer], [data-map-class-color], #xpt-map-preset, #xpt-map-scale, #xpt-map-class, #xpt-map-azimuth, #xpt-map-sun-height, #xpt-map-shadow, #xpt-map-hillshade, #xpt-map-depth, #xpt-map-road-color, #xpt-map-building-color, #xpt-map-outline')) {
+  for (const control of racine.querySelectorAll('[data-map-layer], [data-map-class-color], #xpt-map-preset, #xpt-map-scale, #xpt-map-class, #xpt-map-azimuth, #xpt-map-sun-height, #xpt-map-shadow, #xpt-map-hillshade, #xpt-map-depth, #xpt-map-road-color, #xpt-map-building-color, #xpt-map-outline, #xpt-map-grid-interval, #xpt-map-sunpath, #xpt-sun-date, #xpt-heure')) {
     control.addEventListener(control.type === 'range' || control.type === 'color' ? 'input' : 'change', () => {
       if (et.onglet === 'carte') vectorMap();
     });
