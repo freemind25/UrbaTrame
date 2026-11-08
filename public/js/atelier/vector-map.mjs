@@ -253,17 +253,38 @@ export function vectorMapSVG(ctx, options = {}) {
     const meters = niceStep(150 / scale), px = meters * scale, x = mapLeft + 20, y = mapBottom - 18;
     parts.push(`<g stroke="${p.ink}" fill="${p.ink}" font-family="sans-serif"><path d="M${x},${y}h${fmt(px)}M${x},${y - 4}v8M${fmt(x + px)},${y - 4}v8" stroke-width="2"/><text x="${fmt(x + px / 2)}" y="${y - 7}" text-anchor="middle" font-size="10">${meters >= 1000 ? `${meters / 1000} km` : `${meters} m`}</text></g>`);
   }
-  /* Repères métriques de la planche : flèche nord + barre d'échelle. */
-  if (options.northArrow !== false) {
-    const nx = mapRight - 34, ny = mapTop + 40;
-    parts.push(`<g><circle cx="${fmt(nx)}" cy="${fmt(ny)}" r="16" fill="${p.bg}" stroke="${p.ink}" stroke-width="${line}" opacity=".92"/><polygon points="${fmt(nx)},${fmt(ny - 11)} ${fmt(nx + 7)},${fmt(ny + 8)} ${fmt(nx)},${fmt(ny + 3)} ${fmt(nx - 7)},${fmt(ny + 8)}" fill="${p.ink}"/><text x="${fmt(nx)}" y="${fmt(ny + 30)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="${p.ink}">${label('N', 'N')}</text></g>`);
+  /* Trajectoire solaire du jour choisi, projetée au sol (style diagramme de site) :
+     rayon = R·cos(hauteur), azimut depuis le nord ; marqueur à l'heure choisie. */
+  if (options.sunPath && globalThis.FMVue3D) {
+    const V = globalThis.FMVue3D;
+    const jour = /\d{4}-\d{2}-\d{2}/.test(String(options.sunDate || '')) ? options.sunDate : new Date().toISOString().slice(0, 10);
+    const pts = [];
+    for (let h = 5; h <= 19.01; h += 0.25) {
+      const s = V.soleil(V.instantLocal(h, ctx.sLat, ctx.sLng, jour), ctx.sLat, ctx.sLng);
+      if (!s || !(s.hauteur > 0)) continue;
+      const az = s.azimut * Math.PI / 180;
+      const d = R * 0.88 * Math.cos(s.hauteur);
+      pts.push({ h, p: xy([d * Math.sin(az), d * Math.cos(az)]) });
+    }
+    if (pts.length > 2) {
+      const arc = 'M' + pts.map(q => `${fmt(q.p[0])},${fmt(q.p[1])}`).join('L');
+      parts.push(`<path d="${arc}" fill="none" stroke="${p.site}" stroke-width="${Math.max(.8, line * .9)}" stroke-dasharray="7 4" opacity=".85" clip-path="url(#fm-map-clip)"/>`);
+      for (const q of pts.filter(x => Math.abs(x.h - Math.round(x.h)) < 0.01)) {
+        parts.push(`<circle cx="${fmt(q.p[0])}" cy="${fmt(q.p[1])}" r="2.4" fill="${p.bg}" stroke="${p.site}" stroke-width="1.1" clip-path="url(#fm-map-clip)"/>`);
+        parts.push(`<text x="${fmt(q.p[0] + 5)}" y="${fmt(q.p[1] - 4)}" font-family="sans-serif" font-size="7.5" fill="${p.site}">${Math.round(q.h)}h</text>`);
+      }
+      const hSel = Math.min(19, Math.max(5, Number(options.sunHour) || 12));
+      const sSel = V.soleil(V.instantLocal(hSel, ctx.sLat, ctx.sLng, jour), ctx.sLat, ctx.sLng);
+      if (sSel && sSel.hauteur > 0) {
+        const azS = sSel.azimut * Math.PI / 180;
+        const d = R * 0.88 * Math.cos(sSel.hauteur);
+        const mp = xy([d * Math.sin(azS), d * Math.cos(azS)]);
+        parts.push(`<circle cx="${fmt(mp[0])}" cy="${fmt(mp[1])}" r="5" fill="${p.site}" stroke="${p.bg}" stroke-width="1.4" clip-path="url(#fm-map-clip)"/>`);
+      }
+      parts.push(`<text x="${mapLeft + 4}" y="${mapTop + 12}" font-family="sans-serif" font-size="8" fill="${p.site}">${label('Trajectoire solaire', 'Sun path')} · ${jour} · ● ${String(hSel).padStart(2, '0')}:00</text>`);
+    }
   }
-  if (options.scaleBar !== false) {
-    const barM = niceStep(R / 2);
-    const bw = barM * scale, bx = mapLeft + 20, by = mapBottom - 22;
-    const barLabel = barM >= 1000 ? (barM / 1000) + ' km' : barM + ' m';
-    parts.push(`<g><rect x="${fmt(bx)}" y="${fmt(by)}" width="${fmt(bw / 2)}" height="5" fill="${p.ink}"/><rect x="${fmt(bx + bw / 2)}" y="${fmt(by)}" width="${fmt(bw / 2)}" height="5" fill="${p.bg}" stroke="${p.ink}" stroke-width=".7"/><text x="${fmt(bx)}" y="${fmt(by - 4)}" font-family="sans-serif" font-size="8" fill="${p.ink}">0</text><text x="${fmt(bx + bw)}" y="${fmt(by - 4)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="${p.ink}">${barLabel}</text></g>`);
-  }
+
   if (options.grid && Number(options.gridInterval) > 0) {
     const step = Number(options.gridInterval);
     parts.push(`<text x="${mapLeft + 4}" y="${mapBottom + 15}" font-family="sans-serif" font-size="8" fill="${p.ink}">Grille locale · ${step} m</text>`);
@@ -288,8 +309,8 @@ export function vectorMapSVG(ctx, options = {}) {
       const col = LANDUSE_CLASSES[cls]?.color;
       if (col && !seen.has(col)) seen.set(col, label(LANDUSE_CLASSES[cls].fr, LANDUSE_CLASSES[cls].en));
     }
-    const items = [...seen.entries()].slice(0, 12).map(([color, name], i) => {
-      const x = mapLeft + (i % 6) * Math.min(165, mapW / 6), y = H - pad + 27;
+    const items = [...seen.entries()].slice(0, 6).map(([color, name], i) => {
+      const x = mapLeft + (i % 6) * Math.min(165, mapW / 6), y = H - pad + 27 + Math.floor(i / 6) * 11;
       return `<g><rect x="${fmt(x)}" y="${fmt(y)}" width="8" height="8" fill="${color}"/><text x="${fmt(x + 12)}" y="${fmt(y + 8)}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(name)}</text></g>`;
     }).join('');
     if (items) parts.push(items);
