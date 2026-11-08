@@ -53,3 +53,25 @@ describe('carte vectorielle intégrée à l’atelier', () => {
     assert.ok(result.svg.length > 1000);
   });
 });
+
+describe('style « contexte urbain » (couleurs par catégorie)', () => {
+  test('le preset est proposé et les voies/usages prennent leurs couleurs de classe', () => {
+    assert.ok(MAP_PRESETS.includes('contexte-urbain'));
+    const base = makeCtx();
+    const ctx = makeCtx({
+      D: {
+        ...base.D,
+        roads: [{ h: 'motorway', g: [[36.264, 6.696], [36.266, 6.698]] }],
+        green: [{ k: 'l', lu: 'park', g: [[36.264, 6.696], [36.264, 6.698], [36.266, 6.698]] }],
+        landuse: [{ lu: 'industrial', tags: { landuse: 'industrial' }, g: [[36.264, 6.696], [36.264, 6.697], [36.265, 6.697]] }]
+      }
+    });
+    const result = vectorMapSVG(ctx, { preset: 'contexte-urbain', width: 900, height: 650, printScale: 'fit' });
+    assert.equal(result.preset, 'contexte-urbain');
+    assert.match(result.svg, /#B3543F/);   /* autoroute */
+    assert.match(result.svg, /#A9CBA4/);   /* parc */
+    assert.match(result.svg, /#B0A8C0/);   /* industriel */
+    assert.match(result.svg, /Autoroute/);
+    assert.match(result.svg, /Parc \/ vert/);
+  });
+});
