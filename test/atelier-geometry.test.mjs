@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  areaForShape, classifyBuilding, clipPolygonToSquare, clipPolylineToSquare,
+  areaForShape, classifyBuilding, classifyLanduse, clipPolygonToSquare, clipPolylineToSquare,
   normalizeBoundary, polygonArea, roadSurface, roadWidth
 } from '../public/js/atelier/geometry.mjs';
 
@@ -55,5 +55,20 @@ describe('géométrie cartographique additionnelle', () => {
     assert.deepEqual(road[0], [0, 2]);
     assert.deepEqual(road[1], [10, 2]);
     assert.equal(Math.abs(road[0][1] - road[3][1]), 4);
+  });
+});
+
+describe('classification des usages du sol (style land use)', () => {
+  test('catégories principales reconnues depuis les tags OSM', () => {
+    assert.equal(classifyLanduse({ leisure: 'park' }), 'parc');
+    assert.equal(classifyLanduse({ natural: 'wood' }), 'parc');
+    assert.equal(classifyLanduse({ leisure: 'pitch' }), 'sport');
+    assert.equal(classifyLanduse({ amenity: 'school' }), 'education');
+    assert.equal(classifyLanduse({ amenity: 'hospital' }), 'sante');
+    assert.equal(classifyLanduse({ amenity: 'library' }), 'civique');
+    assert.equal(classifyLanduse({ landuse: 'commercial' }), 'commercial');
+    assert.equal(classifyLanduse({ landuse: 'industrial' }), 'industriel');
+    assert.equal(classifyLanduse({ landuse: 'residential' }), 'residentiel');
+    assert.equal(classifyLanduse({}), 'autre');
   });
 });

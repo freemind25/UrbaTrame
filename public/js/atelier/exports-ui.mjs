@@ -104,7 +104,7 @@ export function ouvrirExports(o) {
           <p class="xpt-note">${t('Composez une planche éditable en SVG ou PNG. Les styles, le relief, les couches et les repères s’appliquent aux mêmes données du site.',
             'Compose an editable SVG or PNG map. Styles, relief, layers and annotations use the same site data.')}</p>
           <label class="xpt-l"><span>${t('Style', 'Preset')}</span>
-            <select id="xpt-map-preset"><option value="classic">${t('Classique', 'Classic')}</option><option value="figure-ground">Figure / fond</option><option value="relief">${t('Relief', 'Relief')}</option><option value="night">${t('Nocturne', 'Night')}</option><option value="blueprint">Blueprint</option></select>
+            <select id="xpt-map-preset"><option value="classic">${t('Classique', 'Classic')}</option><option value="figure-ground">Figure / fond</option><option value="relief">${t('Relief', 'Relief')}</option><option value="night">${t('Nocturne', 'Night')}</option><option value="blueprint">Blueprint</option><option value="contexte-urbain">${t('Contexte urbain (couleurs par catégorie)', 'Urban context (category colors)')}</option></select>
           </label>
           <label class="xpt-l"><span>${t('Échelle d’impression', 'Print scale')}</span>
             <select id="xpt-map-scale"><option value="fit">${t('Ajuster à la feuille', 'Fit to page')}</option><option value="2000">1:2 000</option><option value="5000">1:5 000</option><option value="10000">1:10 000</option><option value="25000">1:25 000</option></select>

@@ -20,6 +20,39 @@ export function classifyBuilding(tags = {}) {
   return 'other';
 }
 
+export const LANDUSE_CLASSES = Object.freeze({
+  parc: { fr: 'Parc / vert', en: 'Park / green', color: '#A9CBA4' },
+  sport: { fr: 'Sport', en: 'Sport', color: '#8FC1B5' },
+  education: { fr: 'Éducation', en: 'Education', color: '#91B7D3' },
+  sante: { fr: 'Santé', en: 'Health', color: '#E8A0A0' },
+  civique: { fr: 'Civique / culture', en: 'Civic / culture', color: '#C9A9D6' },
+  commercial: { fr: 'Commercial', en: 'Commercial', color: '#E8C07A' },
+  industriel: { fr: 'Industriel', en: 'Industrial', color: '#B0A8C0' },
+  residentiel: { fr: 'Résidentiel', en: 'Residential', color: '#E5D9C0' },
+  autre: { fr: 'Autre usage', en: 'Other use', color: '#D8D5CC' }
+});
+
+/* Classe d'occupation du sol façon « land use » (diagrammes de site) :
+   parc/vert, sport, éducation, santé, civique, commercial, industriel,
+   résidentiel, sinon autre. */
+export function classifyLanduse(tags = {}) {
+  const lu = String(tags.landuse || '').toLowerCase();
+  const lei = String(tags.leisure || '').toLowerCase();
+  const nat = String(tags.natural || '').toLowerCase();
+  const am = String(tags.amenity || '').toLowerCase();
+  const shop = String(tags.shop || '').toLowerCase();
+  if (['park', 'garden', 'playground', 'nature_reserve', 'common'].includes(lei) ||
+      ['wood', 'scrub', 'grass', 'meadow', 'heath', 'tree', 'greenfield'].includes(nat)) return 'parc';
+  if (['sports_centre', 'pitch', 'stadium', 'track', 'golf_course', 'marina', 'fitness_station'].includes(lei)) return 'sport';
+  if (['school', 'university', 'college', 'kindergarten'].includes(am) || lu === 'education') return 'education';
+  if (['hospital', 'clinic', 'pharmacy', 'doctors', 'dentist'].includes(am) || lu === 'healthcare' || /health/.test(am)) return 'sante';
+  if (['townhall', 'courthouse', 'police', 'fire_station', 'library', 'museum', 'theatre', 'place_of_worship', 'cemetery', 'grave_yard'].includes(am) || ['civic', 'public'].includes(lu)) return 'civique';
+  if (lu === 'commercial' || lu === 'retail' || shop === 'mall') return 'commercial';
+  if (lu === 'industrial') return 'industriel';
+  if (lu === 'residential') return 'residentiel';
+  return 'autre';
+}
+
 function parseMetres(value) {
   if (value == null || value === '') return null;
   const raw = String(value).trim().replace(',', '.');

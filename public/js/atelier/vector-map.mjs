@@ -2,9 +2,9 @@
    capacités visibles d'urban:EXPORT. Les données restent celles de Freemap;
    aucun script, style ou fichier du service de référence n'est réutilisé. */
 import { courbesDeNiveau, enLocal, equidistance, grilleTerrain } from './exports.mjs';
-import { classifyBuilding, roadSurface, roadWidth } from './geometry.mjs';
+import { classifyBuilding, classifyLanduse, LANDUSE_CLASSES, roadSurface, roadWidth } from './geometry.mjs';
 
-export const MAP_PRESETS = Object.freeze(['classic', 'figure-ground', 'relief', 'night', 'blueprint']);
+export const MAP_PRESETS = Object.freeze(['classic', 'figure-ground', 'relief', 'night', 'blueprint', 'contexte-urbain']);
 export const MAP_CLASSES = Object.freeze({
   residential: { fr: 'Résidentiel', en: 'Residential', color: '#D9C7A7' },
   public: { fr: 'Public', en: 'Public', color: '#91B7D3' },
@@ -19,8 +19,28 @@ const PALETTES = Object.freeze({
   'figure-ground': { bg: '#FFFFFF', ink: '#171918', road: '#E8E7E1', path: '#DEDDD7', rail: '#777777', water: '#E7EEF0', green: '#F4F4F1', contour: '#777777', site: '#B7382D', grid: '#D6D6D2' },
   relief: { bg: '#F1E9D8', ink: '#38382F', road: '#CBB99A', path: '#D8C9AD', rail: '#806A86', water: '#9EC3D1', green: '#BBCDA3', contour: '#877B61', site: '#B84735', grid: '#B6AF9C' },
   night: { bg: '#121A20', ink: '#E3E8E7', road: '#596871', path: '#46545B', rail: '#B08AC1', water: '#287F9F', green: '#365C4B', contour: '#7E8C7E', site: '#FF7B58', grid: '#425059' },
-  blueprint: { bg: '#153B61', ink: '#F2F5F3', road: '#75A4C5', path: '#5B86A8', rail: '#C5A6D3', water: '#3F7092', green: '#315D7A', contour: '#8DB7CF', site: '#F5C878', grid: '#557B9B' }
+  blueprint: { bg: '#153B61', ink: '#F2F5F3', road: '#75A4C5', path: '#5B86A8', rail: '#C5A6D3', water: '#3F7092', green: '#315D7A', contour: '#8DB7CF', site: '#F5C878', grid: '#557B9B' },
+  'contexte-urbain': { bg: '#F6F4EC', ink: '#2E3230', road: '#C9C2B2', path: '#9FB6BE', rail: '#806A86', water: '#7FB3D5', green: '#A9CBA4', contour: '#917F64', site: '#BE6339', grid: '#B9B6AA' }
 });
+
+/* Style « contexte urbain » (inspiré des diagrammes de site type ArchiDiagram) :
+   voies colorées selon la hiérarchie OSM, usages du sol colorés par catégorie. */
+const ROAD_CLASS_COLORS = Object.freeze({
+  motorway: '#B3543F', motorway_link: '#B3543F', trunk: '#D08050', trunk_link: '#D08050',
+  primary: '#E0A458', primary_link: '#E0A458', secondary: '#E8C87E', secondary_link: '#E8C87E',
+  tertiary: '#D9D3C3', tertiary_link: '#D9D3C3', unclassified: '#E3DED2', residential: '#EDE9DF',
+  living_street: '#F2EFE7', service: '#F5F2EA', pedestrian: '#9FB6BE', footway: '#9FB6BE',
+  path: '#9FB6BE', cycleway: '#8FB8A8', steps: '#9FB6BE', track: '#E8E4D8'
+});
+const ROAD_CLASS_LABELS = Object.freeze({
+  motorway: ['Autoroute', 'Motorway'], trunk: ['Voie rapide', 'Trunk'], primary: ['Primaire', 'Primary'],
+  secondary: ['Secondaire', 'Secondary'], tertiary: ['Tertiaire', 'Tertiary'], unclassified: ['Non classée', 'Unclassified'],
+  residential: ['Résidentielle', 'Residential'], living_street: ['Rue vivante', 'Living street'], service: ['Service', 'Service'],
+  pedestrian: ['Piétonne', 'Pedestrian'], footway: ['Sentier', 'Footway'], path: ['Chemin', 'Path'],
+  cycleway: ['Piste cyclable', 'Cycleway'], steps: ['Escalier', 'Steps'], track: ['Piste', 'Track']
+});
+const roadClassColor = h => ROAD_CLASS_COLORS[String(h || '').toLowerCase()] || null;
+const roadClassLabel = (h, label) => { const l = ROAD_CLASS_LABELS[String(h || '').toLowerCase()]; return l ? label(l[0], l[1]) : String(h || ''); };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 const fmt = n => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
@@ -67,6 +87,7 @@ export function vectorMapSVG(ctx, options = {}) {
   const title = esc(options.title || ctx.siteName || 'UrbaTrame · Altiplan');
   const line = Math.max(.45, Math.min(4, Number(options.outlineWeight) || 1));
   const byType = options.colorByType !== false && preset !== 'figure-ground' && preset !== 'night' && preset !== 'blueprint';
+  const urban = preset === 'contexte-urbain';
   const parts = [];
   const framePath = shape === 'square'
     ? `<rect x="${fmt(cx - R * scale)}" y="${fmt(cy - R * scale)}" width="${fmt(2 * R * scale)}" height="${fmt(2 * R * scale)}"/>`
@@ -109,8 +130,18 @@ export function vectorMapSVG(ctx, options = {}) {
 
   if (layers.green) for (const f of d.green || []) {
     const points = (f.g || []).map(geo), closed = points.length >= 3;
-    const fill = f.k === 'w' ? p.water : p.green;
+    let fill = f.k === 'w' ? p.water : p.green;
+    if (urban && f.k !== 'w') {
+      const cls = f.k === 'g' ? 'parc' : classifyLanduse({ landuse: f.lu || '', leisure: f.lu || '' });
+      fill = LANDUSE_CLASSES[cls]?.color || p.green;
+    }
     if (closed) parts.push(`<path d="${pathOf(f.g, true, geo)}" fill="${fill}" stroke="${fill}" stroke-width="${line}"/>`);
+  }
+  if (urban && layers.green) for (const f of d.landuse || []) {
+    if (!Array.isArray(f.g) || f.g.length < 3) continue;
+    const cls = classifyLanduse(f.tags || { landuse: f.lu || '' });
+    const fill = LANDUSE_CLASSES[cls]?.color || p.green;
+    parts.push(`<path d="${pathOf(f.g, true, geo)}" fill="${fill}" stroke="${fill}" stroke-width="${line}" opacity=".92"/>`);
   }
   if (layers.water) for (const f of d.waterways || []) {
     if ((f.g || []).length > 1) parts.push(`<path d="${pathOf(f.g, false, geo)}" fill="none" stroke="${p.water}" stroke-width="${Math.max(1, scale * (Number(f.width) || 1.4))}" stroke-linecap="round"/>`);
@@ -137,7 +168,7 @@ export function vectorMapSVG(ctx, options = {}) {
     if (!path) continue;
     const bridge = !!r.bridge;
     const cls = /footway|path|cycleway|steps|pedestrian/.test(r.h || '');
-    const stroke = bridge && layers.bridges ? p.site : cls ? p.path : p.road;
+    const stroke = bridge && layers.bridges ? p.site : urban ? (roadClassColor(r.h) || (cls ? p.path : p.road)) : (cls ? p.path : p.road);
     const opacity = preset === 'figure-ground' ? .78 : .94;
     parts.push(`<path d="${path}" fill="${stroke}" fill-opacity="${opacity}" stroke="${stroke}" stroke-width=".35" stroke-linejoin="round"/>`);
     if (bridge && layers.bridges) {
@@ -234,6 +265,24 @@ export function vectorMapSVG(ctx, options = {}) {
     return `<g><rect x="${fmt(x)}" y="${fmt(y)}" width="8" height="8" fill="${color}"/><text x="${fmt(x + 12)}" y="${fmt(y + 8)}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(label(c.fr, c.en))}</text></g>`;
   }).join('') : '';
   if (classes) parts.push(classes);
+  if (urban) {
+    const seen = new Map();
+    for (const r of d.roads || []) {
+      const c = roadClassColor(r.h);
+      if (c && !seen.has(c)) seen.set(c, roadClassLabel(r.h, label));
+    }
+    for (const f of [...(d.green || []), ...(d.landuse || [])]) {
+      if (f.k === 'w') continue;
+      const cls = f.k === 'g' ? 'parc' : classifyLanduse(f.tags || { landuse: f.lu || '', leisure: f.lu || '' });
+      const col = LANDUSE_CLASSES[cls]?.color;
+      if (col && !seen.has(col)) seen.set(col, label(LANDUSE_CLASSES[cls].fr, LANDUSE_CLASSES[cls].en));
+    }
+    const items = [...seen.entries()].slice(0, 12).map(([color, name], i) => {
+      const x = mapLeft + (i % 6) * Math.min(165, mapW / 6), y = H - pad + 27;
+      return `<g><rect x="${fmt(x)}" y="${fmt(y)}" width="8" height="8" fill="${color}"/><text x="${fmt(x + 12)}" y="${fmt(y + 8)}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(name)}</text></g>`;
+    }).join('');
+    if (items) parts.push(items);
+  }
   const buildings = (d.build || []).length, trees = (d.trees || []).length;
   const roadsKm = (d.roads || []).reduce((sum, r) => {
     let length = 0; const pts = r.g || [];
