@@ -253,6 +253,17 @@ export function vectorMapSVG(ctx, options = {}) {
     const meters = niceStep(150 / scale), px = meters * scale, x = mapLeft + 20, y = mapBottom - 18;
     parts.push(`<g stroke="${p.ink}" fill="${p.ink}" font-family="sans-serif"><path d="M${x},${y}h${fmt(px)}M${x},${y - 4}v8M${fmt(x + px)},${y - 4}v8" stroke-width="2"/><text x="${fmt(x + px / 2)}" y="${y - 7}" text-anchor="middle" font-size="10">${meters >= 1000 ? `${meters / 1000} km` : `${meters} m`}</text></g>`);
   }
+  /* Repères métriques de la planche : flèche nord + barre d'échelle. */
+  if (options.northArrow !== false) {
+    const nx = mapRight - 34, ny = mapTop + 40;
+    parts.push(`<g><circle cx="${fmt(nx)}" cy="${fmt(ny)}" r="16" fill="${p.bg}" stroke="${p.ink}" stroke-width="${line}" opacity=".92"/><polygon points="${fmt(nx)},${fmt(ny - 11)} ${fmt(nx + 7)},${fmt(ny + 8)} ${fmt(nx)},${fmt(ny + 3)} ${fmt(nx - 7)},${fmt(ny + 8)}" fill="${p.ink}"/><text x="${fmt(nx)}" y="${fmt(ny + 30)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="${p.ink}">${label('N', 'N')}</text></g>`);
+  }
+  if (options.scaleBar !== false) {
+    const barM = niceStep(R / 2);
+    const bw = barM * scale, bx = mapLeft + 20, by = mapBottom - 22;
+    const barLabel = barM >= 1000 ? (barM / 1000) + ' km' : barM + ' m';
+    parts.push(`<g><rect x="${fmt(bx)}" y="${fmt(by)}" width="${fmt(bw / 2)}" height="5" fill="${p.ink}"/><rect x="${fmt(bx + bw / 2)}" y="${fmt(by)}" width="${fmt(bw / 2)}" height="5" fill="${p.bg}" stroke="${p.ink}" stroke-width=".7"/><text x="${fmt(bx)}" y="${fmt(by - 4)}" font-family="sans-serif" font-size="8" fill="${p.ink}">0</text><text x="${fmt(bx + bw)}" y="${fmt(by - 4)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="${p.ink}">${barLabel}</text></g>`);
+  }
   if (options.grid && Number(options.gridInterval) > 0) {
     const step = Number(options.gridInterval);
     parts.push(`<text x="${mapLeft + 4}" y="${mapBottom + 15}" font-family="sans-serif" font-size="8" fill="${p.ink}">Grille locale · ${step} m</text>`);
