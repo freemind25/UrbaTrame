@@ -84,3 +84,15 @@ describe('repères métriques de la planche (nord, échelle, grille)', () => {
     assert.match(r.svg, /Grille locale · 100 m/);
   });
 });
+
+describe('trajectoire solaire sur la planche 2D', () => {
+  test('l’arc du jour, les heures et le marqueur sont dessinés quand FMVue3D est chargé', () => {
+    const r = vectorMapSVG(makeCtx(), {
+      width: 900, height: 650, printScale: 'fit',
+      sunPath: true, sunDate: '2026-06-21', sunHour: 12
+    });
+    assert.match(r.svg, /Trajectoire solaire · 2026-06-21/);
+    assert.match(r.svg, /12h/);
+    assert.match(r.svg, /stroke-dasharray="7 4"/);
+  });
+});

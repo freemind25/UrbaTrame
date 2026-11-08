@@ -122,6 +122,8 @@ export function ouvrirExports(o) {
             <label><input type="checkbox" data-map-layer="siteBoundary"> ${t('Limite de projet tracée · non cadastrale', 'User-drawn project boundary · not cadastral')}</label>
             <label><input type="checkbox" data-map-layer="grid"> ${t('Grille métrique', 'Metric grid')}</label>
             <label class="xpt-l"><span>${t('Pas de grille (m)', 'Grid step (m)')}</span><input id="xpt-map-grid-interval" type="number" min="10" max="2000" step="10" value="100"></label>
+            <label><input type="checkbox" id="xpt-map-sunpath"> ${t('Trajectoire solaire sur la carte 2D', 'Sun path on the 2D map')}</label>
+            <label class="xpt-l"><span>${t('Jour du diagramme solaire', 'Sun diagram date')}</span><input id="xpt-sun-date" type="date"></label>
           </fieldset>
           <label class="xpt-couches"><input type="checkbox" id="xpt-map-class" checked> ${t('Colorer les bâtiments par type', 'Colour buildings by type')}</label>
           <label class="xpt-l"><span>${t('Direction du soleil', 'Sun direction')}</span><input id="xpt-map-azimuth" type="range" min="0" max="359" value="315"></label>
@@ -312,6 +314,8 @@ export function ouvrirExports(o) {
       depthMapStrength: Number(q('#xpt-map-depth').value) / 100,
       outlineWeight: Number(q('#xpt-map-outline').value), grid: layers.grid,
       gridInterval: Number(q('#xpt-map-grid-interval').value) || 0,
+      sunPath: q('#xpt-map-sunpath').checked, sunDate: q('#xpt-sun-date').value,
+      sunHour: Number(q('#xpt-heure').value) || 12,
       northArrow: true, scaleBar: true, outline: true,
       classColors: Object.fromEntries([...racine.querySelectorAll('[data-map-class-color]')]
         .map(input => [input.dataset.mapClassColor, input.value])),
@@ -501,6 +505,7 @@ export function ouvrirExports(o) {
   }
   q('#xpt-map-reset').addEventListener('click', () => {
     q('#xpt-map-preset').value = 'classic';
+    q('#xpt-sun-date').value = new Date().toISOString().slice(0, 10);
     q('#xpt-map-road-color').value = '#D7C8AA';
     q('#xpt-map-building-color').value = '#BEB8AB';
     for (const input of racine.querySelectorAll('[data-map-class-color]')) input.value = ({ residential: '#D9C7A7', public: '#91B7D3', commercial: '#D5A36C', industrial: '#AFA5C2', utility: '#AAB09A', other: '#B7B5AF' })[input.dataset.mapClassColor];
