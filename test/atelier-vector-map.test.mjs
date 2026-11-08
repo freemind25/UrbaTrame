@@ -75,3 +75,12 @@ describe('style « contexte urbain » (couleurs par catégorie)', () => {
     assert.match(result.svg, /Parc \/ vert/);
   });
 });
+
+describe('repères métriques de la planche (nord, échelle, grille)', () => {
+  test('flèche N, barre d’échelle et grille avec pas réglable sont dessinées', () => {
+    const r = vectorMapSVG(makeCtx(), { width: 900, height: 650, printScale: 'fit', grid: true, gridInterval: 100, northArrow: true, scaleBar: true });
+    assert.match(r.svg, />N</);
+    assert.match(r.svg, /500 m/);
+    assert.match(r.svg, /Grille locale · 100 m/);
+  });
+});

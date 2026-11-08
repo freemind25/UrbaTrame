@@ -121,6 +121,7 @@ export function ouvrirExports(o) {
             <label><input type="checkbox" data-map-layer="labels"> ${t('Noms des lieux et bâtiments', 'Place and building labels')}</label>
             <label><input type="checkbox" data-map-layer="siteBoundary"> ${t('Limite de projet tracée · non cadastrale', 'User-drawn project boundary · not cadastral')}</label>
             <label><input type="checkbox" data-map-layer="grid"> ${t('Grille métrique', 'Metric grid')}</label>
+            <label class="xpt-l"><span>${t('Pas de grille (m)', 'Grid step (m)')}</span><input id="xpt-map-grid-interval" type="number" min="10" max="2000" step="10" value="100"></label>
           </fieldset>
           <label class="xpt-couches"><input type="checkbox" id="xpt-map-class" checked> ${t('Colorer les bâtiments par type', 'Colour buildings by type')}</label>
           <label class="xpt-l"><span>${t('Direction du soleil', 'Sun direction')}</span><input id="xpt-map-azimuth" type="range" min="0" max="359" value="315"></label>
@@ -310,6 +311,7 @@ export function ouvrirExports(o) {
       hillshadeStrength: Number(q('#xpt-map-hillshade').value) / 100,
       depthMapStrength: Number(q('#xpt-map-depth').value) / 100,
       outlineWeight: Number(q('#xpt-map-outline').value), grid: layers.grid,
+      gridInterval: Number(q('#xpt-map-grid-interval').value) || 0,
       northArrow: true, scaleBar: true, outline: true,
       classColors: Object.fromEntries([...racine.querySelectorAll('[data-map-class-color]')]
         .map(input => [input.dataset.mapClassColor, input.value])),
