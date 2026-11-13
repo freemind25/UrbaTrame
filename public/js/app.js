@@ -1358,6 +1358,10 @@ async function generate() {
     drawLoader([], state, t0);
     if (run) S.routes.end(run, { device: S.device, session: S.session });
     S.busy = false;
+    /* Re-rendu après génération : sinon les squelettes de chargement restent
+       affichés à la place des aperçus (S.busy était encore true au renderCards()
+       précédent). */
+    renderCards();
     if (genBtn) genBtn.disabled = false;
     $('#analysisMap')?.classList.remove('is-busy');
   }
