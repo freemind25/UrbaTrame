@@ -76,23 +76,19 @@ export function createStudentAuth({
     });
     if (issued?.status !== 'issued') return { ...GENERIC_OTP_RESPONSE };
 
-    /* Règle perf 7 : l'envoi du mail part en arrière-plan — la réponse HTTP ne
-       dépend plus de la latence du relais SMTP (déjà plafonnée par les timeouts
-       du transport : 8 s connexion / 12 s socket). L'envoi est déclenché tout de
-       suite ; en cas d'échec, le challenge est invalidé (fail closed) et journalisé
-       sans jamais loguer l'adresse ni le code OTP.
-       Note serverless : après la réponse, l'instance peut être gelée — le garde-fou
-       reste le cooldown de renvoi + l'invalidation côté verify. */
-    let delivery;
+    /* Envoi SMTP ATTENDU avant la réponse : sur Vercel, une promesse lancée en
+       arrière-plan après res.end() peut être gelée avec l'instance et l'e-mail
+       ne part jamais (incident 2026-11-10 : aucun code reçu alors que le
+       challenge était bien émis en base). La latence reste plafonnée par les
+       timeouts du transport (8 s connexion / 12 s socket). En cas d'échec, le
+       challenge est invalidé (fail closed) et journalisé sans jamais loguer
+       l'adresse ni le code OTP. */
     try {
-      delivery = sendOtpEmail({ to: email, code, expiresAt });
+      await sendOtpEmail({ to: email, code, expiresAt });
     } catch (error) {
-      delivery = Promise.reject(error);
-    }
-    Promise.resolve(delivery).catch(async error => {
       try { await repository.invalidateOtpChallenge(challengeId, new Date(now())); } catch { /* fail closed */ }
       console.error('UT_AUTH_EMAIL_DELIVERY_FAILED', String(error?.code || error?.name || 'EMAIL_ERROR').slice(0, 64));
-    });
+    }
     return { ...GENERIC_OTP_RESPONSE };
   }
 
