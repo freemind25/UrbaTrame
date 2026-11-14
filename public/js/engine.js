@@ -27,6 +27,9 @@
       { p: '#EAD9A8', s: '#B89A6A', t: '#5E6E8E', ph: '#34405E', dot: '#5CE0C0', dark: true },
       { p: '#3A2C1C', s: '#7A5C3A', t: '#AC8E62', ph: '#CBB58C', dot: '#A8642A', dark: false }
     ],
+    landcover: [
+      { bld: '#D96A4A', green: '#7AAE68', other: '#D8D6D0', bldS: '#A84A30', greenS: '#4E7A3A' }
+    ],
     landuse: [
       { res: '#E8B4A0', com: '#F0D080', civ: '#88B0D8', ind: '#C0A8D0', prk: '#A8CC88', wtr: '#80C0D8', other: '#E9E6E0' },
       { res: '#D4785A', com: '#D4A830', civ: '#3A78B8', ind: '#8858A8', prk: '#5A9848', wtr: '#2888B8', other: '#DDDAD3' },

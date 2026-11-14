@@ -9,6 +9,7 @@
     { id: 'landuse', nom: 'Zones fonctionnelles', en: 'Functional areas', sub: 'résidentiel, commerce, équipements', tag: 'OSM', tier: 'free', g: 'site', impl: true },
     { id: 'gw', nom: 'Vert & eau', en: 'Green & water', sub: 'parcs, forêts, cours d\'eau', tag: 'OSM', tier: 'free', g: 'site', impl: true },
     { id: 'fabric', nom: 'Tissu urbain', en: 'Urban fabric', sub: 'figure-fond type Nolli', tag: 'OSM', tier: 'free', g: 'site', impl: true },
+    { id: 'landcover', nom: 'Occupation du sol (satellite)', en: 'Land cover (satellite)', sub: 'GHLC 10 m au site + taux d’imperméabilisation OSM', tag: 'OLM', tier: 'free', g: 'site', impl: true },
     { id: 'volumes', nom: 'Volumes 3D', en: '3D volumes', sub: 'bâtiments extrudés, ombres portées', tag: '3D', tier: 'pro', g: 'morpho', impl: true },
 
     /* ── morphologie ── */
