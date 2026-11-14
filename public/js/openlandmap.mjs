@@ -38,9 +38,11 @@ export const landCoverLabel = v => {
 
 /* Tuile raster WebMercatorQuad de la couche GHLC 10 m, colorée (niveau 1 en
    couleurs, sous-classes détaillées >10 en niveau de gris par titiler). */
+/* Palette inspirée ESA WorldCover 10 m : chaque classe bien distincte
+   (bâti rouge vif, cultures orange, prairies vert clair, forêt vert foncé…). */
 export const OLM_COLORMAP = Object.freeze({
-  '1': '#d73027', '2': '#fdae61', '3': '#a6d96a', '4': '#1a9641', '5': '#d9ef8b',
-  '6': '#f46d43', '7': '#74add1', '8': '#4575b4', '9': '#313695', '10': '#abd9e9'
+  '1': '#fa0000', '2': '#ffa300', '3': '#7fbc41', '4': '#006400', '5': '#ffbb22',
+  '6': '#b4b4b4', '7': '#0096a0', '8': '#0064c8', '9': '#8080ff', '10': '#64c8ff'
 });
 export const OLM_ATTRIBUTION = 'Occupation du sol © OpenLandMap · GHLC-10m (CC-BY 4.0)';
 export function olmTileUrl(z, x, y) {
