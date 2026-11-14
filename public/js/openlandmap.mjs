@@ -15,6 +15,30 @@ export const OLM_LAYERS = Object.freeze({
     cog: 'https://ceph.opengeohub.org/arco/lclu/ghlc_lcvmcdt_c_10m_sg_20200101_20201231_go01_epsg4326_v1.2.0_srl04.tif',
     unit: 'classe',
     source: 'OpenLandMap · GHLC-10m (CC-BY 4.0)'
+  },
+  no2ltm: {
+    id: 'no2ltm',
+    title: 'NO₂ troposphérique Sentinel-5P (moyenne long terme 2018-2022, 2 km)',
+    cog: 'https://ceph.opengeohub.org/arco/airq/sntnl5p_no2a_q010_2km_ag_20180501_20221130_go02_epsg4326_v1.0.0_srl03.tif',
+    unit: 'µmol/m²',
+    fmt: v => Math.round(v) + ' µmol/m²',
+    source: 'OpenLandMap · Sentinel-5P NO₂ (CC-BY 4.0)'
+  },
+  lstDay: {
+    id: 'lstDay',
+    title: 'Température de surface jour (MOD11A2, annuelle 2021, 1 km)',
+    cog: 'https://ceph.opengeohub.org/arco/clim/mod11a2_lstdaya_q005_1km_sg_20210101_20211231_go01_epsg4326_v1.2.0_srl03.tif',
+    unit: '°C',
+    fmt: v => (v * 0.02 - 273.15).toFixed(1) + ' °C',
+    source: 'OpenLandMap · MOD11A2 LST (CC-BY 4.0)'
+  },
+  popGhs: {
+    id: 'popGhs',
+    title: 'Population GHS 2025 (100 m)',
+    cog: 'https://ceph.opengeohub.org/arco/socecon/ghspop_count_m_100m_sg_20250101_20251231_go01_epsg4326_v1.0.0_srl03.tif',
+    unit: 'hab/100 m²',
+    fmt: v => Math.round(v) + ' hab/100 m² (~' + Math.round(v * 100) + ' hab/ha)',
+    source: 'OpenLandMap · JRC GHS-POP 2025 (CC-BY 4.0)'
   }
 });
 
@@ -67,7 +91,7 @@ export async function olmPoint(layerKey, lon, lat, { timeout = 20_000 } = {}) {
     if (value == null || Number.isNaN(Number(value))) return { ok: false, error: 'VALEUR_VIDE' };
     return {
       ok: true, layer: layerKey, value: Number(value), lon, lat,
-      label: layerKey === 'landcover10m' ? landCoverLabel(value) : String(value),
+      label: layerKey === 'landcover10m' ? landCoverLabel(value) : (layer.fmt ? layer.fmt(Number(value)) : String(value)),
       unit: layer.unit, title: layer.title, source: layer.source
     };
   } catch (e) {
