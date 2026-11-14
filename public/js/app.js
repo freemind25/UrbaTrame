@@ -2027,7 +2027,11 @@ function wireUI() {
     const status = $('#analysisMapStatus');
     if (status) status.textContent = v === 'ghlc'
       ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Légende officielle 44 classes : rouge = bâti, jaunes/oranges = cultures, verts = prairies et forêts, bleu = eau, beige = zones clairsemées et désert.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Official 44-class legend: red = built-up, yellows/oranges = cropland, greens = grassland and forest, blue = water, beige = sparse and desert.')
-      : T('Fond cartographique OpenStreetMap.', 'OpenStreetMap basemap.');
+      : v === 'esri'
+        ? T('Fond : image satellite Esri World Imagery · © Esri, Maxar, Earthstar Geographics et la communauté d’utilisateurs SIG.', 'Basemap: Esri World Imagery satellite · © Esri, Maxar, Earthstar Geographics and the GIS user community.')
+        : v === 'topo'
+          ? T('Fond : carte topographique OpenTopoMap · données © OpenStreetMap, SRTM, viewfinderpanoramas.', 'Basemap: OpenTopoMap topographic map · data © OpenStreetMap contributors, SRTM, viewfinderpanoramas.')
+          : T('Fond cartographique OpenStreetMap.', 'OpenStreetMap basemap.');
   });
   $('#analysisMapZoomOut').addEventListener('click', () => analysisMap?.zoomBy(-1));
   $('#sample')?.addEventListener('click', loadSample);
