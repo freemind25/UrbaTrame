@@ -204,3 +204,22 @@ test('siteReading : EVI, eau JRC et biome dans le paragraphe environnement', asy
   assert.match(en, /EVI vegetation ~0\.15/);
   assert.match(en, /warm-temperate evergreen/);
 });
+
+test('siteReading : VIIRS, pH, carbone organique et argile dans le paragraphe environnement', async () => {
+  const { siteReading } = await import('../public/js/site-summary.mjs');
+  const olmEnv = [
+    { ok: true, layer: 'viirsNight', value: 960 },
+    { ok: true, layer: 'phH2o', value: 77 },
+    { ok: true, layer: 'ocSoil', value: 71 },
+    { ok: true, layer: 'claySoil', value: 24 }
+  ];
+  const m = { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } };
+  const fr = siteReading({ m, olmEnv, lang: 'fr' }).find(p => p.includes('Environnement'));
+  assert.match(fr, /VIIRS ~9\.60 nW\/cm²\/sr/);
+  assert.match(fr, /pH du sol ~7\.7 \(alcalin \(calcaire\)/);
+  assert.match(fr, /7\.1 g\/kg/);
+  assert.match(fr, /24 % d’argile/);
+  const en = siteReading({ m, olmEnv, lang: 'en' }).find(p => p.includes('Environment'));
+  assert.match(en, /VIIRS night lights ~9\.60/);
+  assert.match(en, /soil pH ~7\.7 \(alkaline \(calcareous\)/);
+});
