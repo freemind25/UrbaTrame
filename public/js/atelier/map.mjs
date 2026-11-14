@@ -2,6 +2,9 @@ import { appendTopographicLayer } from '../terrain/topographic.mjs';
 import { olmTileUrl, olmTileUrlFor } from '../openlandmap.mjs';
 
 /* Fonds de carte tuilés (attributions affichées dans le statut de la carte) */
+/* Fonds raster OpenLandMap (TiTiler) : clé de fond → couche OLM. */
+const OLM_BASEMAPS = { ghlc: 'landcover10m', msz: 'mszGhs', no2: 'no2ltm', lst: 'lstDay', viirs: 'viirsNight' };
+
 const BASEMAP_URLS = {
   osm: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
   esri: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
@@ -153,11 +156,9 @@ export function createMap(root, options = {}) {
         if (!img) {
           img = document.createElement('img');
           img.alt = ''; img.draggable = false; img.decoding = 'async';
-          img.src = state.basemap === 'ghlc'
-            ? olmTileUrl(state.zoom, wrapped, ty)
-            : state.basemap === 'msz'
-              ? olmTileUrlFor('mszGhs', state.zoom, wrapped, ty)
-              : (BASEMAP_URLS[state.basemap] || BASEMAP_URLS.osm)(state.zoom, wrapped, ty);
+          img.src = OLM_BASEMAPS[state.basemap]
+            ? olmTileUrlFor(OLM_BASEMAPS[state.basemap], state.zoom, wrapped, ty)
+            : (BASEMAP_URLS[state.basemap] || BASEMAP_URLS.osm)(state.zoom, wrapped, ty);
           img.addEventListener('error', () => {
             img.classList.add('tile-missing');
             if (!tileErrorReported) {
@@ -261,7 +262,7 @@ export function createMap(root, options = {}) {
     setTerrainVisible(visible) { state.showTerrain = Boolean(visible); schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
     setBasemap(name) {
-      const v = (name === 'ghlc' || name === 'msz' || BASEMAP_URLS[name]) ? name : 'osm';
+      const v = (OLM_BASEMAPS[name] || BASEMAP_URLS[name]) ? name : 'osm';
       if (state.basemap === v) return;
       state.basemap = v; cache.clear(); tileErrorReported = false; schedule();
     },

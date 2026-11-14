@@ -2036,6 +2036,12 @@ function wireUI() {
       ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Légende officielle 44 classes : rouge = bâti, jaunes/oranges = cultures, verts = prairies et forêts, bleu = eau, beige = zones clairsemées et désert.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Official 44-class legend: red = built-up, yellows/oranges = cropland, greens = grassland and forest, blue = water, beige = sparse and desert.')
       : v === 'msz'
         ? T('Fond : tissu urbain GHS-MSZ 10 m · © JRC / OpenLandMap (CC-BY 4.0). Rouge/orange = bâti résidentiel, violet = non résidentiel, verts = espaces ouverts végétalisés, bleu = eau, gris = voirie.', 'Basemap: GHS-MSZ 10 m urban fabric · © JRC / OpenLandMap (CC-BY 4.0). Red/orange = residential built-up, purple = non-residential, greens = vegetated open space, blue = water, grey = roads.')
+        : v === 'no2'
+          ? T('Fond : NO₂ troposphérique Sentinel-5P 2 km (moyenne 2018–2022) · © OpenLandMap (CC-BY 4.0). Dégradé violet → jaune : pollution croissante (0–1000 µmol/m²).', 'Basemap: Sentinel-5P tropospheric NO₂ 2 km (2018–2022 mean) · © OpenLandMap (CC-BY 4.0). Purple → yellow gradient: increasing pollution (0–1000 µmol/m²).')
+          : v === 'lst'
+            ? T('Fond : température de surface jour MOD11A2 1 km (2021) · © OpenLandMap (CC-BY 4.0). Noir/violet = frais, blanc/jaune = chaud (îlot de chaleur).', 'Basemap: MOD11A2 day land surface temperature 1 km (2021) · © OpenLandMap (CC-BY 4.0). Black/purple = cool, white/yellow = hot (heat island).')
+            : v === 'viirs'
+              ? T('Fond : lumières nocturnes VIIRS DNB 500 m (2021) · © OpenLandMap (CC-BY 4.0). Noir = obscur, blanc = forte activité nocturne.', 'Basemap: VIIRS DNB night lights 500 m (2021) · © OpenLandMap (CC-BY 4.0). Black = dark, white = strong night activity.')
       : v === 'esri'
         ? T('Fond : image satellite Esri World Imagery · © Esri, Maxar, Earthstar Geographics et la communauté d’utilisateurs SIG.', 'Basemap: Esri World Imagery satellite · © Esri, Maxar, Earthstar Geographics and the GIS user community.')
         : v === 'topo'
