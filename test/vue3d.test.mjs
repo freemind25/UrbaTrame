@@ -154,7 +154,9 @@ describe('scène : murs, toits, ombres', () => {
     { g: carre(LAT - 0.001, LON + 0.001, 14), h: 20, hauteurToit: 4, t: 'commercial' }
   ];
   const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
-  const midi = V.soleil(V.instantLocal(12, LAT, LON), LAT, LON);
+  /* Jour d'été fixe : le test des ombres doit rester valide toute l'année (à 16 h 30 le soleil est déjà couché en hiver). */
+  const JOUR_ETE = '2026-06-21';
+  const midi = V.soleil(V.instantLocal(12, LAT, LON, JOUR_ETE), LAT, LON);
 
   test('chaque bâtiment donne des murs et un toit', () => {
     const sc = V.scene(bat, cam, { soleil: midi });
@@ -193,7 +195,7 @@ describe('scène : murs, toits, ombres', () => {
       return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
     };
     const midiB = long(midi);
-    const seize = long(V.soleil(V.instantLocal(16.5, LAT, LON), LAT, LON));
+    const seize = long(V.soleil(V.instantLocal(16.5, LAT, LON, JOUR_ETE), LAT, LON));
     assert.ok(seize > midiB, '16 h 30 (' + seize.toFixed(1) + ') > midi (' + midiB.toFixed(1) + ')');
   });
 
@@ -510,7 +512,9 @@ describe('cours intérieures et volumes imbriqués', () => {
   };
   const plein = { g: carre(LAT, LON, 40), h: 14, t: 'yes' };
   const cam = V.camera({ lat: LAT, lon: LON, rayon: 600, cap: 0, inclinaison: 45, largeur: 400, hauteur: 400 });
-  const midi = V.soleil(V.instantLocal(12, LAT, LON), LAT, LON);
+  /* Jour d'été fixe : le test des ombres doit rester valide toute l'année (à 16 h 30 le soleil est déjà couché en hiver). */
+  const JOUR_ETE = '2026-06-21';
+  const midi = V.soleil(V.instantLocal(12, LAT, LON, JOUR_ETE), LAT, LON);
 
   test('la cour ajoute des murs intérieurs, sans remplacer l’emprise', () => {
     const sc = V.scene([avecCour], cam, { soleil: midi });
