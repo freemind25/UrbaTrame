@@ -57,7 +57,7 @@ describe('service', () => {
     const j = await r.json();
     assert.equal(j.ok, true);
     assert.match(j.version, /^\d+\.\d+\.\d+$/);
-    assert.deepEqual(j.free, ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover']);
+    assert.deepEqual(j.free, ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover', 'satellite', 'urban']);
     assert.equal(j.max.length, 8);
     assert.equal(Buffer.from(j.pub, 'base64').length, 32);
     assert.equal(j.trace, r.headers.get('x-em-trace'), 'trace renvoyée en en-tête');
@@ -197,7 +197,7 @@ describe('robustesse des entrées', () => {
 });
 
 describe('paliers', () => {
-  test('les six analyses gratuites passent sans licence', async () => {
+  test('les huit analyses gratuites passent sans licence', async () => {
     const r = await analyse({
       action: 'begin', device: DEVICE, public: true,
       ids: ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover'], radius: 600, lat: 36.2642, lon: 6.6969

@@ -148,11 +148,25 @@ export const landCoverLabel = v => {
 export const OLM_ATTRIBUTION = 'Occupation du sol © OpenLandMap · GHLC-10m (CC-BY 4.0)';
 
 /* Tuile raster WebMercatorQuad de la couche GHLC 10 m, colormap officiel niveau 2. */
-export function olmTileUrl(z, x, y) {
-  const cog = encodeURIComponent(OLM_LAYERS.landcover10m.cog);
-  const cm = encodeURIComponent(JSON.stringify(OLM_COLORMAP));
+/* Palette officielle GHS-MSZ (QML JRC) pour le rendu tuilé des classes. */
+export const OLM_MSZ_COLORMAP = Object.freeze({
+  "0": "#d5d5d5", "1": "#718c6c", "2": "#8ad86b", "3": "#3fa34d", "4": "#56bbca", "5": "#676767",
+  "11": "#d28200", "12": "#fe5900", "13": "#ff0101", "14": "#ce001b", "15": "#8b0000",
+  "21": "#ff9ff4", "22": "#ff67e4", "23": "#f701ff", "24": "#a601ff", "25": "#6a0dad"
+});
+
+/* URL de tuile WebMercatorQuad pour une couche OLM (colormap + nearest pour les classes). */
+export function olmTileUrlFor(layerKey, z, x, y) {
+  const layer = OLM_LAYERS[layerKey];
+  if (!layer) return null;
+  const cm = layerKey === 'mszGhs' ? OLM_MSZ_COLORMAP : OLM_COLORMAP;
   return TITILER + '/cog/tiles/WebMercatorQuad/' + z + '/' + x + '/' + y +
-    '.png?url=' + cog + '&colormap=' + cm;
+    '.png?url=' + encodeURIComponent(layer.cog) + '&colormap=' +
+    encodeURIComponent(JSON.stringify(cm)) + '&resampling=nearest';
+}
+
+export function olmTileUrl(z, x, y) {
+  return olmTileUrlFor('landcover10m', z, x, y);
 }
 
 /* Valeur de la couche au point (lon, lat). Renvoie { ok, value, label, layer }.

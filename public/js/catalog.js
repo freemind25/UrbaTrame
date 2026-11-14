@@ -1,5 +1,5 @@
 /* Freemap · catalogue des analyses
-   Les 46 entrées reprises du plan fonctionnel décrit dans le rapport.
+   Les 48 entrées reprises du plan fonctionnel décrit dans le rapport.
    `impl:false` ⇒ sur la feuille de route v0.2 (affichée mais non rendue).
    tier : 'free' (essai, filigrané) · 'pro' · 'max'. */
 (function (G) {
@@ -10,6 +10,8 @@
     { id: 'gw', nom: 'Vert & eau', en: 'Green & water', sub: 'parcs, forêts, cours d\'eau', tag: 'OSM', tier: 'free', g: 'site', impl: true },
     { id: 'fabric', nom: 'Tissu urbain', en: 'Urban fabric', sub: 'figure-fond type Nolli', tag: 'OSM', tier: 'free', g: 'site', impl: true },
     { id: 'landcover', nom: 'Occupation du sol (satellite)', en: 'Land cover (satellite)', sub: 'GHLC 10 m au site + taux d’imperméabilisation OSM', tag: 'OLM', tier: 'free', g: 'site', impl: true },
+    { id: 'satellite', nom: 'Imagerie satellite', en: 'Satellite imagery', sub: 'Esri World Imagery — fond photo sur la carte d’analyse', tag: 'SAT', tier: 'free', g: 'site', impl: true },
+    { id: 'urban', nom: 'Urban settlement (GHS-MSZ)', en: 'Urban settlement (GHS-MSZ)', sub: 'zones morphologiques d’habitat 10 m · classe au site', enSub: 'morphological settlement zones 10 m · class at the site', tag: 'OLM', tier: 'free', g: 'site', impl: true },
     { id: 'volumes', nom: 'Volumes 3D', en: '3D volumes', sub: 'bâtiments extrudés, ombres portées', tag: '3D', tier: 'pro', g: 'morpho', impl: true },
 
     /* ── morphologie ── */

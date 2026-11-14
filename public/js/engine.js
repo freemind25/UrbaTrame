@@ -30,6 +30,16 @@
     landcover: [
       { bld: '#D96A4A', green: '#7AAE68', other: '#D8D6D0', bldS: '#A84A30', greenS: '#4E7A3A' }
     ],
+    satellite: [
+      { bg: '#1E241E', photo: '#2C332A', photo2: '#39412F', road: '#6B7166', site: '#FFD34D' },
+      { bg: '#23201B', photo: '#332E24', photo2: '#413A2C', road: '#7A7264', site: '#FFD34D' },
+      { bg: '#1B2126', photo: '#28313A', photo2: '#333E4A', road: '#66727E', site: '#FFD34D' }
+    ],
+    urban: [
+      { bld: '#FF0101', bldS: '#CE001B', open: '#8AD86B', openS: '#718C6C', water: '#56BBCA', road: '#676767' },
+      { bld: '#FE5900', bldS: '#D28200', open: '#8AD86B', openS: '#718C6C', water: '#56BBCA', road: '#676767' },
+      { bld: '#A601FF', bldS: '#F701FF', open: '#3FA34D', openS: '#2E7D46', water: '#56BBCA', road: '#676767' }
+    ],
     landuse: [
       { res: '#E8B4A0', com: '#F0D080', civ: '#88B0D8', ind: '#C0A8D0', prk: '#A8CC88', wtr: '#80C0D8', other: '#E9E6E0' },
       { res: '#D4785A', com: '#D4A830', civ: '#3A78B8', ind: '#8858A8', prk: '#5A9848', wtr: '#2888B8', other: '#DDDAD3' },
