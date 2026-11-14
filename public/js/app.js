@@ -23,7 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
-import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_ATTRIBUTION } from './openlandmap.mjs';
+import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -535,7 +535,8 @@ function ctxFor(id) {
     shape: S.shape, sitePolygon: S.poly,
     isPro: isPaid(), lang: S.lang === 'en' ? 'en' : 'fr',
     watermark: !isOpenAccess(), time: S.time, sunDate: S.sunDate, siteName: S.site.name,
-    D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, obm: S.obm, noSiteMark: false
+    D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, obm: S.obm, olm: S.olm,
+    olmColor: S.olm && S.olm.ok ? (OLM_COLORMAP[String(Math.round(S.olm.value))] || '#B8B5AE') : null, noSiteMark: false
   };
 }
 function renderOne(id) {

@@ -431,4 +431,44 @@
       { type: 'rect', c: s.poi, s: s.poi, l: 'POI ' + pois.length }
     ], L(ctx, 'SUPERPOSITION · 4 COUCHES OSM', 'OVERLAY · 4 OSM LAYERS'));
   };
+  /* ═══════════════════ OCCUPATION DU SOL SATELLITE (OpenLandMap GHLC 10 m) ═══════════════════ */
+  R.landcover = (ctx, sc) => {
+    const s = SCH.landcover[sc % SCH.landcover.length], b = getBounds(ctx);
+    let body = '<rect width="' + W + ' height="' + H + '" fill="#FFFFFF"/>';
+    /* emprise discrète */
+    const cx = W / 2, cy = H / 2;
+    const px2 = Math.pow((ctx.curR * 2) / (W - PAD * 2), 2);
+    const extentPx = Math.PI * Math.pow(ctx.curR / Math.sqrt(px2), 2); /* aire emprise en px² (cercle) */
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (ctx.curR / Math.sqrt(px2)) + '" fill="none" stroke="#D8D6D0" stroke-width=".7" stroke-dasharray="3,3"/>';
+    /* pastille centrale = classe GHLC lue au site */
+    const olm = ctx.olm && ctx.olm.ok ? ctx.olm : null;
+    const col = ctx.olmColor || '#B8B5AE';
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="26" fill="' + col + '" stroke="rgba(0,0,0,.35)" stroke-width=".8"/>';
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="3.2" fill="#FFFFFF" stroke="rgba(0,0,0,.4)" stroke-width=".6"/>';
+    /* barres empilées : bâti OSM / vert OSM / autre, en % de l'emprise */
+    let bA = 0, gA = 0;
+    for (const bl of bldPolys(ctx)) bA += polyArea(bl.pts);
+    for (const g of greenPolys(ctx)) { if (g.k === 'l' || g.k === 'w') continue; gA += polyArea(g.pts); }
+    const bM2 = bA * px2, gM2 = gA * px2;
+    const extM2 = Math.PI * ctx.curR * ctx.curR;
+    const pB = extM2 ? Math.min(100, bM2 / extM2 * 100) : 0;
+    const pG = extM2 ? Math.min(100 - pB, gM2 / extM2 * 100) : 0;
+    const pO = Math.max(0, 100 - pB - pG);
+    const bx = PAD + 6, bw = W - PAD * 2 - 12, by = H - PAD - 26, bh = 10;
+    body += '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + s.other + '"/>';
+    if (pG > 0) body += '<rect x="' + bx + '" y="' + by + '" width="' + (bw * pG / 100).toFixed(1) + '" height="' + bh + '" rx="3" fill="' + s.green + '"/>';
+    if (pB > 0) body += '<rect x="' + (bx + bw * pG / 100).toFixed(1) + '" y="' + by + '" width="' + (bw * pB / 100).toFixed(1) + '" height="' + bh + '" rx="3" fill="' + s.bld + '"/>';
+    body += '<text x="' + bx + '" y="' + (by - 5) + '" font-size="7" fill="#8A867E" font-family="ui-monospace,monospace">' +
+            L(ctx, 'TAUX D\u2019IMPERVÉABILISATION (OSM)', 'SEALING RATE (OSM)') + ' ' + Math.round(pB) + '%</text>';
+    body += siteMark(ctx, b);
+    const leg = [
+      { type: 'rect', c: col, s: 'rgba(0,0,0,.35)', l: L(ctx, 'SOL AU CENTRE (GHLC)', 'GROUND AT CENTRE (GHLC)') },
+      { type: 'rect', c: s.bld, s: s.bldS, l: L(ctx, 'BÂTI OSM ' + Math.round(pB) + '%', 'BUILT OSM ' + Math.round(pB) + '%') },
+      { type: 'rect', c: s.green, s: s.greenS, l: L(ctx, 'VERT OSM ' + Math.round(pG) + '%', 'GREEN OSM ' + Math.round(pG) + '%') }
+    ];
+    const note = olm
+      ? (L(ctx, 'CLASSE GHLC N°', 'GHLC CLASS #') + Math.round(olm.value) + ' · ' + (olm.label || '') + ' · © OpenLandMap GHLC-10m (CC-BY 4.0)')
+      : L(ctx, 'OpenLandMap indisponible · barres OSM seules', 'OpenLandMap unavailable · OSM bars only');
+    return wrap(ctx, body, leg, note);
+  };
 })(globalThis);
