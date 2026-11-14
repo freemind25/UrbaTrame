@@ -9,7 +9,7 @@
    Aucune dépendance DOM : utilisable en Node comme en ESM navigateur.
    ───────────────────────────────────────────────────────────────────────── */
 
-export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover'];
+export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover', 'satellite', 'urban'];
 
 export const MAX_IDS = [
   'mappingboard', 'urbanstations', 'urbangrid', 'axocallout',
@@ -42,6 +42,8 @@ export const DEPS = {
   gw: ['green'],
   fabric: ['roads', 'buildings'],
   landcover: ['buildings', 'green'],
+  satellite: ['buildings'],
+  urban: ['buildings', 'roads'],
   density: ['roads', 'buildings'],
   massing: ['roads', 'buildings', 'green'],
   poiheat: ['roads', 'poi'],

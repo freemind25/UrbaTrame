@@ -471,4 +471,59 @@
       : L(ctx, 'OpenLandMap indisponible · barres OSM seules', 'OpenLandMap unavailable · OSM bars only');
     return wrap(ctx, body, leg, note);
   };
+
+  /* ═══════════════════ IMAGERIE SATELLITAIRE (Esri World Imagery) ═══════════════════ */
+  R.satellite = (ctx, sc) => {
+    const s = SCH.satellite[sc % SCH.satellite.length];
+    let body = '<rect width="' + W + '" height="' + H + '" fill="' + s.bg + '"/>';
+    /* mosaïque photo stylisée */
+    const cells = [[.16, .20, .34, .28], [.54, .14, .32, .32], [.18, .56, .28, .30], [.52, .54, .34, .34]];
+    cells.forEach((c, i) => {
+      body += '<rect x="' + (c[0] * W).toFixed(0) + '" y="' + (c[1] * H).toFixed(0) + '" width="' + (c[2] * W).toFixed(0) +
+              '" height="' + (c[3] * H).toFixed(0) + '" fill="' + (i % 2 ? s.photo2 : s.photo) + '" opacity=".9"/>';
+    });
+    /* voirie OSM en surimpression */
+    for (const ln of roadLines(ctx))
+      body += '<path d="' + polylinePath(ln.pts) + '" fill="none" stroke="' + s.road + '" stroke-width="1" opacity=".85"/>';
+    body += siteMark(ctx, getBounds(ctx));
+    return wrap(ctx, body, [
+      { type: 'rect', c: s.photo, s: s.photo, l: L(ctx, 'IMAGE SATELLITE', 'SATELLITE IMAGE') },
+      { type: 'rect', c: s.road, s: s.road, l: L(ctx, 'VOIRIE (OSM)', 'ROADS (OSM)') }
+    ], L(ctx, 'IMAGERIE SATELLITE · ESRI WORLD IMAGERY — le fond photo réel s’affiche sur la carte d’analyse (sélecteur « Satellite (Esri) ») · © Esri, Maxar, Earthstar Geographics',
+           'SATELLITE IMAGERY · ESRI WORLD IMAGERY — the real photo basemap shows on the analysis map (selector "Satellite (Esri)") · © Esri, Maxar, Earthstar Geographics'));
+  };
+
+  /* ═══════════════════ URBAN SETTLEMENT · GHS-MSZ 10 m (OpenLandMap / JRC) ═══════════════════ */
+  R.urban = (ctx, sc) => {
+    const s = SCH.urban[sc % SCH.urban.length], b = getBounds(ctx);
+    let body = '<rect width="' + W + '" height="' + H + '" fill="#FFFFFF"/>';
+    const cx = W / 2, cy = H / 2;
+    const px2 = Math.pow((ctx.curR * 2) / (W - PAD * 2), 2);
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (ctx.curR / Math.sqrt(px2)).toFixed(1) + '" fill="none" stroke="#D8D6D0" stroke-width=".7" stroke-dasharray="3,3"/>';
+    /* pastille centrale = classe GHS-MSZ lue au site */
+    const msz = ctx.msz && ctx.msz.ok ? ctx.msz : null;
+    const col = ctx.mszColor || '#D5D5D5';
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="26" fill="' + col + '" stroke="rgba(0,0,0,.35)" stroke-width=".8"/>';
+    body += '<circle cx="' + cx + '" cy="' + cy + '" r="3.2" fill="#FFFFFF" stroke="rgba(0,0,0,.4)" stroke-width=".6"/>';
+    /* barre : taux de bâti OSM vs non bâti, en % de l'emprise */
+    let bA = 0;
+    for (const bl of bldPolys(ctx)) bA += polyArea(bl.pts);
+    const extM2 = Math.PI * ctx.curR * ctx.curR;
+    const pB = extM2 ? Math.min(100, bA * px2 / extM2 * 100) : 0;
+    const bx = PAD + 6, bw = W - PAD * 2 - 12, by = H - PAD - 26, bh = 10;
+    body += '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + s.open + '"/>';
+    if (pB > 0) body += '<rect x="' + bx + '" y="' + by + '" width="' + (bw * pB / 100).toFixed(1) + '" height="' + bh + '" rx="3" fill="' + s.bld + '"/>';
+    body += '<text x="' + bx + '" y="' + (by - 5) + '" font-size="7" fill="#8A867E" font-family="ui-monospace,monospace">' +
+            L(ctx, 'TAUX DE BÂTI (OSM)', 'BUILT RATE (OSM)') + ' ' + Math.round(pB) + '%</text>';
+    body += siteMark(ctx, b);
+    const leg = [
+      { type: 'rect', c: col, s: 'rgba(0,0,0,.35)', l: L(ctx, 'CLASSE MSZ AU CENTRE', 'MSZ CLASS AT CENTRE') },
+      { type: 'rect', c: s.bld, s: s.bldS, l: L(ctx, 'BÂTI OSM ' + Math.round(pB) + '%', 'BUILT OSM ' + Math.round(pB) + '%') },
+      { type: 'rect', c: s.open, s: s.openS, l: L(ctx, 'NON BÂTI', 'NON BUILT') }
+    ];
+    const note = msz
+      ? (L(ctx, 'CLASSE GHS-MSZ N°', 'GHS-MSZ CLASS #') + Math.round(msz.value) + ' · ' + (msz.label || '') + ' · © JRC GHS-MSZ / OpenLandMap (CC-BY 4.0) · fond tuilé « Tissu urbain GHS-MSZ » sur la carte d’analyse')
+      : L(ctx, 'GHS-MSZ indisponible · taux de bâti OSM seul', 'GHS-MSZ unavailable · OSM built rate only');
+    return wrap(ctx, body, leg, note);
+  };
 })(globalThis);

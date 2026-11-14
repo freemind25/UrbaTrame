@@ -23,7 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
-import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
+import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_MSZ_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -301,6 +301,8 @@ function renderCatalog() {
       row.querySelector('input').addEventListener('change', e => {
         if (e.target.checked) S.sel.add(a.id); else S.sel.delete(a.id);
         if (a.id === 'volumes' && e.target.checked) ensureVue3D();
+        if (e.target.checked && a.id === 'satellite') analysisMap?.setBasemap('esri');
+        if (e.target.checked && a.id === 'urban') analysisMap?.setBasemap('msz');
         store.set('sel', [...S.sel]);
         /* règle perf 26 : synchro incrémentale — une seule ligne + le compteur
            du groupe, au lieu de reconstruire tout le catalogue */
@@ -536,7 +538,10 @@ function ctxFor(id) {
     isPro: isPaid(), lang: S.lang === 'en' ? 'en' : 'fr',
     watermark: !isOpenAccess(), time: S.time, sunDate: S.sunDate, siteName: S.site.name,
     D: S.D, terrain: S.terrain, climate: S.climate, windrose: S.windrose, obm: S.obm, olm: S.olm,
-    olmColor: S.olm && S.olm.ok ? (OLM_COLORMAP[String(Math.round(S.olm.value))] || '#B8B5AE') : null, noSiteMark: false
+    olmColor: S.olm && S.olm.ok ? (OLM_COLORMAP[String(Math.round(S.olm.value))] || '#B8B5AE') : null,
+    msz: (S.olmEnv || []).find(r => r.layer === 'mszGhs' && r.ok) || null,
+    mszColor: ((S.olmEnv || []).find(r => r.layer === 'mszGhs' && r.ok) ? OLM_MSZ_COLORMAP[String(Math.round(S.olmEnv.find(r => r.layer === 'mszGhs' && r.ok).value))] : null) || '#D5D5D5',
+    noSiteMark: false
   };
 }
 function renderOne(id) {
@@ -2029,6 +2034,8 @@ function wireUI() {
     const status = $('#analysisMapStatus');
     if (status) status.textContent = v === 'ghlc'
       ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Légende officielle 44 classes : rouge = bâti, jaunes/oranges = cultures, verts = prairies et forêts, bleu = eau, beige = zones clairsemées et désert.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Official 44-class legend: red = built-up, yellows/oranges = cropland, greens = grassland and forest, blue = water, beige = sparse and desert.')
+      : v === 'msz'
+        ? T('Fond : tissu urbain GHS-MSZ 10 m · © JRC / OpenLandMap (CC-BY 4.0). Rouge/orange = bâti résidentiel, violet = non résidentiel, verts = espaces ouverts végétalisés, bleu = eau, gris = voirie.', 'Basemap: GHS-MSZ 10 m urban fabric · © JRC / OpenLandMap (CC-BY 4.0). Red/orange = residential built-up, purple = non-residential, greens = vegetated open space, blue = water, grey = roads.')
       : v === 'esri'
         ? T('Fond : image satellite Esri World Imagery · © Esri, Maxar, Earthstar Geographics et la communauté d’utilisateurs SIG.', 'Basemap: Esri World Imagery satellite · © Esri, Maxar, Earthstar Geographics and the GIS user community.')
         : v === 'topo'
