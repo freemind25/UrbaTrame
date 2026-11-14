@@ -23,7 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
-import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
+import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -1071,16 +1071,17 @@ function renderSiteReport() {
       const lv1 = OLM_LV2_TO_LV1[String(S.olm.value)];
       const lv1Label = lv1 != null ? OLM_LV1_LABELS[String(lv1)] : null;
       const grid = document.createElement('div'); grid.className = 'report-metrics report-metrics-compact';
+      const enLabel = OLM_LV2_LABELS_EN[String(S.olm.value)] || '';
       grid.append(
         reportMetric(T('Occupation du sol au centre', 'Land cover at centre'), S.olm.label,
-          `${T('classe GHLC niveau 2', 'GHLC level-2 class')} n°${reportNumber(S.olm.value)}`),
+          `${T('classe GHLC détaillée', 'GHLC detailed class')} n°${reportNumber(S.olm.value)} = ${enLabel}`),
         reportMetric(T('Famille (niveau 1)', 'Family (level 1)'), lv1Label || '—',
           lv1 != null ? `${T('classe', 'class')} ${lv1} / 10` : '')
       );
       olmSection.append(grid);
       olmSection.append(reportNote(T(
-        'Valeur ponctuelle au centre de l’emprise, lue dans une carte mondiale à 10 m : indicative, elle ne décrit pas tout le périmètre. Les classes GHLC ne sont pas des limites cadastrales.',
-        'Point value at the extent centre, read from a global 10 m land-cover map: indicative only, it does not describe the whole extent. GHLC classes are not cadastral boundaries.'), 'method-note'));
+        `La couche GHLC-10m code 44 classes détaillées (niveau 2, n°1–44) regroupées en 10 familles (niveau 1). Ici : n°${reportNumber(S.olm.value)} = « ${enLabel} », qui relève de la famille ${lv1} « ${lv1Label || '—'} ». Valeur ponctuelle au centre de l’emprise, lue dans une carte mondiale à 10 m : indicative, elle ne décrit pas tout le périmètre. Les classes GHLC ne sont pas des limites cadastrales.`,
+        `The GHLC-10m layer encodes 44 detailed classes (level 2, #1–44) grouped into 10 families (level 1). Here: #${reportNumber(S.olm.value)} = "${enLabel}", belonging to family ${lv1} "${lv1Label || '—'}". Point value at the extent centre, read from a global 10 m land-cover map: indicative only, it does not describe the whole extent. GHLC classes are not cadastral boundaries.`), 'method-note'));
     }
     host.append(olmSection);
   }
