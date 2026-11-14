@@ -8,6 +8,20 @@
 
 const TITILER = 'https://titiler.opengeohub.org';
 
+/* GHS Morphological Settlement Zone (classes officielles JRC, 10 m, 2018) — libellés FR/EN. */
+export const OLM_MSZ_LABELS = Object.freeze({
+  0: 'zone non bâtie', 1: 'espace ouvert, végétation basse (NDVI ≤ 0,3)', 2: 'espace ouvert, végétation moyenne (NDVI ≤ 0,5)',
+  3: 'espace ouvert, végétation haute (NDVI > 0,5)', 4: 'espace ouvert, surface en eau', 5: 'espace ouvert, voirie',
+  11: 'bâti résidentiel ≤ 3 m', 12: 'bâti résidentiel 3–6 m', 13: 'bâti résidentiel 6–15 m', 14: 'bâti résidentiel 15–30 m', 15: 'bâti résidentiel > 30 m',
+  21: 'bâti non résidentiel ≤ 3 m', 22: 'bâti non résidentiel 3–6 m', 23: 'bâti non résidentiel 6–15 m', 24: 'bâti non résidentiel 15–30 m', 25: 'bâti non résidentiel > 30 m'
+});
+export const OLM_MSZ_LABELS_EN = Object.freeze({
+  0: 'non built-up area', 1: 'open space, low vegetation (NDVI ≤ 0.3)', 2: 'open space, medium vegetation (NDVI ≤ 0.5)',
+  3: 'open space, high vegetation (NDVI > 0.5)', 4: 'open space, water surface', 5: 'open space, roads',
+  11: 'residential buildings ≤ 3 m', 12: 'residential buildings 3–6 m', 13: 'residential buildings 6–15 m', 14: 'residential buildings 15–30 m', 15: 'residential buildings > 30 m',
+  21: 'non-residential buildings ≤ 3 m', 22: 'non-residential buildings 3–6 m', 23: 'non-residential buildings 6–15 m', 24: 'non-residential buildings 15–30 m', 25: 'non-residential buildings > 30 m'
+});
+
 export const OLM_LAYERS = Object.freeze({
   landcover10m: {
     id: 'landcover10m',
@@ -39,6 +53,26 @@ export const OLM_LAYERS = Object.freeze({
     unit: 'hab/100 m²',
     fmt: v => Math.round(v) + ' hab/100 m² (~' + Math.round(v * 100) + ' hab/ha)',
     source: 'OpenLandMap · JRC GHS-POP 2025 (CC-BY 4.0)'
+  },
+  mszGhs: {
+    id: 'mszGhs',
+    title: 'Zone morphologique d Habitat GHS-MSZ 10 m (2018)',
+    cog: 'https://ceph.opengeohub.org/arco/socecon/ghsbldg_msz_c_10m_sg_20180101_20181231_go02_epsg4326_v1.0.0_srl03.tif',
+    unit: 'classe MSZ',
+    fmt: (v, lang = 'fr') => {
+      const c = Math.round(v);
+      const lib = (lang === 'en' ? OLM_MSZ_LABELS_EN : OLM_MSZ_LABELS)[c] || (lang === 'en' ? 'unknown class' : 'classe inconnue');
+      return `n°${c} = ${lib}`;
+    },
+    source: 'OpenLandMap · JRC GHS-MSZ (CC-BY 4.0)'
+  },
+  demGedtm: {
+    id: 'demGedtm',
+    title: 'Altitude MNT GEDTM 30 m',
+    cog: 'https://ceph.opengeohub.org/arco/dtm/gedtm_rf_m_30m_sg_20060101_20151231_go01_epsg4326_v1.2.0_srl04.tif',
+    unit: 'm',
+    fmt: v => Math.round(v) + ' m',
+    source: 'OpenLandMap · GEDTM30 (CC-BY 4.0)'
   }
 });
 

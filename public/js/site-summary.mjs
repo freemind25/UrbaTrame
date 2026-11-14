@@ -353,6 +353,8 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
     const no2 = olmEnv.find(r => r.layer === 'no2ltm' && r.ok);
     const lst = olmEnv.find(r => r.layer === 'lstDay' && r.ok);
     const pop = olmEnv.find(r => r.layer === 'popGhs' && r.ok);
+    const msz = olmEnv.find(r => r.layer === 'mszGhs' && r.ok);
+    const dem = olmEnv.find(r => r.layer === 'demGedtm' && r.ok);
     if (no2) {
       const v = no2.value;
       const niveau = v < 100 ? T('faible', 'low') : v < 500 ? T('modérée', 'moderate') : T('élevée', 'high');
@@ -360,6 +362,14 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
     }
     if (lst) bits.push(T(`température de surface (jour, percentile froid annuel) ~${(lst.value * 0.02 - 273.15).toFixed(1)} °C — à ne pas confondre avec un îlot de chaleur estival`, `land surface temperature (daytime, cold-annual percentile) ~${(lst.value * 0.02 - 273.15).toFixed(1)} °C — not an summer heat-island peak`));
     if (pop) bits.push(T(`population GHS 2025 ~${Math.round(pop.value)} hab/100 m²`, `GHS 2025 population ~${Math.round(pop.value)} people/100 m²`));
+    if (dem) bits.push(T(`altitude (MNT satellite GEDTM 30 m) ~${Math.round(dem.value)} m`, `elevation (GEDTM 30 m satellite DEM) ~${Math.round(dem.value)} m`));
+    if (msz) {
+      const c = Math.round(msz.value);
+      const lib = lang === 'en'
+        ? ({ 0: 'non built-up', 1: 'low-vegetation open space', 2: 'medium-vegetation open space', 3: 'high-vegetation open space', 4: 'water', 5: 'roads', 11: 'residential ≤3 m', 12: 'residential 3–6 m', 13: 'residential 6–15 m', 14: 'residential 15–30 m', 15: 'residential >30 m', 21: 'non-residential ≤3 m', 22: 'non-residential 3–6 m', 23: 'non-residential 6–15 m', 24: 'non-residential 15–30 m', 25: 'non-residential >30 m' }[c] || 'unknown class')
+        : ({ 0: 'non bâti', 1: 'espace ouvert végétation basse', 2: 'espace ouvert végétation moyenne', 3: 'espace ouvert végétation haute', 4: 'eau', 5: 'voirie', 11: 'résidentiel ≤ 3 m', 12: 'résidentiel 3–6 m', 13: 'résidentiel 6–15 m', 14: 'résidentiel 15–30 m', 15: 'résidentiel > 30 m', 21: 'non résidentiel ≤ 3 m', 22: 'non résidentiel 3–6 m', 23: 'non résidentiel 6–15 m', 24: 'non résidentiel 15–30 m', 25: 'non résidentiel > 30 m' }[c] || 'classe inconnue');
+      bits.push(T(`tissu urbain GHS-MSZ (10 m) : ${lib}`, `GHS-MSZ urban fabric (10 m): ${lib}`));
+    }
     if (bits.length) out.push(T(`Environnement et population (satellite, OpenLandMap) : ${bits.join(' ; ')}.`, `Environment and population (satellite, OpenLandMap): ${bits.join('; ')}.`));
   }
 

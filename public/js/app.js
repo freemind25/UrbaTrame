@@ -23,7 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
-import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
+import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -1101,7 +1101,9 @@ function renderSiteReport() {
       const envGrid = document.createElement('div'); envGrid.className = 'report-metrics report-metrics-compact';
       for (const r of S.olmEnv) {
         if (!r.ok) continue;
-        envGrid.append(reportMetric(r.title.split('(')[0].trim(), r.label, r.source));
+        const fmt = OLM_LAYERS[r.layer]?.fmt;
+        const label = fmt ? fmt(r.value, S.lang) : r.label;
+        envGrid.append(reportMetric(r.title.split('(')[0].trim(), label, r.source));
       }
       olmSection.append(envGrid);
     }
@@ -1403,7 +1405,7 @@ async function generate() {
     } catch (e) { S.olm = { ok: false, error: 'ERREUR' }; state.olm = 'failed'; log('OpenLandMap indisponible'); }
     /* couches environnementales ponctuelles (NO₂, température de surface, population) */
     try {
-      S.olmEnv = await Promise.all(['no2ltm', 'lstDay', 'popGhs'].map(k => olmPoint(k, S.site.lon, S.site.lat)));
+      S.olmEnv = await Promise.all(['no2ltm', 'lstDay', 'popGhs', 'mszGhs', 'demGedtm'].map(k => olmPoint(k, S.site.lon, S.site.lat)));
       for (const r of S.olmEnv) log(r.ok
         ? `OpenLandMap · ${r.title.split('(')[0].trim()} : ${r.label}`
         : `OpenLandMap · ${r.layer} indisponible (${r.error})`);

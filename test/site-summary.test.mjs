@@ -172,3 +172,18 @@ test('siteReading intègre les couches environnementales satellite (NO₂/LST/po
   const en = siteReading({ m: { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } }, olmEnv, lang: 'en' });
   assert.ok(en.find(p => p.includes('Environment and population')));
 });
+
+test('siteReading : altitude GEDTM et tissu urbain GHS-MSZ dans le paragraphe environnement', async () => {
+  const { siteReading } = await import('../public/js/site-summary.mjs');
+  const olmEnv = [
+    { ok: true, layer: 'mszGhs', value: 13 },
+    { ok: true, layer: 'demGedtm', value: 617.3 }
+  ];
+  const m = { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } };
+  const fr = siteReading({ m, olmEnv, lang: 'fr' }).find(p => p.includes('Environnement'));
+  assert.match(fr, /altitude \(MNT satellite GEDTM 30 m\) ~617 m/);
+  assert.match(fr, /résidentiel 6–15 m/);
+  const en = siteReading({ m, olmEnv, lang: 'en' }).find(p => p.includes('Environment'));
+  assert.match(en, /elevation \(GEDTM 30 m satellite DEM\) ~617 m/);
+  assert.match(en, /residential 6–15 m/);
+});
