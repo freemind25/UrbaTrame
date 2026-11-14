@@ -12,7 +12,7 @@ import { ouvrir3D } from './vue3d-ui.mjs';
 import { ensureVue3D } from './lazy-vue3d.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
-import { summarizeSite, calculateFeasibility, siteReading } from './site-summary.mjs';
+import { summarizeSite, calculateFeasibility, siteReading, climateChartSVG } from './site-summary.mjs';
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
 import { analyzeSpatialQuestion } from './local-assistant.mjs';
@@ -1163,6 +1163,15 @@ function renderSiteReport() {
       T('NASA POWER · MERRA-2 · pondération des 16 secteurs', 'NASA POWER · MERRA-2 · weighted across 16 sectors'))
   );
   env.append(envGrid);
+  if (S.climate && S.climate.params) {
+    const chartSvg = climateChartSVG(S.climate, S.lang);
+    if (chartSvg) {
+      const chart = document.createElement('div');
+      chart.className = 'report-chart';
+      chart.innerHTML = chartSvg;
+      env.append(chart);
+    }
+  }
   if (m.points.categories.length) {
     const cats = document.createElement('p'); cats.className = 'report-categories';
     const label = document.createElement('strong'); label.textContent = T('Catégories de points les plus fréquentes : ', 'Most frequent point categories: ');

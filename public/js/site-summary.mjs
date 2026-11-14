@@ -280,6 +280,83 @@ export function summarizeSite({
  * conclusion réglementaire ou cadastrale.
  * Retourne un tableau de paragraphes (fr ou en selon `lang`).
  */
+/* Climatologie mensuelle à partir des séries journalières NASA POWER
+   (params : objets {AAAAMMJJ: valeur} ou tableaux). */
+export function monthlyClimate(climate) {
+  const p = climate?.params || {};
+  const grab = key => {
+    const s = p[key];
+    if (!s) return [];
+    if (Array.isArray(s)) return s.map(Number).filter(Number.isFinite);
+    return Object.entries(s).map(([k, v]) => ({ m: Number(String(k).slice(4, 6)), v: Number(v) }))
+      .filter(e => Number.isFinite(e.v) && e.m >= 1 && e.m <= 12);
+  };
+  const raw = { tmax: p.T2M_MAX, tmin: p.T2M_MIN, rain: p.PRECTOTCORR };
+  const out = { months: [1,2,3,4,5,6,7,8,9,10,11,12], tmax: [], tmin: [], rain: [] };
+  const acc = { tmax: {}, tmin: {}, rain: {} };
+  for (const key of ['tmax', 'tmin', 'rain']) {
+    const s = raw[key];
+    if (!s) continue;
+    if (Array.isArray(s)) {
+      /* tableau indexé par jour : on répartit sur 12 mois égaux (série ~1 an) */
+      s.forEach((v, i) => { const m = (i % 365) / 30.42; const mi = Math.min(11, Math.floor(m)) + 1;
+        (acc[key][mi] = acc[key][mi] || []).push(Number(v)); });
+    } else {
+      for (const [k, v] of Object.entries(s)) {
+        const m = Number(String(k).slice(4, 6)), val = Number(v);
+        if (Number.isFinite(val) && m >= 1 && m <= 12) (acc[key][m] = acc[key][m] || []).push(val);
+      }
+    }
+  }
+  for (const m of out.months) {
+    for (const key of ['tmax', 'tmin', 'rain']) {
+      const a = acc[key][m] || [];
+      out[key].push(a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    }
+  }
+  return out;
+}
+
+/* Graphique SVG inline : barres de précipitations + courbes Tmax/Tmin mensuelles. */
+export function climateChartSVG(climate, lang = 'fr') {
+  const d = monthlyClimate(climate);
+  const T = (fr, en) => (lang === 'en' ? en : fr);
+  const W = 560, H = 210, L = 44, R = 44, Tp = 26, B = 30;
+  const iw = W - L - R, ih = H - Tp - B;
+  const tVals = [...d.tmax, ...d.tmin].filter(v => v != null);
+  const rVals = d.rain.filter(v => v != null);
+  if (!tVals.length && !rVals.length) return '';
+  const tLo = Math.min(...(tVals.length ? tVals : [0])) - 2, tHi = Math.max(...(tVals.length ? tVals : [1])) + 2;
+  const rMax = Math.max(...(rVals.length ? rVals : [1]), 1) * 1.15;
+  const X = i => L + (i + 0.5) * (iw / 12);
+  const Yt = v => Tp + ih * (1 - (v - tLo) / (tHi - tLo));
+  const Yr = v => Tp + ih * (1 - v / rMax);
+  const MOIS = T('JFMAMJJASOND', 'JFMAMJJASOND');
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="${T('Climatologie mensuelle', 'Monthly climatology')}">`;
+  for (let g = 0; g <= 4; g++) {
+    const v = tLo + (tHi - tLo) * g / 4, y = Yt(v);
+    s += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="#E3E0D8" stroke-width="1"/>` +
+         `<text x="${L - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#8A867E" font-family="ui-monospace,monospace">${Math.round(v)}°</text>`;
+    const rv = rMax * g / 4, ry = Yr(rv);
+    s += `<text x="${W - R + 6}" y="${ry + 3}" font-size="9" fill="#4A92B8" font-family="ui-monospace,monospace">${Math.round(rv)}</text>`;
+  }
+  d.rain.forEach((v, i) => {
+    if (v == null) return;
+    const bw = iw / 12 * 0.62;
+    s += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${Yr(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Tp + ih - Yr(v)).toFixed(1)}" fill="#8EC4DC" fill-opacity=".85"/>`;
+  });
+  const line = key => d[key].map((v, i) => v == null ? null : `${X(i).toFixed(1)},${Yt(v).toFixed(1)}`).filter(Boolean).join(' ');
+  if (d.tmax.some(v => v != null)) s += `<polyline points="${line('tmax')}" fill="none" stroke="#D96A4A" stroke-width="1.8"/>`;
+  if (d.tmin.some(v => v != null)) s += `<polyline points="${line('tmin')}" fill="none" stroke="#2C4A6E" stroke-width="1.8"/>`;
+  for (let i = 0; i < 12; i++)
+    s += `<text x="${X(i)}" y="${H - 12}" text-anchor="middle" font-size="9" fill="#8A867E" font-family="ui-monospace,monospace">${MOIS[i]}</text>`;
+  s += `<text x="${L}" y="14" font-size="10" fill="#D96A4A" font-family="ui-monospace,monospace">${T('Tmax', 'Tmax')}</text>` +
+       `<text x="${L + 42}" y="14" font-size="10" fill="#2C4A6E" font-family="ui-monospace,monospace">${T('Tmin', 'Tmin')}</text>` +
+       `<text x="${L + 84}" y="14" font-size="10" fill="#4A92B8" font-family="ui-monospace,monospace">${T('Précipitations mm/mois', 'Rain mm/month')}</text>` +
+       `<text x="${W - R}" y="14" text-anchor="end" font-size="9" fill="#8A867E" font-family="ui-monospace,monospace">NASA POWER · ${T('moyennes mensuelles multi-années', 'multi-year monthly means')}</text></svg>`;
+  return s;
+}
+
 export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lang = 'fr', siteName = '' } = {}) {
   if (!m) return [];
   const fr = lang !== 'en';

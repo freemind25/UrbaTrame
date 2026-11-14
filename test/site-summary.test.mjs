@@ -223,3 +223,23 @@ test('siteReading : VIIRS, pH, carbone organique et argile dans le paragraphe en
   assert.match(en, /VIIRS night lights ~9\.60/);
   assert.match(en, /soil pH ~7\.7 \(alkaline \(calcareous\)/);
 });
+
+test('monthlyClimate + climateChartSVG : agrégation mensuelle et SVG avec courbes', async () => {
+  const { monthlyClimate, climateChartSVG } = await import('../public/js/site-summary.mjs');
+  const climate = { params: {
+    T2M_MAX: { '20230115': 12, '20240115': 14, '20240715': 33 },
+    T2M_MIN: { '20240115': 3, '20240715': 21 },
+    PRECTOTCORR: { '20240115': 8, '20240715': 0.2 }
+  } };
+  const d = monthlyClimate(climate);
+  assert.equal(d.months.length, 12);
+  assert.equal(Math.round(d.tmax[0]), 13);   /* (12+14)/2 */
+  assert.equal(Math.round(d.tmax[6]), 33);
+  assert.equal(Math.round(d.rain[0] * 10) / 10, 8);
+  const svg = climateChartSVG(climate, 'fr');
+  assert.match(svg, /^<svg/);
+  assert.equal((svg.match(/<polyline/g) || []).length, 2);
+  assert.match(svg, /NASA POWER/);
+  assert.match(climateChartSVG(climate, 'en'), /multi-year monthly means/);
+  assert.equal(climateChartSVG(null), '');
+});
