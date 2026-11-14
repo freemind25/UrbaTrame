@@ -1,4 +1,5 @@
 import { appendTopographicLayer } from '../terrain/topographic.mjs';
+import { olmTileUrl } from '../openlandmap.mjs';
 
 const TILE = 256;
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -42,7 +43,7 @@ export function createMap(root, options = {}) {
   const state = { lat: options.lat ?? 36.2642, lon: options.lon ?? 6.6969, zoom: options.zoom ?? 15,
     radius: options.radius ?? 600, shape: normalizeShape(options.shape),
     boundary: Array.isArray(options.boundary) ? options.boundary.map(p => [...p]) : [],
-    drawMode: null, data: null, annotations: [], terrain: null, showTerrain: true };
+    drawMode: null, data: null, annotations: [], terrain: null, showTerrain: true, basemap: 'osm' };
   const cache = new Map();
   let tileErrorReported = false;
   let dimensions = { w: 0, h: 0 };
@@ -140,12 +141,14 @@ export function createMap(root, options = {}) {
     for (let ty = minY; ty <= maxY; ty++) {
       if (ty < 0 || ty >= count) continue;
       for (let tx = minX; tx <= maxX; tx++) {
-        const wrapped = mod(tx, count), key = `${state.zoom}/${wrapped}/${ty}`;
+        const wrapped = mod(tx, count), key = `${state.basemap}:${state.zoom}/${wrapped}/${ty}`;
         let img = cache.get(key);
         if (!img) {
           img = document.createElement('img');
           img.alt = ''; img.draggable = false; img.decoding = 'async';
-          img.src = `https://tile.openstreetmap.org/${key}.png`;
+          img.src = state.basemap === 'ghlc'
+            ? olmTileUrl(state.zoom, wrapped, ty)
+            : `https://tile.openstreetmap.org/${state.zoom}/${wrapped}/${ty}.png`;
           img.addEventListener('error', () => {
             img.classList.add('tile-missing');
             if (!tileErrorReported) {
@@ -248,6 +251,12 @@ export function createMap(root, options = {}) {
     setTerrain(terrain) { state.terrain = terrain || null; schedule(); },
     setTerrainVisible(visible) { state.showTerrain = Boolean(visible); schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
+    setBasemap(name) {
+      const v = name === 'ghlc' ? 'ghlc' : 'osm';
+      if (state.basemap === v) return;
+      state.basemap = v; cache.clear(); tileErrorReported = false; schedule();
+    },
+    getBasemap() { return state.basemap; },
     getState() { return { ...state, boundary: this.getBoundary(), annotations: state.annotations.map(item => ({ ...item })) }; },
     destroy() { observer.disconnect(); root.replaceChildren(); }
   };

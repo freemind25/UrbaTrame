@@ -1954,6 +1954,14 @@ function wireUI() {
     analysisMap.setRadius(S.site.R);
   });
   $('#analysisMapZoomIn').addEventListener('click', () => analysisMap?.zoomBy(1));
+  $('#analysisMapBasemap')?.addEventListener('change', e => {
+    const v = e.target.value;
+    analysisMap?.setBasemap(v);
+    const status = $('#analysisMapStatus');
+    if (status) status.textContent = v === 'ghlc'
+      ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Rouge = bâti, jaune = cultures, verts = végétation, bleu = eau. Gris = sous-classe détaillée.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Red = built-up, yellow = cropland, greens = vegetation, blue = water. Grey = detailed subclass.')
+      : T('Fond cartographique OpenStreetMap.', 'OpenStreetMap basemap.');
+  });
   $('#analysisMapZoomOut').addEventListener('click', () => analysisMap?.zoomBy(-1));
   $('#sample')?.addEventListener('click', loadSample);
   $('#q').addEventListener('input', resetSearchFeedback);
