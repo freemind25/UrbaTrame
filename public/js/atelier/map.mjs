@@ -1,6 +1,13 @@
 import { appendTopographicLayer } from '../terrain/topographic.mjs';
 import { olmTileUrl } from '../openlandmap.mjs';
 
+/* Fonds de carte tuilés (attributions affichées dans le statut de la carte) */
+const BASEMAP_URLS = {
+  osm: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  esri: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
+  topo: (z, x, y) => `https://tile.opentopomap.org/${z}/${x}/${y}.png`
+};
+
 const TILE = 256;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const R2D = 180 / Math.PI;
@@ -148,7 +155,7 @@ export function createMap(root, options = {}) {
           img.alt = ''; img.draggable = false; img.decoding = 'async';
           img.src = state.basemap === 'ghlc'
             ? olmTileUrl(state.zoom, wrapped, ty)
-            : `https://tile.openstreetmap.org/${state.zoom}/${wrapped}/${ty}.png`;
+            : (BASEMAP_URLS[state.basemap] || BASEMAP_URLS.osm)(state.zoom, wrapped, ty);
           img.addEventListener('error', () => {
             img.classList.add('tile-missing');
             if (!tileErrorReported) {
@@ -252,7 +259,7 @@ export function createMap(root, options = {}) {
     setTerrainVisible(visible) { state.showTerrain = Boolean(visible); schedule(); },
     zoomBy(n) { state.zoom = clamp(state.zoom + n, 3, 19); schedule(); },
     setBasemap(name) {
-      const v = name === 'ghlc' ? 'ghlc' : 'osm';
+      const v = (name === 'ghlc' || BASEMAP_URLS[name]) ? name : 'osm';
       if (state.basemap === v) return;
       state.basemap = v; cache.clear(); tileErrorReported = false; schedule();
     },
