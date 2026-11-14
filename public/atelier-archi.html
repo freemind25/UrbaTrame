@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#153e3d">
+  <meta name="description" content="Analyse architecturale UrbaTrame : relevé d’une rue à partir d’une photo, indicateurs calculés et six dessins cotés — usages, profil, front bâti, axonométrie, ombres, avant/après.">
+  <title>UrbaTrame — Analyse architecturale</title>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261108bot1" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261108bot1">
+  <link rel="stylesheet" href="/atelier-archi.css?v=20261115archi1">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261108bot1"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261115archi1"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu principal</a>
+
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261108bot1" width="40" height="40" alt=""></span>
+      <span class="brand-copy">
+        <span class="brand-name">UrbaTrame</span>
+        <span class="brand-subtitle">Analyse des sites urbains</span>
+        <span class="brand-credit">Designed by M.SADI</span>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="Navigation UrbaTrame">
+      <a href="/">Analyses urbaines</a>
+      <a href="/atelier.html">Atelier topo · Altiplan</a>
+      <a href="/atelier-analyse.html">Atelier d’analyse</a>
+      <a href="/atelier-cartographique.html">Couches locales</a>
+      <a href="/cadrage-spatial.html">Cadrage spatial</a>
+      <a class="current" href="/atelier-archi.html" aria-current="page">Analyse architecturale</a>
+      <a href="/bibliotheque-cartes.html">Cartes anciennes</a>
+    </nav>
+  </header>
+
+  <main id="main" class="page">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-kicker">URBATRAME <span>·</span> ÉCHELLE DE LA RUE <span>·</span> DESSIN D’ARCHITECTE</div>
+      <div class="hero-title-row">
+        <div>
+          <h1 id="page-title">Analyse architecturale</h1>
+          <p class="lede">Une rue, une photo, un relevé : UrbaTrame calcule les indicateurs et dessine six planches cotées — plan des usages, profil en travers, front bâti déroulé, axonométrie, ombres et avant/après. Tout est calculé en code depuis le relevé, aucune image n’est générée.</p>
+        </div>
+      </div>
+      <div class="privacy-grid">
+        <p><strong>L’angle propre à cet espace.</strong> L’analyse de site regarde le quartier ; ici on descend à l’échelle d’une rue : ce que l’on voit d’une photo devient des mètres, puis des coupes, des élévations et des heures de soleil.</p>
+        <p><strong>Ce qui est calculé, ce qui est supposé.</strong> Largeur, bandes, hauteurs à l’égout et comptage viennent du relevé. Les étages de 3,0 m, les combles, la profondeur d’îlot et l’orientation non mesurée sont des hypothèses — elles restent affichées comme telles sur chaque planche.</p>
+        <p><strong>Local par défaut.</strong> Le relevé reste dans ce navigateur. Aucun envoi, aucune requête réseau, aucun service externe ; la page entière fonctionne hors ligne.</p>
+      </div>
+    </section>
+
+    <section class="step-strip" aria-labelledby="flow-title">
+      <div class="step-heading">
+        <div><span class="step">01 / LE PARCOURS</span><h2 id="flow-title">De la photo au dessin</h2></div>
+        <span class="badge">relevé → calcul → six planches</span>
+      </div>
+      <ol class="flow">
+        <li><strong>Relever la rue</strong><span>Largeur entre façades, bandes de sol, hauteurs à l’égout, mobilier, personnes.</span></li>
+        <li><strong>Vérifier</strong><span>Le bandeau d’hypothèses liste tout ce que la photo ne donne pas.</span></li>
+        <li><strong>Dessiner</strong><span>Les six planches se recalculent à chaque changement du relevé.</span></li>
+        <li><strong>Exporter</strong><span>SVG vectoriel, PNG haute définition, ou la planche A3 complète.</span></li>
+      </ol>
+    </section>
+
+    <div class="workbench">
+      <aside class="sidebar" aria-label="Relevé de la rue">
+        <details class="panel" open>
+          <summary><strong>1 · Le lieu et l’orientation</strong></summary>
+          <div class="panel-body">
+            <label class="field">Nom de la rue
+              <input id="f-nom" type="text" maxlength="90" autocomplete="off">
+            </label>
+            <label class="field">Lieu-dit ou ville
+              <input id="f-lieu" type="text" maxlength="120" autocomplete="off">
+            </label>
+            <label class="field">Date du relevé
+              <input id="f-date" type="date">
+            </label>
+            <div class="grid2">
+              <label class="field">Latitude (°N)
+                <input id="f-lat" type="number" step="0.0001" min="-90" max="90">
+              </label>
+              <label class="field">Longitude (°E)
+                <input id="f-lon" type="number" step="0.0001" min="-180" max="180">
+              </label>
+            </div>
+            <label class="field">Axe de la rue (degrés depuis le nord)
+              <input id="f-axe" type="number" step="1" min="0" max="359">
+            </label>
+            <label class="check"><input id="f-axe-hyp" type="checkbox"> Orientation supposée (non mesurée)</label>
+            <p class="hint">La latitude pilote le calcul du soleil ; l’axe sert à projeter les ombres en travers de la rue. Une erreur de 10 à 15° se lit directement sur la bande ensoleillée.</p>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><strong>2 · La largeur et les bandes</strong></summary>
+          <div class="panel-body">
+            <div class="grid2">
+              <label class="field">Largeur entre façades (m)
+                <input id="f-largeur" type="number" step="0.01" min="2" max="80">
+              </label>
+              <label class="field">Longueur relevée (m)
+                <input id="f-longueur" type="number" step="0.5" min="5" max="400">
+              </label>
+            </div>
+            <label class="field">Sol de la rue
+              <select id="f-sol">
+                <option value="pavés">pavés</option>
+                <option value="asphalte">asphalte</option>
+                <option value="dalles">dalles</option>
+                <option value="stabilisé">stabilisé</option>
+                <option value="terre">terre</option>
+              </select>
+            </label>
+            <p class="field-label">Bandes d’une façade à l’autre</p>
+            <div id="bandes" class="bandes"></div>
+            <button id="add-bande" class="button-secondary" type="button">+ Ajouter une bande</button>
+            <p id="bandeSum" class="hint" role="status" aria-live="polite"></p>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><strong>3 · Les façades</strong></summary>
+          <div class="panel-body">
+            <p class="field-label">Façade ouest</p>
+            <div class="grid2">
+              <label class="field">Niveaux
+                <input id="f-ouest-niveaux" type="text" maxlength="14" placeholder="R+4+C">
+              </label>
+              <label class="field">Rez-de-chaussée
+                <input id="f-ouest-rdc" type="text" maxlength="30" placeholder="café, boutique, hall">
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="field">Hauteur à l’égout (m)
+                <input id="f-ouest-egout" type="number" step="0.1" min="1" max="120">
+              </label>
+              <label class="field">Hauteur au faîtage (m)
+                <input id="f-ouest-faitage" type="number" step="0.1" min="1" max="140">
+              </label>
+            </div>
+            <p class="field-label">Façade est</p>
+            <div class="grid2">
+              <label class="field">Niveaux
+                <input id="f-est-niveaux" type="text" maxlength="14" placeholder="R+4+C">
+              </label>
+              <label class="field">Rez-de-chaussée
+                <input id="f-est-rdc" type="text" maxlength="30" placeholder="café, boutique, hall">
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="field">Hauteur à l’égout (m)
+                <input id="f-est-egout" type="number" step="0.1" min="1" max="120">
+              </label>
+              <label class="field">Hauteur au faîtage (m)
+                <input id="f-est-faitage" type="number" step="0.1" min="1" max="140">
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><strong>4 · Les gens et le mobilier</strong></summary>
+          <div class="panel-body">
+            <div class="grid2">
+              <label class="field">Personnes vues sur la photo
+                <input id="f-gens-vus" type="number" step="1" min="0" max="100000">
+              </label>
+              <label class="field">Personnes placées au plan
+                <input id="f-gens-plan" type="number" step="1" min="0" max="100000">
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="field">Bornes
+                <input id="f-bornes" type="number" step="1" min="0" max="999">
+              </label>
+              <label class="field">Potelets
+                <input id="f-potelets" type="number" step="1" min="0" max="999">
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="field">Réverbères
+                <input id="f-reverberes" type="number" step="1" min="0" max="999">
+              </label>
+              <label class="field">Arbres
+                <input id="f-arbres" type="number" step="1" min="0" max="999">
+              </label>
+            </div>
+            <div class="grid2">
+              <label class="field">Arceaux vélo
+                <input id="f-arceaux" type="number" step="1" min="0" max="999">
+              </label>
+              <label class="field">Poubelles
+                <input id="f-poubelles" type="number" step="1" min="0" max="999">
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><strong>5 · La photo de référence</strong></summary>
+          <div class="panel-body">
+            <p class="hint">La photo sert de référence pendant le relevé et la vérification. Elle reste dans l’onglet : aucune lecture réseau, aucun envoi.</p>
+            <div class="row-actions">
+              <button id="photoBtn" class="button-secondary" type="button">Choisir une photo</button>
+              <input id="photoFile" type="file" accept="image/*" hidden>
+              <button id="photoClear" class="button-secondary" type="button">Retirer</button>
+            </div>
+            <figure id="photoWrap" class="photo-wrap" hidden>
+              <img id="photoPreview" alt="Photo de la rue servant de référence au relevé">
+              <figcaption id="photoCaption" class="hint"></figcaption>
+            </figure>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><strong>6 · Le fichier rue.json</strong></summary>
+          <div class="panel-body">
+            <p class="hint">Le relevé est un simple fichier JSON. Il peut venir d’un autre poste, d’un dossier de projet ou d’un script de relevé : importez-le ici, corrigez-le, exportez-le.</p>
+            <div class="row-actions">
+              <button id="importBtn" class="button-secondary" type="button">Importer rue.json</button>
+              <input id="importFile" type="file" accept="application/json,.json" hidden>
+              <button id="exportBtn" class="button-secondary" type="button">Exporter rue.json</button>
+            </div>
+            <div class="row-actions">
+              <button id="demoBtn" class="button-secondary" type="button">Charger l’exemple Montorgueil</button>
+              <button id="clearBtn" class="button-secondary" type="button">Relevé vide</button>
+            </div>
+          </div>
+        </details>
+      </aside>
+
+      <section class="stage" aria-label="Dessins de la rue">
+        <div class="stage-head">
+          <div>
+            <span class="step">02 / LES SIX DESSINS</span>
+            <h2 id="stageTitle">Plan des usages</h2>
+          </div>
+          <div class="stage-actions">
+            <button id="downloadSvg" class="button-secondary" type="button">Télécharger le SVG</button>
+            <button id="downloadPng" class="button-secondary" type="button">Télécharger le PNG</button>
+            <button id="printBtn" class="button-primary" type="button">Imprimer la planche</button>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Dessins">
+          <button role="tab" aria-selected="true" data-tab="usages">1 · Usages</button>
+          <button role="tab" aria-selected="false" data-tab="profil">2 · Profil</button>
+          <button role="tab" aria-selected="false" data-tab="fronts">3 · Front bâti</button>
+          <button role="tab" aria-selected="false" data-tab="axo">4 · Axonométrie</button>
+          <button role="tab" aria-selected="false" data-tab="ombres">5 · Ombres</button>
+          <button role="tab" aria-selected="false" data-tab="demain">6 · Demain</button>
+          <button role="tab" aria-selected="false" data-tab="planche">Planche A3</button>
+        </div>
+
+        <div class="stage-body">
+          <div id="viewport" class="viewport" role="img" aria-label="Dessin calculé de la rue"></div>
+          <div class="stage-side">
+            <div class="metrics" id="metrics"></div>
+            <div class="explain" id="explain"></div>
+            <div class="warnings" id="warnings" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="reading" aria-labelledby="reading-title">
+      <span class="step">03 / CE QUE CHAQUE PLANCHE MONTRE</span>
+      <h2 id="reading-title">Six dessins, six questions</h2>
+      <div class="reading-grid">
+        <article><h3>1 · Usages</h3><p>Qui occupe la largeur ? Terrasses, passage libre, livraisons, mobilier et passants, comptés et reportés au 1/200. Le pourcentage de largeur par usage est affiché sous le plan.</p></article>
+        <article><h3>2 · Profil en travers</h3><p>La coupe d’urbaniste : les deux façades en coupe, les niveaux, le sol et le rapport hauteur sur largeur (H/L), avec une phrase qui dit si la rue est un canyon ou une rue ouverte.</p></article>
+        <article><h3>3 · Front bâti</h3><p>L’élévation déroulée du front le plus lisible, immeuble par immeuble : travées, étages, lucarnes, rez-de-chaussée commerciaux, et la ligne rouge de l’égout de toit cotée en mètres.</p></article>
+        <article><h3>4 · Axonométrie</h3><p>La rue en volume, vue de son entrée à 30°. Chaque immeuble est un seul volume du sol au toit ; les toits sont en zinc gris et les terrasses en orange.</p></article>
+        <article><h3>5 · Ombres</h3><p>Un vrai calcul astronomique (déclinaison, équation du temps) donne la course du soleil et la largeur de sol éclairée heure par heure, aux solstices. Le total d’heures de soleil direct est mis en grand.</p></article>
+        <article><h3>6 · Demain</h3><p>Un réaménagement minimal sans toucher aux immeubles : fosses d’arbres de 1,50 × 1,50 m, joints ouverts, passage libre jamais sous 1,80 m. Trois chiffres changent, et ce qu’il faut vérifier sur place est écrit.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/js/chat-widget.mjs?v=20261113cc1"></script>
+</body>
+</html>
