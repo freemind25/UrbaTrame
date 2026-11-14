@@ -7,9 +7,21 @@ import { store } from './persist.mjs';
 export const SYSTEM_PROMPT = "Tu es l'assistant d'UrbaTrame, un outil d'étude urbaine (cartes, relevés terrain, volumes 3D, analyses de site, exports vectoriels). Réponds en français, clairement et par étapes concrètes. N'invente jamais de limites cadastrales ou juridiques ; rappelle toujours les limites de tes réponses et la nécessité de vérifier les sources.";
 
 export const PROVIDERS = Object.freeze({
-  freellmapi: { label: 'FreeLLMAPI (routeur local, gratuit)', endpoint: 'http://localhost:3001/v1/chat/completions' },
-  codecraft: { label: 'CodeCraft (appel direct)', endpoint: 'https://codecraftapi.com/v1/chat/completions' },
-  custom: { label: 'Endpoint OpenAI-compatible fourni par vous', endpoint: '' }
+  freellmapi: {
+    label: 'FreeLLMAPI — routeur LOCAL (nécessite Docker, 100 % chez vous)',
+    endpoint: 'http://localhost:3001/v1/chat/completions',
+    hint: 'Docker requis : docker run -d --name freellmapi -p 3001:3001 -e DASHBOARD_ORIGINS=https://freemap-rose.vercel.app,http://localhost:4173 -v freellmapi-data:/app/server/data ghcr.io/tashfeenahmed/freellmapi:latest — puis clé unifiée du routeur. Vos messages ne quittent pas votre machine.'
+  },
+  codecraft: {
+    label: 'CodeCraft — appel DIRECT, sans Docker (clé gratuite cc_…)',
+    endpoint: 'https://codecraftapi.com/v1/chat/completions',
+    hint: 'Sans Docker : créez une clé gratuite sur codecraftapi.com (Dashboard → API Keys, ~0,5 M tokens/mois, sans carte bancaire), collez-la ici (elle commence par cc_…). Attention : avec cette option, vos messages passent par les serveurs de CodeCraft (voir leur politique de confidentialité).'
+  },
+  custom: {
+    label: 'Autre endpoint OpenAI-compatible (fourni par vous)',
+    endpoint: '',
+    hint: 'Saisissez l’URL complète …/v1/chat/completions et votre clé. La clé reste sur cet appareil et n’est envoyée qu’à cet endpoint.'
+  }
 });
 
 export function validateChatEndpoint(raw) {
@@ -103,7 +115,7 @@ export function mountChatWidget(doc = document) {
           <button type="button" id="ut-cfg-models">Charger les modèles</button>
           <button type="button" id="ut-cfg-save" class="ghost">Enregistrer</button>
         </div>
-        <p id="ut-chat-note">Par défaut : routeur <b>FreeLLMAPI local</b> (vos messages restent sur votre machine). Clé jamais envoyée ailleurs qu’à l’endpoint choisi.</p>
+        <p id="ut-chat-note"></p>
       </div>
       <form id="ut-chat-form">
         <input id="ut-chat-input" type="text" maxlength="2000" placeholder="Posez une question sur UrbaTrame…" autocomplete="off">
@@ -123,10 +135,18 @@ export function mountChatWidget(doc = document) {
     msgs.scrollTop = msgs.scrollHeight;
   }
 
+  function syncProviderHint() {
+    const p = PROVIDERS[cfg.provider];
+    $('ut-chat-note').innerHTML = p && p.hint
+      ? p.hint
+      : 'Clé jamais envoyée ailleurs qu’à l’endpoint choisi.';
+  }
+
   function syncCfgForm() {
     $('ut-cfg-provider').value = cfg.provider;
     $('ut-cfg-endpoint').value = cfg.endpoint;
     $('ut-cfg-key').value = cfg.key;
+    syncProviderHint();
     if (cfg.model) {
       const sel = $('ut-cfg-model');
       if (![...sel.options].some(o => o.value === cfg.model)) sel.add(new Option(cfg.model, cfg.model));
@@ -139,6 +159,7 @@ export function mountChatWidget(doc = document) {
     cfg.provider = e.target.value;
     if (cfg.provider !== 'custom') cfg.endpoint = PROVIDERS[cfg.provider].endpoint;
     $('ut-cfg-endpoint').value = cfg.endpoint;
+    syncProviderHint();
   });
   $('ut-cfg-save').addEventListener('click', () => {
     cfg = {
@@ -203,7 +224,10 @@ export function mountChatWidget(doc = document) {
       history.push({ role: 'assistant', content: reply });
       addMsg('assistant', reply);
     } catch (err) {
-      addMsg('error', 'Envoi impossible : ' + err.message + ' — avec FreeLLMAPI, vérifiez que le routeur tourne (`docker ps`) et que son CORS autorise cette origine (DASHBOARD_ORIGINS).');
+      const hint = cfg.provider === 'freellmapi'
+        ? ' — avec FreeLLMAPI, vérifiez que le routeur tourne (`docker ps`) et que son CORS autorise cette origine (DASHBOARD_ORIGINS=https://freemap-rose.vercel.app). Sans Docker : choisissez « CodeCraft — appel direct » dans ⚙.'
+        : (PROVIDERS[cfg.provider] && PROVIDERS[cfg.provider].hint) || '';
+      addMsg('error', 'Envoi impossible : ' + err.message + hint);
     } finally {
       busy = false; sendBtn.disabled = false; input.focus();
     }
