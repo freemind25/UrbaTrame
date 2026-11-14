@@ -36,6 +36,20 @@ export const landCoverLabel = v => {
   return n === 0 || n === 255 ? 'hors données' : ('classe détaillée n°' + n + ' (GHLC niveau 2)');
 };
 
+/* Tuile raster WebMercatorQuad de la couche GHLC 10 m, colorée (niveau 1 en
+   couleurs, sous-classes détaillées >10 en niveau de gris par titiler). */
+export const OLM_COLORMAP = Object.freeze({
+  '1': '#d73027', '2': '#fdae61', '3': '#a6d96a', '4': '#1a9641', '5': '#d9ef8b',
+  '6': '#f46d43', '7': '#74add1', '8': '#4575b4', '9': '#313695', '10': '#abd9e9'
+});
+export const OLM_ATTRIBUTION = 'Occupation du sol © OpenLandMap · GHLC-10m (CC-BY 4.0)';
+export function olmTileUrl(z, x, y) {
+  const cog = encodeURIComponent(OLM_LAYERS.landcover10m.cog);
+  const cm = encodeURIComponent(JSON.stringify(OLM_COLORMAP));
+  return TITILER + '/cog/tiles/WebMercatorQuad/' + z + '/' + x + '/' + y +
+    '.png?url=' + cog + '&colormap=' + cm;
+}
+
 /* Valeur de la couche au point (lon, lat). Renvoie { ok, value, label, layer }.
    Ne lève jamais : en cas d'échec réseau renvoie { ok:false, error }. */
 export async function olmPoint(layerKey, lon, lat, { timeout = 20_000 } = {}) {

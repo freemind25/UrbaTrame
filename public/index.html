@@ -139,6 +139,11 @@
           <button id="analysisMapRecenter" type="button" data-fr="Recentrer sur le lieu recherché" data-en="Return to searched place">Recentrer sur le lieu recherché</button>
           <button id="analysisMapZoomOut" type="button" aria-label="Dézoomer" title="Dézoomer">−</button>
           <button id="analysisMapZoomIn" type="button" aria-label="Zoomer" title="Zoomer">+</button>
+          <select id="analysisMapBasemap" aria-label="Fond de carte" title="Fond de carte"
+            data-fr-label="Fond de carte" data-en-label="Basemap">
+            <option value="osm" data-fr="Rues (OSM)" data-en="Streets (OSM)">Rues (OSM)</option>
+            <option value="ghlc" data-fr="Occupation du sol 10 m (OpenLandMap)" data-en="Land cover 10 m (OpenLandMap)">Occupation du sol 10 m (OpenLandMap)</option>
+          </select>
         </div>
       </div>
       <div id="analysisMap" class="analysis-map" role="application" aria-label="Carte OpenStreetMap interactive">
@@ -285,7 +290,7 @@
         data-en="Map data © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, optional occupancy layer) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
 </footer>
 
-<script type="module" src="js/app.js?v=20261113olm1"></script>
+<script type="module" src="js/app.js?v=20261113olm2"></script>
   <script type="module" src="/js/chat-widget.mjs?v=20261113cc1"></script>
 </body>
 </html>
