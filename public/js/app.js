@@ -1959,7 +1959,7 @@ function wireUI() {
     analysisMap?.setBasemap(v);
     const status = $('#analysisMapStatus');
     if (status) status.textContent = v === 'ghlc'
-      ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Rouge = bâti, jaune = cultures, verts = végétation, bleu = eau. Gris = sous-classe détaillée.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Red = built-up, yellow = cropland, greens = vegetation, blue = water. Grey = detailed subclass.')
+      ? T('Fond : occupation du sol GHLC 10 m · © OpenLandMap (CC-BY 4.0). Légende officielle 44 classes : rouge = bâti, jaunes/oranges = cultures, verts = prairies et forêts, bleu = eau, beige = zones clairsemées et désert.', 'Basemap: GHLC 10 m land cover · © OpenLandMap (CC-BY 4.0). Official 44-class legend: red = built-up, yellows/oranges = cropland, greens = grassland and forest, blue = water, beige = sparse and desert.')
       : T('Fond cartographique OpenStreetMap.', 'OpenStreetMap basemap.');
   });
   $('#analysisMapZoomOut').addEventListener('click', () => analysisMap?.zoomBy(-1));
