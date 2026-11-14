@@ -130,3 +130,28 @@ describe('scénario de faisabilité indicatif', () => {
     assert.equal(calculateFeasibility({ siteAreaM2: 1_000, far: 1, coveragePct: 50, floors: 3, costPerM2: -1 }), null);
   });
 });
+
+describe('siteReading (lecture du site auto-rédigée)', () => {
+  test('produit des paragraphes interprétatifs fr/en avec avertissement', async () => {
+    const { siteReading } = await import('../public/js/site-summary.mjs');
+    const m = {
+      areaM2: 1130000,
+      buildings: { count: 601, footprintM2: 127721, coveragePct: 11.3 },
+      green: { count: 48, areaM2: 115320, coveragePct: 10.2 },
+      water: { count: 6, areaM2: 2254, coveragePct: 0.2 },
+      roads: { count: 263, lengthM: 28220 },
+      points: { total: 317 },
+      terrain: { reliefM: 85, minM: 600, maxM: 685, samples: 576 },
+      climate: { days: 365, meanMaxC: 24.2, meanMinC: 12.1, estimatedAnnualRainMm: 550, meanSolarKwhM2Day: 5.1 }
+    };
+    const olm = { ok: true, value: 1, label: 'Bâti — Bâti (surfaces artificielles)' };
+    const fr = siteReading({ m, olm, lang: 'fr', siteName: 'Constantine' });
+    assert.ok(fr.length >= 5, 'au moins 5 paragraphes');
+    assert.ok(fr.some(p => /Morphologie/.test(p) && /601/.test(p)));
+    assert.ok(fr.some(p => /OpenLandMap/.test(p) && /Bâti/.test(p)));
+    assert.ok(fr.some(p => /indicative/i.test(p) && /POS\/PLU/.test(p)), 'avertissement réglementaire présent');
+    const en = siteReading({ m, olm, lang: 'en' });
+    assert.ok(en.some(p => /Morphology/.test(p)));
+    assert.deepEqual(siteReading({ m: null }), []);
+  });
+});
