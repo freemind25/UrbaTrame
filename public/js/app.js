@@ -23,6 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
+import { olmPoint } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -1340,6 +1341,15 @@ async function generate() {
       }
     }
 
+    /* 4 · OpenLandMap : occupation du sol au point du site (lecture directe, CC-BY). */
+    state.olm = 'active'; drawLoader(list, state, t0);
+    try {
+      S.olm = await olmPoint('landcover10m', S.site.lon, S.site.lat);
+      if (S.olm.ok) log(`OpenLandMap · occupation du sol au site : ${S.olm.label} (classe ${S.olm.value})`);
+      else log(`OpenLandMap indisponible (${S.olm.error})`);
+      state.olm = S.olm.ok ? 'done' : 'failed';
+    } catch (e) { S.olm = { ok: false, error: 'ERREUR' }; state.olm = 'failed'; log('OpenLandMap indisponible'); }
+
     S.dataSite = requestedSite;
     state.render = 'done';
     renderCards();
@@ -1735,7 +1745,7 @@ function setWorkspaceControls(record) {
   const radiusWrap = $('#radiusWrap'); if (radiusWrap) radiusWrap.style.opacity = S.shape === 'poly' ? '.45' : '1';
 }
 function clearWorkspaceResults() {
-  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null; S.obm = null;
+  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null; S.obm = null; S.olm = null;
   S.mapLoaded = false; S.dataSite = null; S.cacheInfo = '';
 }
 function finishWorkspaceLoad() {
