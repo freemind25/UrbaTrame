@@ -1009,7 +1009,7 @@ function renderSiteReport() {
   intro.append(introText, badge); host.append(intro);
 
   /* « Lecture du site » : interprétation auto-rédigée localement (sans IA cloud). */
-  const reading = siteReading({ m, olm: S.olm, windrose: S.windrose, lang: S.lang, siteName: site.name });
+  const reading = siteReading({ m, olm: S.olm, olmEnv: S.olmEnv, windrose: S.windrose, lang: S.lang, siteName: site.name });
   if (reading.length) {
     const readSection = reportSection(
       T('Lecture du site', 'Site reading'),
@@ -1096,6 +1096,14 @@ function renderSiteReport() {
       olmSection.append(reportNote(T(
         `La couche GHLC-10m code 44 classes détaillées (niveau 2, n°1–44) regroupées en 10 familles (niveau 1). Ici : n°${reportNumber(S.olm.value)} = « ${enLabel} », qui relève de la famille ${lv1} « ${lv1Label || '—'} ». Valeur ponctuelle au centre de l’emprise, lue dans une carte mondiale à 10 m : indicative, elle ne décrit pas tout le périmètre. Les classes GHLC ne sont pas des limites cadastrales.`,
         `The GHLC-10m layer encodes 44 detailed classes (level 2, #1–44) grouped into 10 families (level 1). Here: #${reportNumber(S.olm.value)} = "${enLabel}", belonging to family ${lv1} "${lv1Label || '—'}". Point value at the extent centre, read from a global 10 m land-cover map: indicative only, it does not describe the whole extent. GHLC classes are not cadastral boundaries.`), 'method-note'));
+    }
+    if (Array.isArray(S.olmEnv) && S.olmEnv.some(r => r.ok)) {
+      const envGrid = document.createElement('div'); envGrid.className = 'report-metrics report-metrics-compact';
+      for (const r of S.olmEnv) {
+        if (!r.ok) continue;
+        envGrid.append(reportMetric(r.title.split('(')[0].trim(), r.label, r.source));
+      }
+      olmSection.append(envGrid);
     }
     host.append(olmSection);
   }
@@ -1393,6 +1401,13 @@ async function generate() {
       else log(`OpenLandMap indisponible (${S.olm.error})`);
       state.olm = S.olm.ok ? 'done' : 'failed';
     } catch (e) { S.olm = { ok: false, error: 'ERREUR' }; state.olm = 'failed'; log('OpenLandMap indisponible'); }
+    /* couches environnementales ponctuelles (NO₂, température de surface, population) */
+    try {
+      S.olmEnv = await Promise.all(['no2ltm', 'lstDay', 'popGhs'].map(k => olmPoint(k, S.site.lon, S.site.lat)));
+      for (const r of S.olmEnv) log(r.ok
+        ? `OpenLandMap · ${r.title.split('(')[0].trim()} : ${r.label}`
+        : `OpenLandMap · ${r.layer} indisponible (${r.error})`);
+    } catch (e) { S.olmEnv = []; }
 
     S.dataSite = requestedSite;
     state.render = 'done';
@@ -1789,7 +1804,7 @@ function setWorkspaceControls(record) {
   const radiusWrap = $('#radiusWrap'); if (radiusWrap) radiusWrap.style.opacity = S.shape === 'poly' ? '.45' : '1';
 }
 function clearWorkspaceResults() {
-  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null; S.obm = null; S.olm = null;
+  S.D = emptySpatialData(); S.terrain = null; S.climate = null; S.windrose = null; S.obm = null; S.olm = null; S.olmEnv = null;
   S.mapLoaded = false; S.dataSite = null; S.cacheInfo = '';
 }
 function finishWorkspaceLoad() {

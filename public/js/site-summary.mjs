@@ -280,7 +280,7 @@ export function summarizeSite({
  * conclusion réglementaire ou cadastrale.
  * Retourne un tableau de paragraphes (fr ou en selon `lang`).
  */
-export function siteReading({ m, olm = null, windrose = null, lang = 'fr', siteName = '' } = {}) {
+export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lang = 'fr', siteName = '' } = {}) {
   if (!m) return [];
   const fr = lang !== 'en';
   const T = (a, b) => (fr ? a : b);
@@ -345,6 +345,22 @@ export function siteReading({ m, olm = null, windrose = null, lang = 'fr', siteN
     out.push(T(
       `Lecture satellite (OpenLandMap GHLC 10 m) : au centre, le sol est classé « ${olm.label} ». ${coherent ? 'Cela va dans le sens des données OSM (bâti cartographié ici).' : 'À recouper avec les données OSM : la classe satellite et le bâti vectoriel ne concordent pas forcément au même point (10 m vs objets OSM).'}`,
       `Satellite read (OpenLandMap GHLC 10 m): at the centre, the ground is classed "${olm.label}". ${coherent ? 'This matches the OSM data (buildings mapped here).' : 'Cross-check with OSM: the satellite class and the vector buildings do not necessarily agree at the same point (10 m vs OSM objects).'}`));
+  }
+
+  /* 6b · environnement satellite : NO₂, température de surface, population */
+  if (Array.isArray(olmEnv) && olmEnv.some(r => r.ok)) {
+    const bits = [];
+    const no2 = olmEnv.find(r => r.layer === 'no2ltm' && r.ok);
+    const lst = olmEnv.find(r => r.layer === 'lstDay' && r.ok);
+    const pop = olmEnv.find(r => r.layer === 'popGhs' && r.ok);
+    if (no2) {
+      const v = no2.value;
+      const niveau = v < 100 ? T('faible', 'low') : v < 500 ? T('modérée', 'moderate') : T('élevée', 'high');
+      bits.push(T(`NO₂ troposphérique ~${Math.round(v)} µmol/m² (niveau ${niveau}, moyenne 2018-2022)`, `tropospheric NO₂ ~${Math.round(v)} µmol/m² (${niveau} level, 2018-2022 mean)`));
+    }
+    if (lst) bits.push(T(`température de surface (jour, percentile froid annuel) ~${(lst.value * 0.02 - 273.15).toFixed(1)} °C — à ne pas confondre avec un îlot de chaleur estival`, `land surface temperature (daytime, cold-annual percentile) ~${(lst.value * 0.02 - 273.15).toFixed(1)} °C — not an summer heat-island peak`));
+    if (pop) bits.push(T(`population GHS 2025 ~${Math.round(pop.value)} hab/100 m²`, `GHS 2025 population ~${Math.round(pop.value)} people/100 m²`));
+    if (bits.length) out.push(T(`Environnement et population (satellite, OpenLandMap) : ${bits.join(' ; ')}.`, `Environment and population (satellite, OpenLandMap): ${bits.join('; ')}.`));
   }
 
   /* 7 · avertissement */

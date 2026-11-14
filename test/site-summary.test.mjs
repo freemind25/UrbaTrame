@@ -155,3 +155,20 @@ describe('siteReading (lecture du site auto-rédigée)', () => {
     assert.deepEqual(siteReading({ m: null }), []);
   });
 });
+
+test('siteReading intègre les couches environnementales satellite (NO₂/LST/pop)', async () => {
+  const { siteReading } = await import('../public/js/site-summary.mjs');
+  const olmEnv = [
+    { ok: true, layer: 'no2ltm', value: 529 },
+    { ok: true, layer: 'lstDay', value: 14240 },
+    { ok: true, layer: 'popGhs', value: 40 }
+  ];
+  const fr = siteReading({ m: { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } }, olmEnv, lang: 'fr' });
+  const env = fr.find(p => p.includes('Environnement et population'));
+  assert.ok(env, 'paragraphe environnement FR présent');
+  assert.match(env, /NO₂ troposphérique ~529 µmol\/m²/);
+  assert.match(env, /11\.7 °C/);
+  assert.match(env, /40 hab\/100 m²/);
+  const en = siteReading({ m: { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } }, olmEnv, lang: 'en' });
+  assert.ok(en.find(p => p.includes('Environment and population')));
+});
