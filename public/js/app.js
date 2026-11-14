@@ -1057,6 +1057,34 @@ function renderSiteReport() {
     host.append(obmSection);
   }
 
+  /* OpenLandMap : occupation du sol lue au centre du site (chantier OLM). */
+  if (S.olm) {
+    const olmSection = reportSection(
+      T('OpenLandMap · occupation du sol au site', 'OpenLandMap · land cover at the site'),
+      T('Lecture ponctuelle de la couche satellite GHLC 10 m (2020) au centre de l’emprise · licence CC-BY 4.0.',
+        'Point read of the GHLC 10 m (2020) satellite land-cover layer at the extent centre · CC-BY 4.0 license.'));
+    if (!S.olm.ok) {
+      olmSection.append(reportNote(T(
+        'La couche OpenLandMap n’a pas répondu pour ce point (réseau ou service indisponible).',
+        'The OpenLandMap layer did not answer for this point (network or service unavailable).'), 'warning'));
+    } else {
+      const lv1 = OLM_LV2_TO_LV1[String(S.olm.value)];
+      const lv1Label = lv1 != null ? OLM_LV1_LABELS[String(lv1)] : null;
+      const grid = document.createElement('div'); grid.className = 'report-metrics report-metrics-compact';
+      grid.append(
+        reportMetric(T('Occupation du sol au centre', 'Land cover at centre'), S.olm.label,
+          `${T('classe GHLC niveau 2', 'GHLC level-2 class')} n°${reportNumber(S.olm.value)}`),
+        reportMetric(T('Famille (niveau 1)', 'Family (level 1)'), lv1Label || '—',
+          lv1 != null ? `${T('classe', 'class')} ${lv1} / 10` : '')
+      );
+      olmSection.append(grid);
+      olmSection.append(reportNote(T(
+        'Valeur ponctuelle au centre de l’emprise, lue dans une carte mondiale à 10 m : indicative, elle ne décrit pas tout le périmètre. Les classes GHLC ne sont pas des limites cadastrales.',
+        'Point value at the extent centre, read from a global 10 m land-cover map: indicative only, it does not describe the whole extent. GHLC classes are not cadastral boundaries.'), 'method-note'));
+    }
+    host.append(olmSection);
+  }
+
   if (S.mapLoaded) {
   const morph = reportSection(T('Indicateurs urbains', 'Urban indicators'),
     T('Comptages et surfaces dérivés des couches cartographiques disponibles.', 'Counts and areas derived from available mapped layers.'));
