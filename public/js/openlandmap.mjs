@@ -54,6 +54,7 @@ export const OLM_LAYERS = Object.freeze({
     cog: 'https://ceph.opengeohub.org/arco/airq/sntnl5p_no2a_q010_2km_ag_20180501_20221130_go02_epsg4326_v1.0.0_srl03.tif',
     unit: 'µmol/m²',
     fmt: v => Math.round(v) + ' µmol/m²',
+    tile: { colormapName: 'plasma', rescale: '0,1000' },
     source: 'OpenLandMap · Sentinel-5P NO₂ (CC-BY 4.0)'
   },
   lstDay: {
@@ -62,6 +63,7 @@ export const OLM_LAYERS = Object.freeze({
     cog: 'https://ceph.opengeohub.org/arco/clim/mod11a2_lstdaya_q005_1km_sg_20210101_20211231_go01_epsg4326_v1.2.0_srl03.tif',
     unit: '°C',
     fmt: v => (v * 0.02 - 273.15).toFixed(1) + ' °C',
+    tile: { colormapName: 'inferno', rescale: '13500,15500' },
     source: 'OpenLandMap · MOD11A2 LST (CC-BY 4.0)'
   },
   popGhs: {
@@ -127,6 +129,7 @@ export const OLM_LAYERS = Object.freeze({
     cog: 'https://ceph.opengeohub.org/arco/socecon/viirs_nlightav_m_500m_sg_20210101_20211231_go01_epsg4326_v1.0.0_srl03.tif',
     unit: 'nW/cm²/sr',
     fmt: v => (v * 0.01).toFixed(2) + ' nW/cm²/sr',
+    tile: { colormapName: 'magma', rescale: '0,3000' },
     source: 'OpenLandMap · NASA/NOAA VIIRS (CC-BY 4.0)'
   },
   phH2o: {
@@ -187,14 +190,21 @@ export const OLM_MSZ_COLORMAP = Object.freeze({
   "21": "#ff9ff4", "22": "#ff67e4", "23": "#f701ff", "24": "#a601ff", "25": "#6a0dad"
 });
 
-/* URL de tuile WebMercatorQuad pour une couche OLM (colormap + nearest pour les classes). */
+/* URL de tuile WebMercatorQuad pour une couche OLM.
+   Classes (ghlc/msz) : colormap explicite + nearest. Continues (no2/lst/viirs) : colormap_name + rescale. */
 export function olmTileUrlFor(layerKey, z, x, y) {
   const layer = OLM_LAYERS[layerKey];
   if (!layer) return null;
-  const cm = layerKey === 'mszGhs' ? OLM_MSZ_COLORMAP : OLM_COLORMAP;
-  return TITILER + '/cog/tiles/WebMercatorQuad/' + z + '/' + x + '/' + y +
-    '.png?url=' + encodeURIComponent(layer.cog) + '&colormap=' +
-    encodeURIComponent(JSON.stringify(cm)) + '&resampling=nearest';
+  let u = TITILER + '/cog/tiles/WebMercatorQuad/' + z + '/' + x + '/' + y +
+    '.png?url=' + encodeURIComponent(layer.cog);
+  if (layer.tile) {
+    if (layer.tile.colormapName) u += '&colormap_name=' + layer.tile.colormapName;
+    if (layer.tile.rescale) u += '&rescale=' + layer.tile.rescale;
+  } else {
+    const cm = layerKey === 'mszGhs' ? OLM_MSZ_COLORMAP : OLM_COLORMAP;
+    u += '&colormap=' + encodeURIComponent(JSON.stringify(cm)) + '&resampling=nearest';
+  }
+  return u;
 }
 
 export function olmTileUrl(z, x, y) {
