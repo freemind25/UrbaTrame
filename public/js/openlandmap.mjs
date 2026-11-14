@@ -120,6 +120,38 @@ export const OLM_LAYERS = Object.freeze({
       return `n°${c} = ${lib}`;
     },
     source: 'OpenLandMap · BIOME6K (CC-BY 4.0)'
+  },
+  viirsNight: {
+    id: 'viirsNight',
+    title: 'Luminosité nocturne VIIRS DNB (500 m, moyenne 2021)',
+    cog: 'https://ceph.opengeohub.org/arco/socecon/viirs_nlightav_m_500m_sg_20210101_20211231_go01_epsg4326_v1.0.0_srl03.tif',
+    unit: 'nW/cm²/sr',
+    fmt: v => (v * 0.01).toFixed(2) + ' nW/cm²/sr',
+    source: 'OpenLandMap · NASA/NOAA VIIRS (CC-BY 4.0)'
+  },
+  phH2o: {
+    id: 'phH2o',
+    title: 'pH du sol (eau, 0–30 cm, 2020–2022)',
+    cog: 'https://ceph.opengeohub.org/arco/soildb/soildbpc_phh2o_m_120m_bg0..30cm_20200101_20221231_go01_epsg4326_v1.2.0_srl04.tif',
+    unit: 'pH',
+    fmt: v => (v / 10).toFixed(1) + ' pH',
+    source: 'OpenLandMap · OLM-SoilDB / SoilGrids (CC-BY 4.0)'
+  },
+  ocSoil: {
+    id: 'ocSoil',
+    title: 'Carbone organique du sol (0–30 cm, 2020–2022)',
+    cog: 'https://ceph.opengeohub.org/arco/soildb/soildbpc_ccwpml_m_120m_bg0..30cm_20200101_20221231_go01_epsg4326_v1.2.0_srl04.tif',
+    unit: 'g/kg',
+    fmt: v => (v / 10).toFixed(1) + ' g/kg',
+    source: 'OpenLandMap · OLM-SoilDB / SoilGrids (CC-BY 4.0)'
+  },
+  claySoil: {
+    id: 'claySoil',
+    title: 'Teneur en argile du sol (0–30 cm, 2020–2022)',
+    cog: 'https://ceph.opengeohub.org/arco/soildb/soildbtxt_clay_m_120m_bg0..30cm_20200101_20221231_go01_epsg4326_v1.0.0_srl04.tif',
+    unit: '%',
+    fmt: v => Math.round(v) + ' % d’argile',
+    source: 'OpenLandMap · OLM-SoilDB / SoilGrids (CC-BY 4.0)'
   }
 });
 

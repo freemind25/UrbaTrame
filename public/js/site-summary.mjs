@@ -358,6 +358,10 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
     const evi = olmEnv.find(r => r.layer === 'eviMod' && r.ok);
     const wat = olmEnv.find(r => r.layer === 'waterJrc' && r.ok);
     const bio = olmEnv.find(r => r.layer === 'biome' && r.ok);
+    const viirs = olmEnv.find(r => r.layer === 'viirsNight' && r.ok);
+    const ph = olmEnv.find(r => r.layer === 'phH2o' && r.ok);
+    const oc = olmEnv.find(r => r.layer === 'ocSoil' && r.ok);
+    const clay = olmEnv.find(r => r.layer === 'claySoil' && r.ok);
     if (no2) {
       const v = no2.value;
       const niveau = v < 100 ? T('faible', 'low') : v < 500 ? T('modérée', 'moderate') : T('élevée', 'high');
@@ -379,6 +383,18 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
       bits.push(T(`végétation EVI ~${e.toFixed(2)} (niveau ${niveau}, MODIS 250 m)`, `EVI vegetation ~${e.toFixed(2)} (${niveau} level, MODIS 250 m)`));
     }
     if (wat) bits.push(T(`eau de surface à proximité : ${Math.round(wat.value)} % de présence sur 1984–2016 (JRC 250 m)`, `surface water nearby: ${Math.round(wat.value)} % occurrence over 1984–2016 (JRC 250 m)`));
+    if (viirs) {
+      const v = viirs.value * 0.01;
+      const niveau = v < 0.5 ? T('nulle (site sombre la nuit)', 'nil (dark at night)') : v < 3 ? T('faible', 'low') : v < 10 ? T('modérée (tissu urbain actif)', 'moderate (active urban fabric)') : T('forte (grand pôle urbain)', 'high (major urban pole)');
+      bits.push(T(`luminosité nocturne VIIRS ~${v.toFixed(2)} nW/cm²/sr (${niveau}, 2021)`, `VIIRS night lights ~${v.toFixed(2)} nW/cm²/sr (${niveau}, 2021)`));
+    }
+    if (ph) {
+      const p = ph.value / 10;
+      const niveau = p < 5.5 ? T('acide', 'acidic') : p < 7.3 ? T('neutre', 'neutral') : p < 8.5 ? T('alcalin (calcaire)', 'alkaline (calcareous)') : T('très alcalin', 'very alkaline');
+      bits.push(T(`pH du sol ~${p.toFixed(1)} (${niveau}, 0–30 cm)`, `soil pH ~${p.toFixed(1)} (${niveau}, 0–30 cm)`));
+    }
+    if (oc) bits.push(T(`carbone organique du sol ~${(oc.value / 10).toFixed(1)} g/kg`, `soil organic carbon ~${(oc.value / 10).toFixed(1)} g/kg`));
+    if (clay) bits.push(T(`texture du sol ~${Math.round(clay.value)} % d’argile`, `soil texture ~${Math.round(clay.value)} % clay`));
     if (bio) {
       const c = Math.round(bio.value);
       const lib = lang === 'en'
