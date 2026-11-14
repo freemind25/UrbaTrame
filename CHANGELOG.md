@@ -5,6 +5,16 @@ versionnage [SemVer](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté — « Analyse architecturale » : un espace propre pour la rue
+
+- Nouvelle page `/atelier-archi.html`, reliée depuis la navigation de toutes les pages sous le nom **Analyse architecturale**. Elle descend à l’échelle de la rue, là où l’analyse de site s’arrête au quartier.
+- Relevé `rue.json` : lieu, orientation, largeur entre façades, bandes de sol, façade par façade (niveaux, rez-de-chaussée, hauteurs), gens et mobilier. Saisie au formulaire, import/export du fichier, conservation locale dans le navigateur.
+- Moteur de calcul `public/js/archi-rue.mjs` : `normalizeSurvey`, `computeMetrics` (H/L, ciel vu de l’axe, parts d’usage), `sunPosition` (déclinaison et équation du temps), `litWidth`, `daylightStudy` (durées d’ensoleillement du sol), `demainScenario` (fosses d’arbres et passage libre jamais sous 1,80 m), `surveyWarnings`.
+- Six planches SVG calculées en code et une planche A3, en 1080 × 1920 : plan des usages, profil en travers, front bâti déroulé, axonométrie à 30°, étude d’ombre aux solstices, avant/après. Téléchargement SVG et PNG 2160 × 3840, impression A3 pour le PDF.
+- Chaque planche affiche ses hypothèses : hauteurs déduites marquées « ? », étages de 3,0 m annoncés, orientation non mesurée signalée, profondeur d’îlot déclarée forfaitaire. Aucune ressource externe, aucun générateur d’images, aucune donnée envoyée.
+- Documentation `docs/ANALYSE-ARCHITECTURALE.md` : inventaire du dossier source, décisions d’intégration, ce qui n’est pas repris et pourquoi.
+- 30 tests dédiés (863 au total), contrôle de syntaxe 202 fichiers sans échec.
+
 ### Ajouté — rotation et pause automatique des miroirs Overpass publics
 
 - Rotation immédiate vers un autre miroir en cas de `429`, quota épuisé, surcharge `5xx`, délai dépassé, erreur réseau ou `remark` d'erreur; prise en compte de `Retry-After` et des en-têtes de quota disponibles.
