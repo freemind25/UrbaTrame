@@ -22,6 +22,24 @@ export const OLM_MSZ_LABELS_EN = Object.freeze({
   21: 'non-residential buildings ≤ 3 m', 22: 'non-residential buildings 3–6 m', 23: 'non-residential buildings 6–15 m', 24: 'non-residential buildings 15–30 m', 25: 'non-residential buildings > 30 m'
 });
 
+/* Biomes BIOME6K (classes officielles, 1 km) — libellés FR/EN. */
+export const OLM_BIOME_LABELS = Object.freeze({
+  1: 'forêt tropicale sempervirente de feuillus', 2: 'forêt tropicale semi-sempervirente', 3: 'forêt tropicale décidue et savane boisée',
+  4: 'forêt sempervirente tempérée chaude et mixte (type méditerranéen)', 7: 'forêt pluvieuse tempérée fraîche',
+  8: 'forêt de conifères sempervirente fraîche', 9: 'forêt mixte fraîche', 13: 'forêt décidue tempérée de feuillus',
+  14: 'forêt décidue froide', 15: 'forêt de conifères sempervirente froide', 16: 'garrigue et maquis (broussailles sclérophylles tempérées)',
+  17: 'pinède ouverte sempervirente tempérée', 18: 'savane tropicale', 20: 'broussailles xérophytes', 22: 'steppe',
+  27: 'désert', 28: 'toundra herbeuse', 30: "toundra d'arbustes dressés", 31: 'toundra buissonnante', 32: 'toundra naine'
+});
+export const OLM_BIOME_LABELS_EN = Object.freeze({
+  1: 'tropical evergreen broadleaf forest', 2: 'tropical semi-evergreen broadleaf forest', 3: 'tropical deciduous broadleaf forest and woodland',
+  4: 'warm-temperate evergreen broadleaf and mixed forest', 7: 'cool-temperate rainforest', 8: 'cool evergreen needleleaf forest',
+  9: 'cool mixed forest', 13: 'temperate deciduous broadleaf forest', 14: 'cold deciduous forest', 15: 'cold evergreen needleleaf forest',
+  16: 'temperate sclerophyll woodland and shrubland', 17: 'temperate evergreen needleleaf open woodland', 18: 'tropical savanna',
+  20: 'xerophytic woods/scrub', 22: 'steppe', 27: 'desert', 28: 'graminoid and forb tundra', 30: 'erect dwarf shrub tundra',
+  31: 'low and high shrub tundra', 32: 'prostrate dwarf shrub tundra'
+});
+
 export const OLM_LAYERS = Object.freeze({
   landcover10m: {
     id: 'landcover10m',
@@ -73,6 +91,35 @@ export const OLM_LAYERS = Object.freeze({
     unit: 'm',
     fmt: v => Math.round(v) + ' m',
     source: 'OpenLandMap · GEDTM30 (CC-BY 4.0)'
+  },
+  eviMod: {
+    id: 'eviMod',
+    title: 'Indice de végétation EVI MOD13Q1 (250 m, nov. 2020, percentile 90)',
+    cog: 'https://ceph.opengeohub.org/arco/veg/mod13q1_evi_q090_250m_sg_20201101_20201231_go01_epsg4326_v1.0.0_srl03.tif',
+    unit: 'EVI',
+    /* MOD13Q1 : échelle 0,0001, plage -0,2..1 */
+    fmt: v => (v * 0.0001).toFixed(3) + ' EVI',
+    source: 'OpenLandMap · MOD13Q1 EVI (CC-BY 4.0)'
+  },
+  waterJrc: {
+    id: 'waterJrc',
+    title: 'Présence d’eau de surface JRC (250 m, 1984–2016)',
+    cog: 'https://ceph.opengeohub.org/arco/hydro/jrcsw_occur_p_250m_bg0..200cm_19840101_20161231_go01_epsg4326_v1.0.0_srl03.tif',
+    unit: '%',
+    fmt: v => Math.round(v) + ' % de présence',
+    source: 'OpenLandMap · JRC Global Surface Water (CC-BY 4.0)'
+  },
+  biome: {
+    id: 'biome',
+    title: 'Grand biome BIOME6K (1 km)',
+    cog: 'https://ceph.opengeohub.org/arco/veg/biome6k_biometyp_c_1km_sg_20000101_20171231_go01_epsg4326_v1.2.0_srl03.tif',
+    unit: 'biome',
+    fmt: (v, lang = 'fr') => {
+      const c = Math.round(v);
+      const lib = (lang === 'en' ? OLM_BIOME_LABELS_EN : OLM_BIOME_LABELS)[c] || (lang === 'en' ? 'unknown biome' : 'biome inconnu');
+      return `n°${c} = ${lib}`;
+    },
+    source: 'OpenLandMap · BIOME6K (CC-BY 4.0)'
   }
 });
 

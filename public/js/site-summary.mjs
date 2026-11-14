@@ -355,6 +355,9 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
     const pop = olmEnv.find(r => r.layer === 'popGhs' && r.ok);
     const msz = olmEnv.find(r => r.layer === 'mszGhs' && r.ok);
     const dem = olmEnv.find(r => r.layer === 'demGedtm' && r.ok);
+    const evi = olmEnv.find(r => r.layer === 'eviMod' && r.ok);
+    const wat = olmEnv.find(r => r.layer === 'waterJrc' && r.ok);
+    const bio = olmEnv.find(r => r.layer === 'biome' && r.ok);
     if (no2) {
       const v = no2.value;
       const niveau = v < 100 ? T('faible', 'low') : v < 500 ? T('modérée', 'moderate') : T('élevée', 'high');
@@ -369,6 +372,19 @@ export function siteReading({ m, olm = null, olmEnv = null, windrose = null, lan
         ? ({ 0: 'non built-up', 1: 'low-vegetation open space', 2: 'medium-vegetation open space', 3: 'high-vegetation open space', 4: 'water', 5: 'roads', 11: 'residential ≤3 m', 12: 'residential 3–6 m', 13: 'residential 6–15 m', 14: 'residential 15–30 m', 15: 'residential >30 m', 21: 'non-residential ≤3 m', 22: 'non-residential 3–6 m', 23: 'non-residential 6–15 m', 24: 'non-residential 15–30 m', 25: 'non-residential >30 m' }[c] || 'unknown class')
         : ({ 0: 'non bâti', 1: 'espace ouvert végétation basse', 2: 'espace ouvert végétation moyenne', 3: 'espace ouvert végétation haute', 4: 'eau', 5: 'voirie', 11: 'résidentiel ≤ 3 m', 12: 'résidentiel 3–6 m', 13: 'résidentiel 6–15 m', 14: 'résidentiel 15–30 m', 15: 'résidentiel > 30 m', 21: 'non résidentiel ≤ 3 m', 22: 'non résidentiel 3–6 m', 23: 'non résidentiel 6–15 m', 24: 'non résidentiel 15–30 m', 25: 'non résidentiel > 30 m' }[c] || 'classe inconnue');
       bits.push(T(`tissu urbain GHS-MSZ (10 m) : ${lib}`, `GHS-MSZ urban fabric (10 m): ${lib}`));
+    }
+    if (evi) {
+      const e = evi.value * 0.0001;
+      const niveau = e < 0.2 ? T('très faible (sol nu dominant)', 'very low (mostly bare soil)') : e < 0.35 ? T('faible', 'low') : e < 0.5 ? T('modérée', 'moderate') : T('forte', 'high');
+      bits.push(T(`végétation EVI ~${e.toFixed(2)} (niveau ${niveau}, MODIS 250 m)`, `EVI vegetation ~${e.toFixed(2)} (${niveau} level, MODIS 250 m)`));
+    }
+    if (wat) bits.push(T(`eau de surface à proximité : ${Math.round(wat.value)} % de présence sur 1984–2016 (JRC 250 m)`, `surface water nearby: ${Math.round(wat.value)} % occurrence over 1984–2016 (JRC 250 m)`));
+    if (bio) {
+      const c = Math.round(bio.value);
+      const lib = lang === 'en'
+        ? ({ 1: 'tropical evergreen broadleaf forest', 4: 'warm-temperate evergreen broadleaf and mixed forest', 13: 'temperate deciduous broadleaf forest', 16: 'temperate sclerophyll woodland and shrubland', 18: 'tropical savanna', 22: 'steppe', 27: 'desert' }[c] || 'other biome')
+        : ({ 1: 'forêt tropicale sempervirente', 4: 'forêt sempervirente tempérée chaude (méditerranéenne)', 13: 'forêt décidue tempérée', 16: 'garrigue/maquis', 18: 'savane', 22: 'steppe', 27: 'désert' }[c] || 'autre biome');
+      bits.push(T(`grand biome ~« ${lib} » (BIOME6K, 1 km — très grossier)`, `broad biome ~"${lib}" (BIOME6K, 1 km — very coarse)`));
     }
     if (bits.length) out.push(T(`Environnement et population (satellite, OpenLandMap) : ${bits.join(' ; ')}.`, `Environment and population (satellite, OpenLandMap): ${bits.join('; ')}.`));
   }

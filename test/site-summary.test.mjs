@@ -187,3 +187,20 @@ test('siteReading : altitude GEDTM et tissu urbain GHS-MSZ dans le paragraphe en
   assert.match(en, /elevation \(GEDTM 30 m satellite DEM\) ~617 m/);
   assert.match(en, /residential 6–15 m/);
 });
+
+test('siteReading : EVI, eau JRC et biome dans le paragraphe environnement', async () => {
+  const { siteReading } = await import('../public/js/site-summary.mjs');
+  const olmEnv = [
+    { ok: true, layer: 'eviMod', value: 1475 },
+    { ok: true, layer: 'waterJrc', value: 0 },
+    { ok: true, layer: 'biome', value: 4 }
+  ];
+  const m = { buildings: { count: 10, footprintM2: 1000, coveragePct: 5 } };
+  const fr = siteReading({ m, olmEnv, lang: 'fr' }).find(p => p.includes('Environnement'));
+  assert.match(fr, /végétation EVI ~0\.15/);
+  assert.match(fr, /0 % de présence/);
+  assert.match(fr, /méditerranéenne/);
+  const en = siteReading({ m, olmEnv, lang: 'en' }).find(p => p.includes('Environment'));
+  assert.match(en, /EVI vegetation ~0\.15/);
+  assert.match(en, /warm-temperate evergreen/);
+});

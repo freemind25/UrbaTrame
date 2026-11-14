@@ -1405,7 +1405,7 @@ async function generate() {
     } catch (e) { S.olm = { ok: false, error: 'ERREUR' }; state.olm = 'failed'; log('OpenLandMap indisponible'); }
     /* couches environnementales ponctuelles (NO₂, température de surface, population) */
     try {
-      S.olmEnv = await Promise.all(['no2ltm', 'lstDay', 'popGhs', 'mszGhs', 'demGedtm'].map(k => olmPoint(k, S.site.lon, S.site.lat)));
+      S.olmEnv = await Promise.all(['no2ltm', 'lstDay', 'popGhs', 'mszGhs', 'demGedtm', 'eviMod', 'waterJrc', 'biome'].map(k => olmPoint(k, S.site.lon, S.site.lat)));
       for (const r of S.olmEnv) log(r.ok
         ? `OpenLandMap · ${r.title.split('(')[0].trim()} : ${r.label}`
         : `OpenLandMap · ${r.layer} indisponible (${r.error})`);
