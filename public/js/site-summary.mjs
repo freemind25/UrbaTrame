@@ -274,6 +274,86 @@ export function summarizeSite({
   };
 }
 
+/**
+ * « Lecture du site » : texte interprétatif généré localement (déterministe,
+ * sans IA cloud) à partir des métriques. Toujours indicatif : jamais de
+ * conclusion réglementaire ou cadastrale.
+ * Retourne un tableau de paragraphes (fr ou en selon `lang`).
+ */
+export function siteReading({ m, olm = null, windrose = null, lang = 'fr', siteName = '' } = {}) {
+  if (!m) return [];
+  const fr = lang !== 'en';
+  const T = (a, b) => (fr ? a : b);
+  const pct = v => (v == null || !Number.isFinite(v) ? '—' : Math.round(v) + ' %');
+  const km = v => (v == null ? '—' : v >= 1000 ? (v / 1000).toFixed(1) + ' km' : Math.round(v) + ' m');
+  const m2 = v => (v == null ? '—' : v >= 10000 ? (Math.round(v / 1000) / 10) + ' ha' : Math.round(v) + ' m²');
+  const out = [];
+  const name = siteName ? `« ${siteName} »` : T('le site', 'the site');
+
+  /* 1 · morphologie : bâti + voirie */
+  const b = m.buildings || {}, r = m.roads || {};
+  if (b.count || r.count) {
+    const dense = (b.coveragePct || 0) >= 25;
+    const moyen = (b.coveragePct || 0) >= 10;
+    const qualite = dense ? T('plutôt dense', 'rather dense') : moyen ? T('en transition', 'mixed') : T('plutôt ouvert', 'rather open');
+    out.push(T(
+      `Morphologie : ${name} présente un tissu ${qualite} — ${b.count || 0} empreinte(s) bâtie(s) pour ${pct(b.coveragePct)} de l’emprise (${m2(b.footprintM2)} cumulés) et ${km(r.lengthM)} de voirie (${r.count || 0} tronçons).`,
+      `Morphology: ${name} shows a ${qualite} fabric — ${b.count || 0} building footprint(s) covering ${pct(b.coveragePct)} of the extent (${m2(b.footprintM2)} summed) and ${km(r.lengthM)} of roads (${r.count || 0} segments).`));
+  }
+
+  /* 2 · vert et eau */
+  const g = m.green || {}, w = m.water || {};
+  if ((g.count || 0) > 0 || (w.count || 0) > 0) {
+    const parts = [];
+    if (g.count) parts.push(T(`${g.count} espace(s) vert(s), ${pct(g.coveragePct)} de l’emprise (${m2(g.areaM2)})`, `${g.count} green space(s), ${pct(g.coveragePct)} of the extent (${m2(g.areaM2)})`));
+    if (w.count) parts.push(T(`${w.count} surface(s) en eau (${m2(w.areaM2)})`, `${w.count} water surface(s) (${m2(w.areaM2)})`));
+    out.push(T(`Trame verte et bleue : ${parts.join(' ; ')}.`, `Green and blue network: ${parts.join('; ')}.`));
+  }
+
+  /* 3 · relief */
+  const t = m.terrain || {};
+  if (t.reliefM != null && t.samples > 0) {
+    out.push(T(
+      `Relief : de ${Math.round(t.minM)} m à ${Math.round(t.maxM)} m, soit ${Math.round(t.reliefM)} m de dénivelé sur l’emprise${t.reliefM >= 40 ? ' — un site marqué, à prendre en compte pour l’implantation et les écoulements' : t.reliefM >= 12 ? ' — une pente sensible' : ' — un terrain globalement plat'}.`,
+      `Relief: ${Math.round(t.minM)} m to ${Math.round(t.maxM)} m, i.e. ${Math.round(t.reliefM)} m of elevation range across the extent${t.reliefM >= 40 ? ' — a marked site, to consider for siting and runoff' : t.reliefM >= 12 ? ' — a noticeable slope' : ' — overall flat ground'}.`));
+  }
+
+  /* 4 · climat */
+  const c = m.climate || {};
+  if (c.days > 0 && (c.meanMaxC != null || c.meanMinC != null)) {
+    const bits = [];
+    if (c.meanMaxC != null && c.meanMinC != null) bits.push(T(`étés chauds (max. moyen ${c.meanMaxC.toFixed(1)} °C), hivers ${c.meanMinC.toFixed(1)} °C en moyenne`, `hot summers (mean max ${c.meanMaxC.toFixed(1)} °C), winters averaging ${c.meanMinC.toFixed(1)} °C`));
+    if (c.estimatedAnnualRainMm != null) bits.push(T(`précipitations ~${Math.round(c.estimatedAnnualRainMm)} mm/an`, `rainfall ~${Math.round(c.estimatedAnnualRainMm)} mm/year`));
+    if (c.meanSolarKwhM2Day != null) bits.push(T(`ensoleillement ~${c.meanSolarKwhM2Day.toFixed(1)} kWh/m²/jour`, `sunshine ~${c.meanSolarKwhM2Day.toFixed(1)} kWh/m²/day`));
+    out.push(T(`Climat (NASA POWER, ${c.days} jours) : ${bits.join(', ')}.`, `Climate (NASA POWER, ${c.days} days): ${bits.join(', ')}.`));
+  }
+
+  /* 5 · vent dominant */
+  const sect = Array.isArray(windrose?.sectors) ? windrose.sectors : [];
+  if (sect.length) {
+    const dom = sect.reduce((a, x) => (x.frequencyPct > a.frequencyPct ? x : a), sect[0]);
+    const compass = fr ? ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'] : ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    out.push(T(`Vent dominant à 10 m : secteur ${compass[Math.round(dom.bearing / 22.5) % 16]} (${Math.round(dom.frequencyPct)} % du temps, ${Number(dom.speedMs ?? 0).toFixed(1)} m/s en moyenne).`, `Dominant wind at 10 m: ${compass[Math.round(dom.bearing / 22.5) % 16]} sector (${Math.round(dom.frequencyPct)} % of the time, ${Number(dom.speedMs ?? 0).toFixed(1)} m/s on average).`));
+  }
+
+  /* 6 · lecture satellite OpenLandMap + cohérence */
+  if (olm && olm.ok) {
+    const lv1 = Number((olm.label || '').match(/classe (\d+) \/ 10/)?.[1] || 0);
+    const isBuilt = lv1 === 1, isGreen = lv1 === 3 || lv1 === 4 || lv1 === 5;
+    const builtPct = b.coveragePct || 0;
+    const coherent = (isBuilt && builtPct >= 10) || (isGreen && builtPct < 25) || (!isBuilt && !isGreen);
+    out.push(T(
+      `Lecture satellite (OpenLandMap GHLC 10 m) : au centre, le sol est classé « ${olm.label} ». ${coherent ? 'Cela va dans le sens des données OSM (bâti cartographié ici).' : 'À recouper avec les données OSM : la classe satellite et le bâti vectoriel ne concordent pas forcément au même point (10 m vs objets OSM).'}`,
+      `Satellite read (OpenLandMap GHLC 10 m): at the centre, the ground is classed "${olm.label}". ${coherent ? 'This matches the OSM data (buildings mapped here).' : 'Cross-check with OSM: the satellite class and the vector buildings do not necessarily agree at the same point (10 m vs OSM objects).'}`));
+  }
+
+  /* 7 · avertissement */
+  out.push(T(
+    'Lecture indicative, générée automatiquement à partir de données publiques (OSM, NASA POWER, Terrarium, OpenLandMap) : elle ne remplace ni une visite de terrain, ni les documents officiels (POS/PLU, cadastre, étude géotechnique).',
+    'Indicative reading, generated automatically from public data (OSM, NASA POWER, Terrarium, OpenLandMap): it does not replace a site visit or official documents (zoning plan, cadastre, geotechnical study).'));
+  return out;
+}
+
 /** Scénario de capacité indicatif : aucune règle n'est fournie ou déduite. */
 export function calculateFeasibility({
   siteAreaM2, far, coveragePct, floors, costPerM2 = null

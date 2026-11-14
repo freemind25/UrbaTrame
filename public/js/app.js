@@ -12,7 +12,7 @@ import { ouvrir3D } from './vue3d-ui.mjs';
 import { ensureVue3D } from './lazy-vue3d.mjs';
 import { ouvrirExports } from './exports-ui.mjs';
 import { svgElementToPngBlob } from './png-export.mjs';
-import { summarizeSite, calculateFeasibility } from './site-summary.mjs';
+import { summarizeSite, calculateFeasibility, siteReading } from './site-summary.mjs';
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
 import { analyzeSpatialQuestion } from './local-assistant.mjs';
@@ -1007,6 +1007,20 @@ function renderSiteReport() {
         ? T('Climatologie régionale NASA POWER', 'NASA POWER regional climatology')
         : T('Aucune couche OSM chargée', 'No OSM layer loaded');
   intro.append(introText, badge); host.append(intro);
+
+  /* « Lecture du site » : interprétation auto-rédigée localement (sans IA cloud). */
+  const reading = siteReading({ m, olm: S.olm, windrose: S.windrose, lang: S.lang, siteName: site.name });
+  if (reading.length) {
+    const readSection = reportSection(
+      T('Lecture du site', 'Site reading'),
+      T('Interprétation automatique des données chargées — indicative, à recouper sur le terrain et dans les documents officiels.',
+        'Automatic interpretation of the loaded data — indicative, to be cross-checked on site and in official documents.'));
+    for (const para of reading) {
+      const p = document.createElement('p'); p.className = 'report-note scenario-explanation'; p.textContent = para;
+      readSection.append(p);
+    }
+    host.append(readSection);
+  }
 
   if (S.obm) {
     const obmSection = reportSection(
