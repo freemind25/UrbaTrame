@@ -23,7 +23,7 @@ import {
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
 } from './workspace.mjs';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
-import { olmPoint } from './openlandmap.mjs';
+import { olmPoint, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
@@ -1954,6 +1954,14 @@ function wireUI() {
     analysisMap.setRadius(S.site.R);
   });
   $('#analysisMapZoomIn').addEventListener('click', () => analysisMap?.zoomBy(1));
+  const legendBtn = $('#analysisMapLegendBtn'), legendBox = $('#analysisMapLegend');
+  if (legendBtn && legendBox) {
+    legendBox.innerHTML = '<h3>' + T('Légende · occupation du sol GHLC 10 m', 'Legend · GHLC 10 m land cover') + '</h3><ul>' +
+      Object.keys(OLM_LV1_LABELS).map(k =>
+        '<li><span class="sw" style="background:' + (OLM_LV1_COLORS[k] || '#ccc') + '"></span><span>' + k + '. ' + OLM_LV1_LABELS[k] + '</span></li>'
+      ).join('') + '</ul><p class="src">' + OLM_ATTRIBUTION + '</p>';
+    legendBtn.addEventListener('click', () => { legendBox.hidden = !legendBox.hidden; });
+  }
   $('#analysisMapBasemap')?.addEventListener('change', e => {
     const v = e.target.value;
     analysisMap?.setBasemap(v);

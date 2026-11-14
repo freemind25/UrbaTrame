@@ -144,6 +144,9 @@
             <option value="osm" data-fr="Rues (OSM)" data-en="Streets (OSM)">Rues (OSM)</option>
             <option value="ghlc" data-fr="Occupation du sol 10 m (OpenLandMap)" data-en="Land cover 10 m (OpenLandMap)">Occupation du sol 10 m (OpenLandMap)</option>
           </select>
+          <button id="analysisMapLegendBtn" type="button" aria-label="Légende du fond occupation du sol" title="Légende des couleurs"
+            data-fr="Légende des couleurs" data-en="Color legend">?</button>
+          <div id="analysisMapLegend" class="olm-legend" hidden role="dialog" aria-label="Légende occupation du sol"></div>
         </div>
       </div>
       <div id="analysisMap" class="analysis-map" role="application" aria-label="Carte OpenStreetMap interactive">
@@ -290,7 +293,7 @@
         data-en="Map data © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, optional occupancy layer) · NASA POWER climate · Terrarium elevation (SRTM/USGS, AWS Open Data) · Basemap openfreemap.org">Données cartographiques © OpenStreetMap (ODbL) · OpenBuildingMap (GFZ, ODbL 1.0, occupation facultative) · Climat NASA POWER · Altimétrie Terrarium (SRTM/USGS, AWS Open Data) · Fond de carte openfreemap.org</span>
 </footer>
 
-<script type="module" src="js/app.js?v=20261113olm3"></script>
+<script type="module" src="js/app.js?v=20261113olm4"></script>
   <script type="module" src="/js/chat-widget.mjs?v=20261113cc1"></script>
 </body>
 </html>
