@@ -123,7 +123,7 @@ describe('UrbaTrame · couches vectorielles locales', () => {
   test('applique des limites explicites de taille et de nombre d’entités', () => {
     assert.equal(MAX_IMPORT_BYTES, 15 * 1024 * 1024);
     assert.equal(MAX_FEATURES, 20_000);
-    assert.equal(MAX_COORDINATE_POSITIONS, 100_000);
+    assert.equal(MAX_COORDINATE_POSITIONS, 1_000_000); /* shapefiles nationaux détaillés ; rendu SVG plafonné à part */
     assert.throws(() => parseGeoJSONText(' '.repeat(MAX_IMPORT_BYTES + 1)), error => error.code === 'FILE_TOO_LARGE');
     const oversized = { type: 'FeatureCollection', features: Array.from({ length: MAX_FEATURES + 1 }, () => point(0, 0)) };
     assert.throws(() => parseGeoJSONText(JSON.stringify(oversized)), error => error.code === 'TOO_MANY_FEATURES');

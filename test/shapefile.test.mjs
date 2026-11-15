@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectShapefileCrs, parseShapefileBundle } from '../public/js/atelier/shapefile.mjs';
+import { detectShapefileCrs, parseShapefileBundle, groupShapefileFiles } from '../public/js/atelier/shapefile.mjs';
 
 function pointShp(x = 6.7, y = 36.2) {
   const buffer = new ArrayBuffer(128), view = new DataView(buffer);
@@ -64,5 +64,35 @@ describe('UrbaTrame · lecture Shapefile locale', () => {
     assert.throws(() => parseShapefileBundle({ shp: pointShp(200, 95), sourceCrs: 'EPSG:4326' }), error => error.code === 'COORDINATE_OUT_OF_RANGE');
     assert.throws(() => parseShapefileBundle({ shp: pointShp() }), error => error.code === 'SHP_CRS_REQUIRED');
     assert.throws(() => parseShapefileBundle({ shp: new ArrayBuffer(40), sourceCrs: 'EPSG:4326' }), error => error.code === 'SHP_FILE_SIZE');
+  });
+});
+
+describe('détection CRS et regroupement multi-shapefiles', () => {
+  test('prj MapInfo « Generic Lat/Long » (WGS84, degrés) → EPSG:4326', () => {
+    const prj = 'GEOGCS["MapInfo Generic Lat/Long",DATUM["D_MAPINFO",SPHEROID["World_Geodetic_System_of_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
+    assert.equal(detectShapefileCrs(prj), 'EPSG:4326');
+  });
+
+  test('groupShapefileFiles : un bundle par nom de base, orphelins ignorés', () => {
+    const files = [
+      { name: 'commune/COMMUNE_region.shp', size: 100, buffer: new ArrayBuffer(100) },
+      { name: 'commune/COMMUNE_region.dbf', size: 10, buffer: new ArrayBuffer(10) },
+      { name: 'commune/COMMUNE_region.prj', size: 400, buffer: new ArrayBuffer(400) },
+      { name: 'commune/Communes INCT_region.shp', size: 200, buffer: new ArrayBuffer(200) },
+      { name: 'commune/Communes INCT_region.prj', size: 175, buffer: new ArrayBuffer(175) },
+      { name: 'commune/COMMUNE_region.shp.ed.lock', size: 0 }, /* orphelin ignoré */
+      { name: 'commune/notes.txt', size: 5 }
+    ];
+    const bundles = groupShapefileFiles(files);
+    assert.equal(bundles.length, 2, 'deux shapefiles dans le même zip');
+    const big = bundles.find(b => b.shp.name.includes('INCT'));
+    assert.ok(big && big.prj && !big.dbf, 'groupe avec son .prj, sans .dbf');
+    assert.equal(bundles.find(b => b.stem === 'commune_region').dbf.name, 'commune/COMMUNE_region.dbf');
+    assert.ok(bundles.every(b => !b.stem.includes('/')), 'stem = nom de base sans dossier');
+  });
+
+  test('groupShapefileFiles : aucun .shp → ZIP_NO_SHP', () => {
+    assert.throws(() => groupShapefileFiles([{ name: 'a.dbf', size: 1 }, { name: 'b.prj', size: 1 }]), e => e.code === 'ZIP_NO_SHP');
+    assert.throws(() => groupShapefileFiles([]), e => e.code === 'ZIP_NO_SHP');
   });
 });

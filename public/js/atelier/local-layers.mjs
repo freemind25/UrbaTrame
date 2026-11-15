@@ -6,10 +6,10 @@
 export const MAX_IMPORT_BYTES = 15 * 1024 * 1024;
 export const MAX_FEATURES = 20_000;
 export const MAX_CSV_ROWS = 20_000;
-export const MAX_COORDINATE_POSITIONS = 100_000;
+export const MAX_COORDINATE_POSITIONS = 1_000_000; /* shapefiles nationaux détaillés ; le rendu SVG reste plafonné (aperçu partiel + export complet) */
 export const MAX_LAYERS = 12;
 export const MAX_TOTAL_FEATURES = 60_000;
-export const MAX_TOTAL_POSITIONS = 300_000;
+export const MAX_TOTAL_POSITIONS = 2_000_000;
 
 const GEOMETRY_TYPES = new Set([
   'Point', 'MultiPoint', 'LineString', 'MultiLineString', 'Polygon',
