@@ -293,24 +293,40 @@ function centroid(geom, ref) {
 
 /* --- récupération réseau (navigateur) --------------------------------- */
 
-export async function fetchTypomorphoOSM(routes, lat, lon, radius = 250) {
-  const q = `[out:json][timeout:30];
+export async function fetchTypomorphoOSM(routes, lat, lon, radius = 150) {
+  /* Requête allégée (les miroirs publics refusent les grosses réponses) :
+     d'abord le rayon demandé, puis un repli à 60 % du rayon si tous les
+     miroirs échouent (MAP_SOURCE_UNAVAILABLE / budget). */
+  const q = (r, lim) => `[out:json][timeout:25];
 (
-  way["highway"](around:${radius},${lat},${lon});
-  way["building"](around:${radius},${lat},${lon});
-  way["building:part"](around:${radius},${lat},${lon});
-  way["barrier"](around:${radius},${lat},${lon});
-  way["railway"](around:${radius},${lat},${lon});
-  way["natural"="water"](around:${radius},${lat},${lon});
-  way["waterway"](around:${radius},${lat},${lon});
-  way["leisure"="park"](around:${radius},${lat},${lon});
-  way["landuse"](around:${radius},${lat},${lon});
+  way["highway"](around:${r},${lat},${lon});
+  way["building"](around:${r},${lat},${lon});
+  way["building:part"](around:${r},${lat},${lon});
+  way["barrier"](around:${r},${lat},${lon});
+  way["railway"](around:${r},${lat},${lon});
+  way["natural"="water"](around:${r},${lat},${lon});
+  way["waterway"](around:${r},${lat},${lon});
+  way["leisure"="park"](around:${r},${lat},${lon});
 );
-out geom 1200;`;
-  const data = await routes.overpassDirect(q, 30000);
-  const elements = (data && data.elements) || [];
-  const typo = typomorphoFromOSM(elements, { lat, lon, radius });
-  if (!typo) { const e = new Error('Aucune voie OSM autour du point'); e.code = 'RUE_INTROUVABLE'; throw e; }
-  typo.elements = elements;
-  return typo;
+out geom ${lim};`;
+  const attempts = [[radius, 800], [Math.max(60, Math.round(radius * 0.6)), 400]];
+  let last = null;
+  for (let i = 0; i < attempts.length; i++) {
+    const [r, lim] = attempts[i];
+    try {
+      const data = await routes.overpassDirect(q(r, lim), 40000, i > 0);
+      const elements = (data && data.elements) || [];
+      const typo = typomorphoFromOSM(elements, { lat, lon, radius: r });
+      if (!typo) { const e = new Error('Aucune voie OSM autour du point'); e.code = 'RUE_INTROUVABLE'; throw e; }
+      typo.elements = elements;
+      typo.radiusDemande = radius;
+      typo.radiusEffectif = r;
+      typo.repli = i > 0;
+      return typo;
+    } catch (e) {
+      if (e.code === 'RUE_INTROUVABLE') throw e;
+      last = e; /* miroirs indisponibles → on tente plus petit */
+    }
+  }
+  throw last || new Error('MAP_SOURCE_UNAVAILABLE');
 }

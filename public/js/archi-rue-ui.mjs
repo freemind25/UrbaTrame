@@ -204,7 +204,7 @@ function showTab(key) {
     raw = `<svg xmlns="http://www.w3.org/2000/svg" width="${PLANCHE_W}" height="${PLANCHE_H}" viewBox="0 0 ${PLANCHE_W} ${PLANCHE_H}">` +
       `<rect width="${PLANCHE_W}" height="${PLANCHE_H}" fill="#f7f3ea"/>` +
       `<text x="540" y="900" text-anchor="middle" font-family="sans-serif" font-size="34" fill="#1d1d1f">Analyse typo-morphologique non chargée</text>` +
-      `<text x="540" y="960" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#3f3f42">Bouton « Analyser le tissu (typo-morpho) » du panneau 1 — données OSM, rayon 250 m.</text></svg>`;
+      `<text x="540" y="960" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#3f3f42">Bouton « Analyser le tissu (typo-morpho) » du panneau 1 — données OSM, rayon 150 m.</text></svg>`;
   }
   $('viewport').innerHTML = state.animated && raw ? animateSvg(raw, key) : raw;
   const animBtn = $('animBtn');
@@ -343,13 +343,13 @@ function downloadPng() {
 
 /* Analyse typo-morphologique du tissu autour du point (Overpass, rayon 250 m). */
 async function analyseTypo(lat, lon) {
-  toast('Analyse typo-morphologique en cours (voie, bâtiments, carrefours, barrières — rayon 250 m)…');
+  toast('Analyse typo-morphologique en cours (voie, bâtiments, carrefours, barrières — rayon 150 m)…');
   try {
     state.typomorpho = await fetchTypomorphoOSM(new Routes(''), lat, lon, 250);
     draw();
     showTab('typomorpho');
     const t = state.typomorpho;
-    toast(`Analyse typo-morpho : ${t.nbImmeubles} immeubles, ${t.types.length} type(s), front continu à ${fr(t.continuiteFrontPct, 0)} % — type dominant : ${t.typeDominant ? t.typeDominant.id : '—'}.`);
+    toast(`Analyse typo-morpho${t.repli ? ` (repli à ${t.radiusEffectif} m)` : ''} : ${t.nbImmeubles} immeubles, ${t.types.length} type(s), front continu à ${fr(t.continuiteFrontPct, 0)} % — type dominant : ${t.typeDominant ? t.typeDominant.id : '—'}.`);
   } catch (e) {
     toast('Analyse typo-morpho indisponible (' + (e.code || e.message) + ').', true);
   }
