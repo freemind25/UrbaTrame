@@ -119,21 +119,52 @@ describe('typomorphoFromOSM', () => {
     await assert.rejects(() => fetchTypomorphoOSM(fakeRoutes, 36, 6), /RUE_INTROUVABLE|Aucune voie/);
   });
 
-  test('fetchTypomorphoOSM : repli à 60 % du rayon si les miroirs échouent', async () => {
-    let calls = 0, lastQ = '';
+  test('fetchTypomorphoOSM : 2 requêtes (bâtiments puis voies) au rayon demandé', async () => {
+    const qs = [];
+    const fakeRoutes = { overpassDirect: async (q) => { qs.push(q); return { elements: [road, cross, b1, b2, b3, b4] }; } };
+    const t = await fetchTypomorphoOSM(fakeRoutes, 36.0, 6.005, 150);
+    assert.equal(qs.length, 2, 'bâtiments + voies');
+    assert.ok(qs[0].includes('way["building"]') && qs[0].includes('around:150,'), '1re requête = bâtiments à 150 m');
+    assert.ok(qs[1].includes('way["highway"]') && qs[1].includes('around:150,'), '2e requête = voies à 150 m');
+    assert.equal(t.radiusEffectif, 150);
+    assert.equal(t.repli, false);
+    assert.equal(t.partiel, false);
+    assert.ok(t.typeDominant);
+  });
+
+  test('fetchTypomorphoOSM : attend le cooldown (retryAfter) puis repli à 90 m', async () => {
+    const qs = [];
+    let batCalls = 0;
     const fakeRoutes = {
       overpassDirect: async (q) => {
-        calls += 1; lastQ = q;
-        if (calls === 1) { const e = new Error('MAP_SOURCE_UNAVAILABLE'); e.error = 'MAP_SOURCE_UNAVAILABLE'; throw e; }
+        qs.push(q);
+        if (q.includes('way["building"]')) {
+          batCalls += 1;
+          if (batCalls === 1) { const e = new Error('MAP_SOURCE_UNAVAILABLE'); e.error = 'MAP_SOURCE_UNAVAILABLE'; e.retryAfter = 0; throw e; }
+        } else if (qs.filter(x => x.includes('way["highway"]')).length === 1) {
+          const e = new Error('MAP_SOURCE_UNAVAILABLE'); e.error = 'MAP_SOURCE_UNAVAILABLE'; e.retryAfter = 0; throw e;
+        }
         return { elements: [road, cross, b1, b2, b3, b4] };
       }
     };
     const t = await fetchTypomorphoOSM(fakeRoutes, 36.0, 6.005, 150);
-    assert.equal(calls, 2, 'deux tentatives');
-    assert.equal(t.radiusEffectif, 90, 'repli à 90 m');
+    assert.ok(qs.some(q => q.includes('around:90,')), 'repli à 90 m tenté');
+    assert.equal(t.radiusEffectif, 90);
     assert.equal(t.repli, true);
-    assert.ok(t.typeDominant);
-    assert.ok(lastQ.includes('around:90,'), 'la 2e requête utilise bien 90 m');
+    assert.equal(t.partiel, false);
+  });
+
+  test('fetchTypomorphoOSM : catégorie bâtiments en échec → partiel, pas de crash', async () => {
+    const fakeRoutes = {
+      overpassDirect: async (q) => {
+        if (q.includes('way["building"]')) { const e = new Error('MAP_SOURCE_UNAVAILABLE'); e.retryAfter = 0; throw e; }
+        return { elements: [road, cross] };
+      }
+    };
+    const t = await fetchTypomorphoOSM(fakeRoutes, 36.0, 6.005, 150);
+    assert.equal(t.partiel, true, 'bâtiments indisponibles signalé');
+    assert.equal(t.nbImmeubles, 0);
+    assert.ok(t.voie.classe === 'residential', 'la voie est quand même lue');
   });
 });
 

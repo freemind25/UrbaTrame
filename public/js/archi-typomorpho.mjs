@@ -293,40 +293,52 @@ function centroid(geom, ref) {
 
 /* --- récupération réseau (navigateur) --------------------------------- */
 
-export async function fetchTypomorphoOSM(routes, lat, lon, radius = 150) {
-  /* Requête allégée (les miroirs publics refusent les grosses réponses) :
-     d'abord le rayon demandé, puis un repli à 60 % du rayon si tous les
-     miroirs échouent (MAP_SOURCE_UNAVAILABLE / budget). */
-  const q = (r, lim) => `[out:json][timeout:25];
-(
-  way["highway"](around:${r},${lat},${lon});
-  way["building"](around:${r},${lat},${lon});
-  way["building:part"](around:${r},${lat},${lon});
-  way["barrier"](around:${r},${lat},${lon});
-  way["railway"](around:${r},${lat},${lon});
-  way["natural"="water"](around:${r},${lat},${lon});
-  way["waterway"](around:${r},${lat},${lon});
-  way["leisure"="park"](around:${r},${lat},${lon});
-);
-out geom ${lim};`;
-  const attempts = [[radius, 800], [Math.max(60, Math.round(radius * 0.6)), 400]];
-  let last = null;
-  for (let i = 0; i < attempts.length; i++) {
-    const [r, lim] = attempts[i];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* Une catégorie de données (bâtiments ou voies) : essai au rayon demandé,
+   puis — si les miroirs sont en pause (retryAfter, typiquement 30 s après
+   des 504) — attente du cooldown puis repli à 60 % du rayon. Jamais de
+   réponse partielle silencieuse : ok=false est remonté. */
+async function fetchCategorie(routes, makeQ, radius, onProgress) {
+  const r2 = Math.max(60, Math.round(radius * 0.6));
+  for (const [r, lim, force] of [[radius, 600, false], [r2, 400, true]]) {
     try {
-      const data = await routes.overpassDirect(q(r, lim), 40000, i > 0);
-      const elements = (data && data.elements) || [];
-      const typo = typomorphoFromOSM(elements, { lat, lon, radius: r });
-      if (!typo) { const e = new Error('Aucune voie OSM autour du point'); e.code = 'RUE_INTROUVABLE'; throw e; }
-      typo.elements = elements;
-      typo.radiusDemande = radius;
-      typo.radiusEffectif = r;
-      typo.repli = i > 0;
-      return typo;
+      const d = await routes.overpassDirect(makeQ(r, lim), 25000, force);
+      return { elements: (d && d.elements) || [], r, ok: true };
     } catch (e) {
-      if (e.code === 'RUE_INTROUVABLE') throw e;
-      last = e; /* miroirs indisponibles → on tente plus petit */
+      if (force) return { elements: [], r, ok: false, error: e };
+      const wait = Math.min(35000, Math.max(0, Number(e.retryAfter) || 30) * 1000);
+      if (onProgress) onProgress(`miroirs OSM en pause ${Math.ceil(wait / 1000)} s — repli à ${r2} m ensuite…`);
+      await sleep(wait);
     }
   }
-  throw last || new Error('MAP_SOURCE_UNAVAILABLE');
+  return { elements: [], r: r2, ok: false };
+}
+
+export async function fetchTypomorphoOSM(routes, lat, lon, radius = 150, onProgress = null) {
+  /* Deux requêtes légères plutôt qu'une grosse : chaque catégorie doit
+     répondre en moins de 8 s pour passer le budget par miroir. */
+  const qBat = (r, lim) => `[out:json][timeout:20];
+(way["building"](around:${r},${lat},${lon});way["building:part"](around:${r},${lat},${lon}););
+out geom ${lim};`;
+  const qVoies = (r, lim) => `[out:json][timeout:20];
+(way["highway"](around:${r},${lat},${lon});way["barrier"](around:${r},${lat},${lon});
+ way["railway"](around:${r},${lat},${lon});way["waterway"](around:${r},${lat},${lon});
+ way["natural"="water"](around:${r},${lat},${lon});way["leisure"="park"](around:${r},${lat},${lon}););
+out geom ${Math.min(lim, 250)};`;
+  const bat = await fetchCategorie(routes, qBat, radius, onProgress);
+  const voies = await fetchCategorie(routes, qVoies, radius, onProgress);
+  const elements = [...voies.elements, ...bat.elements];
+  const typo = typomorphoFromOSM(elements, { lat, lon, radius: voies.r });
+  if (!typo) {
+    const e = new Error('Aucune voie OSM autour du point (miroirs indisponibles ou zone sans voie cartographiée)');
+    e.code = 'RUE_INTROUVABLE';
+    throw e;
+  }
+  typo.elements = elements;
+  typo.radiusDemande = radius;
+  typo.radiusEffectif = voies.r;
+  typo.repli = voies.r < radius || bat.r < radius;
+  typo.partiel = !voies.ok || !bat.ok; /* une des deux catégories a échoué */
+  return typo;
 }
