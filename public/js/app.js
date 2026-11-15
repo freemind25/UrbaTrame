@@ -950,7 +950,7 @@ function renderArchiSection(host, site) {
   body.append(reportNote(T('Relevé OSM de la rue en cours…', 'Surveying the street from OSM…')));
   section.append(body);
   host.append(section);
-  fetchTypomorphoOSM(new Routes(''), lat, lon, 250).then(typo => {
+  fetchTypomorphoOSM(new Routes(''), lat, lon, 150).then(typo => {
     const survey = surveyFromOSM(typo.elements, { lat, lon, nom: site.name || '' });
     if (!survey) throw new Error('RUE_INTROUVABLE');
     const m = computeMetrics(survey);
@@ -973,7 +973,7 @@ function renderArchiSection(host, site) {
         supposeCount ? T('hauteurs supposées pour certains immeubles (niveaux OSM × 3,1 m)', 'heights assumed for some buildings (OSM levels × 3.1 m)') : ''),
       reportMetric(T('Type d’édifice dominant', 'Dominant building type'),
         typo.typeDominant ? typo.typeDominant.id + ' — ' + typo.typeDominant.label : '—',
-        T(`${typo.types.length} type(s) repéré(s) dans un rayon de ${typo.radius} m`, `${typo.types.length} type(s) found within ${typo.radius} m`)),
+        T(`${typo.types.length} type(s) repéré(s) dans un rayon de ${typo.radiusEffectif || typo.radius} m${typo.repli ? ' (repli)' : ''}`, `${typo.types.length} type(s) found within ${typo.radiusEffectif || typo.radius} m${typo.repli ? ' (fallback)' : ''}`)),
       reportMetric(T('Continuité du front bâti', 'Built-front continuity'), frN(typo.continuiteFrontPct, 0) + ' %',
         T(`${typo.trous.length} parcelle(s) vacante(s) le long de l’axe · ${typo.carrefours.length} carrefour(s) proche(s)`,
           `${typo.trous.length} vacant plot(s) along the axis · ${typo.carrefours.length} nearby junction(s)`)),

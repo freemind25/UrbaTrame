@@ -118,6 +118,23 @@ describe('typomorphoFromOSM', () => {
     const fakeRoutes = { overpassDirect: async () => ({ elements: [{ type: 'way', tags: { building: 'yes' }, geometry: [{ lat: 36, lon: 6 }] }] }) };
     await assert.rejects(() => fetchTypomorphoOSM(fakeRoutes, 36, 6), /RUE_INTROUVABLE|Aucune voie/);
   });
+
+  test('fetchTypomorphoOSM : repli à 60 % du rayon si les miroirs échouent', async () => {
+    let calls = 0, lastQ = '';
+    const fakeRoutes = {
+      overpassDirect: async (q) => {
+        calls += 1; lastQ = q;
+        if (calls === 1) { const e = new Error('MAP_SOURCE_UNAVAILABLE'); e.error = 'MAP_SOURCE_UNAVAILABLE'; throw e; }
+        return { elements: [road, cross, b1, b2, b3, b4] };
+      }
+    };
+    const t = await fetchTypomorphoOSM(fakeRoutes, 36.0, 6.005, 150);
+    assert.equal(calls, 2, 'deux tentatives');
+    assert.equal(t.radiusEffectif, 90, 'repli à 90 m');
+    assert.equal(t.repli, true);
+    assert.ok(t.typeDominant);
+    assert.ok(lastQ.includes('around:90,'), 'la 2e requête utilise bien 90 m');
+  });
 });
 
 describe('planche SVG typomorpho', () => {
