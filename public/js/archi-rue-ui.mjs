@@ -6,6 +6,8 @@ import {
   normalizeSurvey, computeMetrics, describeHL, daylightSummary, demainScenario,
   surveyWarnings, surveyFromJSON, surveyToJSON, surveyFromParams, DEMO_SURVEY, fr, formatHour
 } from './archi-rue.mjs';
+import { fetchSurveyOSM } from './archi-osm.mjs';
+import { Routes } from './routes.mjs';
 import { renderAll, PLANCHE_W, PLANCHE_H } from './archi-rue-draw.mjs';
 
 const STORAGE_KEY = 'urbatrame.archi.survey.v1';
@@ -318,6 +320,20 @@ function downloadPng() {
 /* Démarrage                                                           */
 /* ------------------------------------------------------------------ */
 
+/* Relevé automatique de la rue depuis OpenStreetMap (Overpass public, navigateur). */
+async function releveOSM(lat, lon, nom) {
+  toast('Relevé OSM en cours (rue principale + bâtiments autour du point)…');
+  try {
+    const s = await fetchSurveyOSM(new Routes(''), lat, lon);
+    if (nom && !s.nom) s.nom = nom;
+    fillForm(s);
+    applyForm({ immediate: true });
+    toast(`Relevé OSM appliqué : ${s.facades.ouest.immeubles.length + s.facades.est.immeubles.length} immeubles, largeur ${fr(s.largeur_facades)} m — à vérifier (hypothèses signalées en haut).`);
+  } catch (e) {
+    toast('Relevé OSM indisponible (' + (e.code || e.message) + ') — relevé manuel ou exemple conservé.', true);
+  }
+}
+
 function boot() {
   let survey = DEMO_SURVEY;
   try {
@@ -326,9 +342,22 @@ function boot() {
   } catch (e) { /* fichier de session illisible : on repart de l’exemple */ }
   /* pont depuis l'app principale : ?nom=&lieu=&lat=&lon= pré-remplit le relevé */
   const fromUrl = surveyFromParams(window.location.search, survey);
-  if (fromUrl) survey = fromUrl;
+  let autoOSM = null;
+  if (fromUrl) {
+    survey = fromUrl;
+    const q = new URLSearchParams(window.location.search);
+    if (q.has('lat') && q.has('lon')) autoOSM = { lat: Number(q.get('lat')), lon: Number(q.get('lon')) };
+  }
 
   fillForm(survey);
+
+  const btnOsm = $('btn-osm');
+  if (btnOsm) btnOsm.addEventListener('click', () => {
+    const lat = Number($('f-lat').value), lon = Number($('f-lon').value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) { toast('Indiquez d’abord latitude et longitude du site.', true); return; }
+    releveOSM(lat, lon, $('f-nom').value);
+  });
+  if (autoOSM) releveOSM(autoOSM.lat, autoOSM.lon, survey.nom);
 
   for (const id of ['f-nom', 'f-lieu', 'f-date', 'f-lat', 'f-lon', 'f-axe', 'f-largeur', 'f-longueur',
     'f-sol', 'f-ouest-niveaux', 'f-ouest-rdc', 'f-ouest-egout', 'f-ouest-faitage',
