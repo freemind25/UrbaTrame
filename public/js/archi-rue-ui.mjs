@@ -345,11 +345,11 @@ function downloadPng() {
 async function analyseTypo(lat, lon) {
   toast('Analyse typo-morphologique en cours (voie, bâtiments, carrefours, barrières — rayon 150 m)…');
   try {
-    state.typomorpho = await fetchTypomorphoOSM(new Routes(''), lat, lon, 250);
+    state.typomorpho = await fetchTypomorphoOSM(new Routes(''), lat, lon, 150, msg => toast(msg));
     draw();
     showTab('typomorpho');
     const t = state.typomorpho;
-    toast(`Analyse typo-morpho${t.repli ? ` (repli à ${t.radiusEffectif} m)` : ''} : ${t.nbImmeubles} immeubles, ${t.types.length} type(s), front continu à ${fr(t.continuiteFrontPct, 0)} % — type dominant : ${t.typeDominant ? t.typeDominant.id : '—'}.`);
+    toast(`Analyse typo-morpho${t.repli ? ` (repli à ${t.radiusEffectif} m)` : ''}${t.partiel ? ' — données partielles' : ''} : ${t.nbImmeubles} immeubles, ${t.types.length} type(s), front continu à ${fr(t.continuiteFrontPct, 0)} % — type dominant : ${t.typeDominant ? t.typeDominant.id : '—'}.`);
   } catch (e) {
     toast('Analyse typo-morpho indisponible (' + (e.code || e.message) + ').', true);
   }
