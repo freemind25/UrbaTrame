@@ -54,6 +54,12 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .privacy-grid p { margin: 0; padding: 11px 13px; border: 1px solid #e1e9e4; border-radius: 11px; background: rgba(255, 255, 255, .74); color: #5a6b66; font-size: .78rem; line-height: 1.55; }
 .privacy-grid strong { color: #234641; }
 
+.notice { margin-top: 14px; border: 1px dashed #c9d6cd; border-radius: 17px; background: #f7faf7; padding: 4px 21px; }
+.notice summary { cursor: pointer; padding: 10px 0; font-weight: 800; color: #275b51; font-size: .92rem; list-style-position: inside; }
+.notice ol { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 7px; }
+.notice li { color: #42514c; font-size: .84rem; line-height: 1.45; }
+.notice li::marker { color: #275b51; font-weight: 800; }
+
 .step-strip { margin-top: 18px; padding: 19px 21px 17px; border: 1px solid var(--line); border-radius: 17px; background: #fff; box-shadow: 0 18px 50px rgba(32, 41, 34, .06); }
 .step-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .step-heading h2 { margin: 4px 0 0; font-size: 1.23rem; letter-spacing: -.025em; }
