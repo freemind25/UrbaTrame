@@ -102,13 +102,23 @@ describe('relais serveur /api/atelier/archi', () => {
     assert.ok(s && s.largeur_facades === 8);
   });
 
-  test('relais 502 MAP_DATA_UNAVAILABLE → erreur propagée avec retryAfter', async () => {
+  test('relais 401 (auth requise) → repli sur overpassDirect', async () => {
+    let direct = 0;
+    const s = await withFetch(async () => ({ ok: false, status: 401, json: async () => ({ error: 'STUDENT_AUTH_REQUIRED' }) }), () =>
+      fetchSurveyOSM({
+        overpassDirect: async () => { direct += 1; return { elements: [road, b1] }; }
+      }, 36.0, 6.005));
+    assert.equal(direct, 1, 'overpassDirect appelé en repli après 401');
+    assert.ok(s && s.largeur_facades === 8);
+  });
+
+  test('relais 502 + miroirs KO → erreur du relais propagée avec retryAfter', async () => {
     await withFetch(async () => ({
       ok: false, status: 502,
       json: async () => ({ ok: false, error: 'MAP_DATA_UNAVAILABLE', retryAfter: 30 })
     }), async () => {
       await assert.rejects(
-        () => fetchSurveyOSM({ overpassDirect: async () => ({ elements: [road, b1] }) }, 36.0, 6.005),
+        () => fetchSurveyOSM({ overpassDirect: async () => { throw new Error('MAP_SOURCE_UNAVAILABLE'); } }, 36.0, 6.005),
         (e) => e.code === 'MAP_DATA_UNAVAILABLE' && e.retryAfter === 30
       );
     });
