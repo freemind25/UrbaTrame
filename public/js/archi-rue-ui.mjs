@@ -7,6 +7,7 @@ import {
   surveyWarnings, surveyFromJSON, surveyToJSON, surveyFromParams, DEMO_SURVEY, fr, formatHour
 } from './archi-rue.mjs';
 import { fetchSurveyOSM } from './archi-osm.mjs';
+import { fetchTypomorphoOSM } from './archi-typomorpho.mjs';
 import { animateSvg } from './archi-smil.mjs';
 import { Routes } from './routes.mjs';
 import { renderAll, PLANCHE_W, PLANCHE_H } from './archi-rue-draw.mjs';
@@ -22,14 +23,16 @@ const TABS = {
   axo: 'Axonométrie',
   ombres: 'Étude d’ombre',
   demain: 'Avant / après',
-  planche: 'Planche A3 — six dessins'
+  planche: 'Planche A3 — six dessins',
+  typomorpho: 'Typo-morphologie'
 };
 
 let state = {
   survey: null,
   drawings: {},
   active: 'usages',
-  animated: false
+  animated: false,
+  typomorpho: null
 };
 
 /* ------------------------------------------------------------------ */
@@ -180,7 +183,7 @@ function applyForm({ immediate = false } = {}) {
 function draw() {
   const survey = state.survey;
   try {
-    state.drawings = renderAll(survey);
+    state.drawings = renderAll(survey, state.typomorpho);
   } catch (error) {
     toast('Le dessin a échoué : ' + error.message, true);
     return;
@@ -196,7 +199,13 @@ function showTab(key) {
     btn.setAttribute('aria-selected', String(btn.dataset.tab === key));
   }
   $('stageTitle').textContent = TABS[key] || key;
-  const raw = state.drawings[key] || '';
+  let raw = state.drawings[key] || '';
+  if (key === 'typomorpho' && !raw) {
+    raw = `<svg xmlns="http://www.w3.org/2000/svg" width="${PLANCHE_W}" height="${PLANCHE_H}" viewBox="0 0 ${PLANCHE_W} ${PLANCHE_H}">` +
+      `<rect width="${PLANCHE_W}" height="${PLANCHE_H}" fill="#f7f3ea"/>` +
+      `<text x="540" y="900" text-anchor="middle" font-family="sans-serif" font-size="34" fill="#1d1d1f">Analyse typo-morphologique non chargée</text>` +
+      `<text x="540" y="960" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#3f3f42">Bouton « Analyser le tissu (typo-morpho) » du panneau 1 — données OSM, rayon 250 m.</text></svg>`;
+  }
   $('viewport').innerHTML = state.animated && raw ? animateSvg(raw, key) : raw;
   const animBtn = $('animBtn');
   if (animBtn) {
@@ -250,7 +259,12 @@ function renderExplain(key) {
       `Le 21 décembre : ${winter.anyHours ? formatHour(winter.anyHours) + ' au meilleur point' : 'aucun soleil direct au sol'}.`,
     demain: `<strong>Lecture.</strong> ${sc.trees} arbre(s) possible(s), ${fr(sc.pleineTerre, 1)} m² de pleine terre, passage libre ramené de ${fr(sc.freeBefore)} m à ${fr(sc.freeAfter)} m. ` +
       `Le scénario ne supprime aucune terrasse et ne descend jamais sous ${fr(sc.minFree)} m de passage.`,
-    planche: `<strong>Lecture.</strong> La planche rassemble les six dessins, sans les redessiner : ils sont insérés tels quels, avec un cartouche et la date du relevé.`
+    planche: `<strong>Lecture.</strong> La planche rassemble les six dessins, sans les redessiner : ils sont insérés tels quels, avec un cartouche et la date du relevé.`,
+    typomorpho: state.typomorpho
+      ? `<strong>Lecture typo-morphologique.</strong> Type dominant : ${state.typomorpho.typeDominant ? state.typomorpho.typeDominant.label : '—'} (${state.typomorpho.typeDominant ? state.typomorpho.typeDominant.effectif : 0} immeuble(s)). ` +
+        `Front bâti continu à ${fr(state.typomorpho.continuiteFrontPct, 0)} % · ${state.typomorpho.lecture.label}. ` +
+        `Croissance ${state.typomorpho.croissance.type} selon l’axe ${fr(state.typomorpho.croissance.axeDeg, 0)}°.`
+      : `<strong>Lecture typo-morphologique.</strong> Onglet alimenté par OpenStreetMap dans un rayon de 250 m : cliquez « Analyser le tissu (typo-morpho) » dans le panneau 1 — voie, front bâti, îlot, types d’édifices, carrefours, barrières et croissance.`
   };
   $('explain').innerHTML = texts[key] || '';
 }
@@ -327,6 +341,20 @@ function downloadPng() {
 /* Démarrage                                                           */
 /* ------------------------------------------------------------------ */
 
+/* Analyse typo-morphologique du tissu autour du point (Overpass, rayon 250 m). */
+async function analyseTypo(lat, lon) {
+  toast('Analyse typo-morphologique en cours (voie, bâtiments, carrefours, barrières — rayon 250 m)…');
+  try {
+    state.typomorpho = await fetchTypomorphoOSM(new Routes(''), lat, lon, 250);
+    draw();
+    showTab('typomorpho');
+    const t = state.typomorpho;
+    toast(`Analyse typo-morpho : ${t.nbImmeubles} immeubles, ${t.types.length} type(s), front continu à ${fr(t.continuiteFrontPct, 0)} % — type dominant : ${t.typeDominant ? t.typeDominant.id : '—'}.`);
+  } catch (e) {
+    toast('Analyse typo-morpho indisponible (' + (e.code || e.message) + ').', true);
+  }
+}
+
 /* Relevé automatique de la rue depuis OpenStreetMap (Overpass public, navigateur). */
 async function releveOSM(lat, lon, nom) {
   toast('Relevé OSM en cours (rue principale + bâtiments autour du point)…');
@@ -362,6 +390,12 @@ function boot() {
   if (animBtn) animBtn.addEventListener('click', () => {
     state.animated = !state.animated;
     showTab(state.active);
+  });
+  const btnTypo = $('btn-typo');
+  if (btnTypo) btnTypo.addEventListener('click', () => {
+    const lat = Number($('f-lat').value), lon = Number($('f-lon').value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) { toast('Indiquez d’abord latitude et longitude du site.', true); return; }
+    analyseTypo(lat, lon);
   });
   const btnOsm = $('btn-osm');
   if (btnOsm) btnOsm.addEventListener('click', () => {

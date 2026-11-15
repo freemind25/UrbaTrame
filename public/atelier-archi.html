@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/tokens.css?v=20261108bot1">
   <link rel="stylesheet" href="/atelier-archi.css?v=20261115notice1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261108bot1"></script>
-  <script type="module" src="/js/archi-rue-ui.mjs?v=20261115smil1"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261115typo1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Aller au contenu principal</a>
@@ -65,13 +65,14 @@
     </section>
 
     <details class="notice">
-      <summary data-fr="📖 Notice d’utilisation — 5 étapes" data-en="📖 How to use — 5 steps">📖 Notice d’utilisation — 5 étapes</summary>
+      <summary data-fr="📖 Notice d’utilisation — 6 étapes" data-en="📖 How to use — 6 steps">📖 Notice d’utilisation — 6 étapes</summary>
       <ol>
         <li data-fr="Depuis l’app UrbaTrame, le lien « 🖊 Analyse architecturale de ce site » ouvre cette page avec le lieu pré-rempli et lance automatiquement le relevé OSM de la rue (largeur, immeubles, hauteurs)." data-en="From the UrbaTrame app, the “🖊 Architectural analysis of this site” link opens this page with the location pre-filled and automatically surveys the street from OSM (width, buildings, heights).">Depuis l’app UrbaTrame, le lien « 🖊 Analyse architecturale de ce site » ouvre cette page avec le lieu pré-rempli et lance automatiquement le relevé OSM de la rue (largeur, immeubles, hauteurs).</li>
         <li data-fr="Sinon, saisissez latitude + longitude puis cliquez « Relever la rue depuis OSM » — ou « Charger l’exemple Montorgueil » pour essayer sans coordonnées." data-en="Otherwise, enter latitude + longitude then click “Survey the street from OSM” — or “Load the Montorgueil example” to try without coordinates.">Sinon, saisissez latitude + longitude puis cliquez « Relever la rue depuis OSM » — ou « Charger l’exemple Montorgueil » pour essayer sans coordonnées.</li>
         <li data-fr="Corrigez le relevé à la main : chaque champ recalcule les six planches à la volée, et le bandeau d’hypothèses signale tout ce qui est supposé (hauteurs, orientation)." data-en="Edit the survey by hand: every field recomputes the six plates on the fly, and the assumptions banner flags everything that is assumed (heights, orientation).">Corrigez le relevé à la main : chaque champ recalcule les six planches à la volée, et le bandeau d’hypothèses signale tout ce qui est supposé (hauteurs, orientation).</li>
         <li data-fr="« ▶ Lire l’animation » anime la planche en boucle (SMIL, sans vidéo) ; « Imprimer la planche » sort la planche A3 en PDF via l’impression du navigateur." data-en="“▶ Play animation” loops the plate (SMIL, no video); “Print the plate” outputs the A3 plate as PDF through the browser’s print dialog.">« ▶ Lire l’animation » anime la planche en boucle (SMIL, sans vidéo) ; « Imprimer la planche » sort la planche A3 en PDF via l’impression du navigateur.</li>
         <li data-fr="« Exporter rue.json » sauvegarde le relevé dans ce navigateur uniquement (local-first, rien n’est envoyé) ; « Importer rue.json » le recharge." data-en="“Export rue.json” saves the survey in this browser only (local-first, nothing is sent); “Import rue.json” reloads it.">« Exporter rue.json » sauvegarde le relevé dans ce navigateur uniquement (local-first, rien n’est envoyé) ; « Importer rue.json » le recharge.</li>
+        <li data-fr="« Analyser le tissu (typo-morpho) » ajoute l’onglet 7 : plan du tissu, types d’édifices (accolés/isolés, hauteurs, RDC), continuité du front bâti, carrefours, barrières et croissance — calculés depuis OSM dans un rayon de 250 m." data-en="“Analyze the urban fabric (typo-morphology)” adds tab 7: fabric plan, building types (attached/detached, heights, ground floor), built-front continuity, junctions, barriers and growth — computed from OSM within a 250 m radius.">« Analyser le tissu (typo-morpho) » ajoute l’onglet 7 : plan du tissu, types d’édifices (accolés/isolés, hauteurs, RDC), continuité du front bâti, carrefours, barrières et croissance — calculés depuis OSM dans un rayon de 250 m.</li>
       </ol>
     </details>
 
@@ -98,6 +99,8 @@
               </label>
               <button id="btn-osm" class="button-secondary" type="button"
                 data-fr="Relever la rue depuis OSM (auto)" data-en="Survey the street from OSM (auto)">Relever la rue depuis OSM (auto)</button>
+              <button id="btn-typo" class="button-secondary" type="button"
+                data-fr="Analyser le tissu (typo-morpho, rayon 250 m)" data-en="Analyze the urban fabric (typo-morphology, 250 m radius)">Analyser le tissu (typo-morpho, rayon 250 m)</button>
             </div>
             <label class="field">Axe de la rue (degrés depuis le nord)
               <input id="f-axe" type="number" step="1" min="0" max="359">
@@ -267,6 +270,7 @@
           <button role="tab" aria-selected="false" data-tab="axo">4 · Axonométrie</button>
           <button role="tab" aria-selected="false" data-tab="ombres">5 · Ombres</button>
           <button role="tab" aria-selected="false" data-tab="demain">6 · Demain</button>
+          <button role="tab" aria-selected="false" data-tab="typomorpho">7 · Typo-morpho</button>
           <button role="tab" aria-selected="false" data-tab="planche">Planche A3</button>
         </div>
 
