@@ -25,6 +25,8 @@ import {
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
 import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_MSZ_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
+import { computeMetrics, describeHL, daylightSummary, surveyWarnings, fr as frN, formatHour } from './archi-rue.mjs';
+import { fetchSurveyOSM } from './archi-osm.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -935,6 +937,55 @@ function renderScenario(host) {
   update();
   host.append(section);
 }
+/* Section « Analyse architecturale » du rapport (aussi imprimée en PDF) :
+   relevé OSM de la rue principale au point du site + indicateurs clés calculés localement. */
+function renderArchiSection(host, site) {
+  const lat = Number(site.lat), lon = Number(site.lon);
+  const section = reportSection(
+    T('Analyse architecturale de la rue', 'Architectural analysis of the street'),
+    T('Relevé automatique OpenStreetMap de la rue principale au point choisi (largeur, immeubles, hauteurs supposées quand absentes d’OSM) — à vérifier sur le terrain.',
+      'Automatic OpenStreetMap survey of the main street at the chosen point (width, buildings, heights assumed when missing from OSM) — to be verified on site.'));
+  const body = document.createElement('div');
+  body.append(reportNote(T('Relevé OSM de la rue en cours…', 'Surveying the street from OSM…')));
+  section.append(body);
+  host.append(section);
+  fetchSurveyOSM(new Routes(''), lat, lon).then(survey => {
+    if (!survey) throw new Error('RUE_INTROUVABLE');
+    const m = computeMetrics(survey);
+    const { summer, winter } = daylightSummary(survey);
+    const warn = surveyWarnings(survey);
+    const supposeCount = warn.filter(w => w.texte.includes('supposée')).length;
+    const fmtDay = d => d.meanHours == null
+      ? T('aucun soleil direct au sol', 'no direct sun on the ground')
+      : `${frN(d.meanHours, 1)} h` + (d.firstLegal != null ? ` (${formatHour(d.firstLegal)} → ${formatHour(d.lastLegal)})` : '');
+    const nb = survey.facades.ouest.immeubles.length + survey.facades.est.immeubles.length;
+    body.replaceChildren();
+    const grid = document.createElement('div'); grid.className = 'report-metrics report-metrics-compact';
+    grid.append(
+      reportMetric(T('Largeur entre façades', 'Width between façades'), `${frN(m.largeur)} m`,
+        T('voie principale OSM la plus proche du point', 'nearest main OSM road to the point')),
+      reportMetric(T('Rapport H/L', 'H/W ratio'), frN(m.hl, 2), describeHL(m)),
+      reportMetric(T('Soleil direct au sol · 21 juin', 'Direct sun on the ground · Jun 21'), fmtDay(summer)),
+      reportMetric(T('Soleil direct au sol · 21 déc.', 'Direct sun on the ground · Dec 21'), fmtDay(winter)),
+      reportMetric(T('Immeubles relevés', 'Buildings surveyed'), reportNumber(nb),
+        supposeCount ? T('hauteurs supposées pour certains immeubles (niveaux OSM × 3,1 m)', 'heights assumed for some buildings (OSM levels × 3.1 m)') : '')
+    );
+    body.append(grid);
+    const p = document.createElement('p'); p.className = 'report-archi-link';
+    const a = document.createElement('a');
+    a.href = '/atelier-archi.html?nom=' + encodeURIComponent(site.name || 'Site') +
+      '&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+    a.textContent = T('🖊 Ouvrir l’analyse architecturale complète (6 planches calculées, animables) →',
+      '🖊 Open the full architectural analysis (6 computed, animatable plates) →');
+    p.append(a); body.append(p);
+  }).catch(() => {
+    body.replaceChildren();
+    body.append(reportNote(T(
+      'Le relevé OSM de la rue n’a pas abouti depuis ce point (voie introuvable ou service indisponible). Utilisez le lien « Analyse architecturale » pour un relevé manuel.',
+      'The OSM street survey failed from this point (road not found or service unavailable). Use the “Architectural analysis” link for a manual survey.'), 'warning'));
+  });
+}
+
 function renderSiteReport() {
   const host = $('#siteReportBody'), subtitle = $('#siteReportSubtitle');
   if (!host || !subtitle) return;
@@ -961,6 +1012,7 @@ function renderSiteReport() {
     host.append(reportNote(T(
       'Aucune analyse n’a encore été générée pour ce lieu. Les indicateurs apparaîtront après le chargement des données OSM.',
       'No analysis has been generated for this place yet. OSM indicators will appear after data are loaded.')));
+    renderArchiSection(host, site);
     renderScenario(host);
     host.append(reportNote(T(
       'Les métriques cartographiques s’appuient sur les objets OSM dont le centre est dans l’emprise. Les surfaces ne sont pas rognées au bord; les chevauchements et cours intérieures non soustraites peuvent influer sur les totaux. L’emprise d’analyse n’est pas une parcelle cadastrale.',
@@ -1021,6 +1073,7 @@ function renderSiteReport() {
   archiA.textContent = T('🖊 Analyse architecturale de ce site — relevé de rue, coupe H/L, élévations, ombres, avant/après →',
     '🖊 Architectural analysis of this site — street survey, H/L section, elevations, shadows, before/after →');
   archiP.append(archiA); host.append(archiP);
+  renderArchiSection(host, site);
 
   /* « Lecture du site » : interprétation auto-rédigée localement (sans IA cloud). */
   const reading = siteReading({ m, olm: S.olm, olmEnv: S.olmEnv, windrose: S.windrose, lang: S.lang, siteName: site.name });
