@@ -9,7 +9,7 @@
 
    Pur et testable : typomorphoFromOSM(elements, opts) ne touche pas au réseau. */
 
-import { surveyFromOSM } from './archi-osm.mjs';
+import { surveyFromOSM, fetchOverpassRelay } from './archi-osm.mjs';
 import { heightOf } from './osm.mjs';
 
 const D2R = Math.PI / 180;
@@ -299,12 +299,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
    puis — si les miroirs sont en pause (retryAfter, typiquement 30 s après
    des 504) — attente du cooldown puis repli à 60 % du rayon. Jamais de
    réponse partielle silencieuse : ok=false est remonté. */
-async function fetchCategorie(routes, makeQ, radius, onProgress) {
+async function fetchCategorie(routes, makeQ, radius, relayKind, relayCtx, onProgress) {
   const r2 = Math.max(60, Math.round(radius * 0.6));
   for (const [r, lim, force] of [[radius, 600, false], [r2, 400, true]]) {
     try {
-      const d = await routes.overpassDirect(makeQ(r, lim), 25000, force);
-      return { elements: (d && d.elements) || [], r, ok: true };
+      let elements = null;
+      try {
+        /* relais serveur d'abord (requête composée côté serveur, IP fiable) */
+        elements = await fetchOverpassRelay(relayKind, relayCtx.lat, relayCtx.lon, r);
+      } catch (e) {
+        /* relais absent (404) ou en erreur (502) : on tente les miroirs publics
+           directement à ce rayon ; si eux aussi échouent, on propage l'erreur
+           (avec retryAfter) pour déclencher le repli à 60 % du rayon. */
+        try {
+          const d = await routes.overpassDirect(makeQ(r, lim), 25000, force);
+          elements = (d && d.elements) || [];
+        } catch (e2) {
+          throw e;
+        }
+      }
+      return { elements, r, ok: true };
     } catch (e) {
       if (force) return { elements: [], r, ok: false, error: e };
       const wait = Math.min(35000, Math.max(0, Number(e.retryAfter) || 30) * 1000);
@@ -326,8 +340,9 @@ out geom ${lim};`;
  way["railway"](around:${r},${lat},${lon});way["waterway"](around:${r},${lat},${lon});
  way["natural"="water"](around:${r},${lat},${lon});way["leisure"="park"](around:${r},${lat},${lon}););
 out geom ${Math.min(lim, 250)};`;
-  const bat = await fetchCategorie(routes, qBat, radius, onProgress);
-  const voies = await fetchCategorie(routes, qVoies, radius, onProgress);
+  const relayCtx = { lat, lon };
+  const bat = await fetchCategorie(routes, qBat, radius, 'tissu-bat', relayCtx, onProgress);
+  const voies = await fetchCategorie(routes, qVoies, radius, 'tissu-voies', relayCtx, onProgress);
   const elements = [...voies.elements, ...bat.elements];
   const typo = typomorphoFromOSM(elements, { lat, lon, radius: voies.r });
   if (!typo) {

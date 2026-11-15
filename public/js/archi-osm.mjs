@@ -144,11 +144,47 @@ export function surveyFromOSM(elements, { lat, lon, nom = '', lieu = '' } = {}) 
 }
 
 /* Requête Overpass + relevé. `routes` = instance Routes (rotation des miroirs publics). */
+/* Relais serveur (même origine) : la requête Overpass est composée côté
+   serveur (/api/atelier/archi) — fiable depuis un navigateur dont le réseau
+   bloque les miroirs publics. Si le relais est absent (404/405, ex. page
+   servie sans serveur), on retombe sur overpassDirect (miroirs publics). */
+export async function fetchOverpassRelay(kind, lat, lon, radius) {
+  let r;
+  try {
+    r = await fetch('/api/atelier/archi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, lat, lon, radius })
+    });
+  } catch (e) {
+    const err = new Error('RELAIS_INDISPONIBLE'); err.code = 'RELAIS_INDISPONIBLE'; throw err;
+  }
+  if (r.status === 404 || r.status === 405) {
+    const err = new Error('RELAIS_ABSENT'); err.code = 'RELAIS_ABSENT'; err.status = r.status; throw err;
+  }
+  const d = await r.json().catch(() => null);
+  if (!r.ok || !d || !d.ok) {
+    const err = new Error((d && d.error) || ('HTTP ' + r.status));
+    err.code = (d && d.error) || 'RELAIS_ERREUR';
+    err.status = r.status;
+    if (d && d.retryAfter) err.retryAfter = d.retryAfter;
+    throw err;
+  }
+  return d.elements || [];
+}
+
 export async function fetchSurveyOSM(routes, lat, lon, radius = 150) {
-  const q = `[out:json][timeout:25];(way["highway"](around:${radius},${lat},${lon});` +
-    `way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););out geom 600;`;
-  const data = await routes.overpassDirect(q, 30_000);
-  const survey = surveyFromOSM((data && data.elements) || [], { lat, lon });
+  let elements;
+  try {
+    elements = await fetchOverpassRelay('rue', lat, lon, radius);
+  } catch (e) {
+    if (e.code !== 'RELAIS_ABSENT') throw e; /* erreur réelle du relais (502…) : on ne la masque pas */
+    const q = `[out:json][timeout:25];(way["highway"](around:${radius},${lat},${lon});` +
+      `way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););out geom 600;`;
+    const data = await routes.overpassDirect(q, 30_000);
+    elements = (data && data.elements) || [];
+  }
+  const survey = surveyFromOSM(elements, { lat, lon });
   if (!survey) { const e = new Error('RUE_INTROUVABLE'); e.code = 'RUE_INTROUVABLE'; throw e; }
   return survey;
 }

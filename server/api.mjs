@@ -440,7 +440,8 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
   const protectedPaths = new Set([
     '/api/util', '/analysis/2d',
     '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
-    '/api/atelier/cadrage-extract', '/api/atelier/gadm', '/api/atelier/terrain'
+    '/api/atelier/cadrage-extract', '/api/atelier/gadm', '/api/atelier/terrain',
+    '/api/atelier/archi'
   ]);
 
   return async function handler(req, res) {
@@ -470,6 +471,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/cadrage-extract') return atelier.extractCadrage(req, res);
     if (url.pathname === '/api/atelier/gadm') return atelier.gadm(req, res);
     if (url.pathname === '/api/atelier/terrain') return atelier.terrain(req, res);
+    if (url.pathname === '/api/atelier/archi') return atelier.archi(req, res);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
     if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft'))
