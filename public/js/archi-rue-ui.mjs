@@ -7,6 +7,7 @@ import {
   surveyWarnings, surveyFromJSON, surveyToJSON, surveyFromParams, DEMO_SURVEY, fr, formatHour
 } from './archi-rue.mjs';
 import { fetchSurveyOSM } from './archi-osm.mjs';
+import { animateSvg } from './archi-smil.mjs';
 import { Routes } from './routes.mjs';
 import { renderAll, PLANCHE_W, PLANCHE_H } from './archi-rue-draw.mjs';
 
@@ -27,7 +28,8 @@ const TABS = {
 let state = {
   survey: null,
   drawings: {},
-  active: 'usages'
+  active: 'usages',
+  animated: false
 };
 
 /* ------------------------------------------------------------------ */
@@ -194,8 +196,13 @@ function showTab(key) {
     btn.setAttribute('aria-selected', String(btn.dataset.tab === key));
   }
   $('stageTitle').textContent = TABS[key] || key;
-  const svg = state.drawings[key] || '';
-  $('viewport').innerHTML = svg;
+  const raw = state.drawings[key] || '';
+  $('viewport').innerHTML = state.animated && raw ? animateSvg(raw, key) : raw;
+  const animBtn = $('animBtn');
+  if (animBtn) {
+    animBtn.textContent = state.animated ? '■ Arrêter l’animation' : '▶ Lire l’animation';
+    animBtn.setAttribute('aria-pressed', String(state.animated));
+  }
   const vp = $('viewport').querySelector('svg');
   if (vp) {
     vp.setAttribute('role', 'img');
@@ -351,6 +358,11 @@ function boot() {
 
   fillForm(survey);
 
+  const animBtn = $('animBtn');
+  if (animBtn) animBtn.addEventListener('click', () => {
+    state.animated = !state.animated;
+    showTab(state.active);
+  });
   const btnOsm = $('btn-osm');
   if (btnOsm) btnOsm.addEventListener('click', () => {
     const lat = Number($('f-lat').value), lon = Number($('f-lon').value);
