@@ -24,6 +24,7 @@ const API_PATHS = new Set([
   '/api/atelier/cadrage-extract',
   '/api/atelier/gadm',
   '/api/atelier/terrain',
+  '/api/atelier/archi',
   '/api/util',
   '/analysis/2d'
 ]);

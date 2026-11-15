@@ -116,3 +116,68 @@ describe('routage et protection OTP du relief', () => {
     assert.ok(config.rewrites.some(rule => rule.source === '/api/(.*)' && rule.destination === '/api?__path=/$1'));
   });
 });
+
+describe('API atelier archi (relevé rue / typo-morpho par relais serveur)', () => {
+  function archiHandlers(overpassImpl) {
+    return createAtelierHandlers({ overpass: overpassImpl, log: () => {}, now: () => 1_700_000_000_000 });
+  }
+  test('kind=rue : requête composée serveur, coordonnées bornées, éléments nettoyés', async () => {
+    let query;
+    const handlers = archiHandlers(async (q) => { query = q; return { elements: [{ type: 'way', tags: { highway: 'residential', 'contact:email': 'x@y.z', phone: '123' }, geometry: [{ lat: 36, lon: 6 }] }] }; });
+    const res = await call(handlers.archi, { body: { kind: 'rue', lat: 48.862, lon: 2.347, radius: 150 } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(res.json.kind, 'rue');
+    assert.ok(query.includes('way["highway"](around:150,48.862,2.347)'), 'requête composée côté serveur');
+    assert.ok(query.includes('out geom 600'));
+    assert.equal(res.json.elements.length, 1);
+    assert.equal(res.json.elements[0].tags['contact:email'], undefined, 'contact:email retiré');
+    assert.equal(res.json.elements[0].tags.phone, undefined, 'phone retiré');
+    assert.equal(res.json.elements[0].tags.highway, 'residential', 'tags utiles conservés');
+  });
+  test('tissu-bat / tissu-voies : deux requêtes distinctes', async () => {
+    const qs = [];
+    const handlers = archiHandlers(async (q) => { qs.push(q); return { elements: [] }; });
+    await call(handlers.archi, { body: { kind: 'tissu-bat', lat: 36, lon: 6, radius: 150 } });
+    await call(handlers.archi, { body: { kind: 'tissu-voies', lat: 36, lon: 6, radius: 150 } });
+    assert.ok(qs[0].includes('way["building"]') && !qs[0].includes('way["highway"]'));
+    assert.ok(qs[1].includes('way["highway"]') && qs[1].includes('leisure'));
+  });
+  test('coordonnées invalides → 400 ; rayon clampé à [60, 200]', async () => {
+    let radius;
+    const handlers = archiHandlers(async (q) => { radius = Number(q.match(/around:(\d+)/)[1]); return { elements: [] }; });
+    const bad = await call(handlers.archi, { body: { kind: 'rue', lat: 95, lon: 6, radius: 150 } });
+    assert.equal(bad.statusCode, 400);
+    assert.equal(bad.json.error, 'INVALID_COORDS');
+    await call(handlers.archi, { body: { kind: 'rue', lat: 36, lon: 6, radius: 9999 } });
+    assert.equal(radius, 200, 'rayon clampé à 200 m');
+    await call(handlers.archi, { body: { kind: 'rue', lat: 36, lon: 6, radius: 10 } });
+    assert.equal(radius, 60, 'rayon clampé à 60 m min');
+  });
+  test('cache 10 min : 2e appel identique servi depuis le cache', async () => {
+    let n = 0;
+    const handlers = archiHandlers(async () => { n += 1; return { elements: [] }; });
+    await call(handlers.archi, { body: { kind: 'rue', lat: 36.1, lon: 6.1, radius: 150 } });
+    const res = await call(handlers.archi, { body: { kind: 'rue', lat: 36.1, lon: 6.1, radius: 150 } });
+    assert.equal(n, 1, 'une seule requête Overpass');
+    assert.equal(res.json.cached, true);
+  });
+  test('échec Overpass → 502 MAP_DATA_UNAVAILABLE avec retryAfter', async () => {
+    const handlers = archiHandlers(async () => { const e = new Error('busy'); e.retryAfter = 30; throw e; });
+    const res = await call(handlers.archi, { body: { kind: 'rue', lat: 36.2, lon: 6.2, radius: 150 } });
+    assert.equal(res.statusCode, 502);
+    assert.equal(res.json.error, 'MAP_DATA_UNAVAILABLE');
+    assert.equal(res.json.retryAfter, 30);
+    assert.equal(res.headers['Retry-After'], '30');
+  });
+  test('kind inconnu → ramené à "rue" ; GET → 405', async () => {
+    let query = '';
+    const handlers = archiHandlers(async (q) => { query = q; return { elements: [] }; });
+    const res = await call(handlers.archi, { body: { kind: 'pirate', lat: 36, lon: 6, radius: 150 } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json.kind, 'rue');
+    assert.ok(query.includes('way["highway"]'));
+    const get = await call(handlers.archi, { method: 'GET', body: {} });
+    assert.equal(get.statusCode, 405);
+  });
+});

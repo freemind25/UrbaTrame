@@ -197,8 +197,73 @@ export function createAtelierHandlers(deps = {}) {
     }
   }
 
+  /* ── archi : relevé de rue + analyse typo-morphologique (atelier archi) ──
+     Comme extract : la requête Overpass est COMPOSÉE ici, jamais transmise
+     par le client (seuls lat/lon/rayon/kind passent). Le navigateur appelle
+     ce relais (IP serveur + miroirs à clés) plutôt que les miroirs publics. */
+  const ARCHI_KINDS = ['rue', 'tissu-bat', 'tissu-voies'];
+  const archiCache = new Map();
+
+  function archiQuery(kind, lat, lon, radius) {
+    if (kind === 'rue') {
+      return `[out:json][timeout:25];
+(way["highway"](around:${radius},${lat},${lon});way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););
+out geom 600;`;
+    }
+    if (kind === 'tissu-bat') {
+      return `[out:json][timeout:25];
+(way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););
+out geom 600;`;
+    }
+    return `[out:json][timeout:25];
+(way["highway"](around:${radius},${lat},${lon});way["barrier"](around:${radius},${lat},${lon});
+ way["railway"](around:${radius},${lat},${lon});way["waterway"](around:${radius},${lat},${lon});
+ way["natural"="water"](around:${radius},${lat},${lon});way["leisure"="park"](around:${radius},${lat},${lon}););
+out geom 250;`;
+  }
+
+  async function archi(req, res) {
+    if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST_ONLY' });
+    const body = await readJSON(req, res);
+    if (body === null) return;
+    const lat = Number(body.lat), lon = Number(body.lon);
+    let radius = Number(body.radius);
+    const kind = ARCHI_KINDS.includes(body.kind) ? body.kind : 'rue';
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180)
+      return send(res, 400, { ok: false, error: 'INVALID_COORDS' });
+    if (!Number.isFinite(radius)) radius = 150;
+    radius = Math.min(200, Math.max(60, Math.round(radius)));
+    const key = `${kind}:${lat.toFixed(5)},${lon.toFixed(5)}:${radius}`;
+    const hit = archiCache.get(key);
+    const now = clock();
+    if (hit && now - hit.t < 10 * 60 * 1000) {
+      return send(res, 200, { ...hit.payload, cached: true });
+    }
+    try {
+      const query = archiQuery(kind, lat, lon, radius);
+      const raw = await overpassSource(query);
+      const elements = withoutContactTags(raw.elements || []);
+      const payload = {
+        ok: true, kind, lat, lon, radius, elements,
+        source: { osm: 'OpenStreetMap contributors (ODbL)' },
+        extractedAt: new Date(now).toISOString()
+      };
+      archiCache.set(key, { t: now, payload });
+      if (archiCache.size > 60) archiCache.delete(archiCache.keys().next().value);
+      logger('atelier archi', kind, elements.length + ' éléments', radius + ' m');
+      return send(res, 200, payload);
+    } catch (error) {
+      const retryAfter = Math.max(0, Math.ceil(Number(error?.retryAfter) || 0));
+      logger('atelier archi failed', kind, error?.message || 'OVERPASS');
+      return send(res, 502, {
+        ok: false, error: 'MAP_DATA_UNAVAILABLE', detail: String(error?.message || ''),
+        ...(retryAfter ? { retryAfter } : {})
+      }, 'application/json; charset=utf-8', retryAfter ? { 'Retry-After': String(retryAfter) } : {});
+    }
+  }
+
   const extractCadrage = (req, res) => extract(req, res, { cadrage: true });
-  return { health, geocode, extract, extractCadrage, gadm, terrain };
+  return { health, geocode, extract, extractCadrage, gadm, terrain, archi };
 }
 
 const handlers = createAtelierHandlers();
@@ -208,3 +273,4 @@ export const handleAtelierExtract = handlers.extract;
 export const handleAtelierCadrageExtract = handlers.extractCadrage;
 export const handleAtelierGadm = handlers.gadm;
 export const handleAtelierTerrain = handlers.terrain;
+export const handleAtelierArchi = handlers.archi;

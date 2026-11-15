@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { surveyFromOSM } from '../public/js/archi-osm.mjs';
+import { surveyFromOSM, fetchSurveyOSM } from '../public/js/archi-osm.mjs';
 
 /* Rue est-ouest à lat 36.0 (lon 6.000 → 6.010), largeur taguée 8 m. */
 const road = {
@@ -62,5 +62,55 @@ describe('surveyFromOSM', () => {
     const tertiary = { type: 'way', tags: { highway: 'tertiary' }, geometry: road.geometry };
     const s = surveyFromOSM([tertiary], { lat: 36.0, lon: 6.005 });
     assert.equal(s.largeur_facades, 7);
+  });
+});
+
+describe('relais serveur /api/atelier/archi', () => {
+  const road = {
+    type: 'way', tags: { highway: 'residential', width: '8' },
+    geometry: [{ lat: 36.0, lon: 6.000 }, { lat: 36.0, lon: 6.010 }]
+  };
+  const b1 = {
+    type: 'way', tags: { building: 'yes', height: '12' },
+    geometry: [{ lat: 36.0001, lon: 6.002 }, { lat: 36.0001, lon: 6.004 }, { lat: 36.00005, lon: 6.004 }, { lat: 36.00005, lon: 6.002 }]
+  };
+  async function withFetch(mock, fn) {
+    const old = globalThis.fetch;
+    globalThis.fetch = mock;
+    try { return await fn(); } finally { globalThis.fetch = old; }
+  }
+
+  test('fetchSurveyOSM passe d’abord par le relais serveur', async () => {
+    const calls = [];
+    const s = await withFetch(async (url, opts) => {
+      calls.push({ url, body: JSON.parse(opts.body) });
+      return { ok: true, status: 200, json: async () => ({ ok: true, elements: [road, b1] }) };
+    }, () => fetchSurveyOSM({ overpassDirect: async () => { throw new Error('overpassDirect ne doit pas être appelé'); } }, 36.0, 6.005));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/api/atelier/archi');
+    assert.deepEqual(calls[0].body, { kind: 'rue', lat: 36.0, lon: 6.005, radius: 150 });
+    assert.ok(s && s.largeur_facades === 8, 'relevé construit depuis les éléments du relais');
+  });
+
+  test('relais 404 (page sans serveur) → repli sur overpassDirect', async () => {
+    let direct = 0;
+    const s = await withFetch(async () => ({ ok: false, status: 404, json: async () => ({ error: 'NOT_FOUND' }) }), () =>
+      fetchSurveyOSM({
+        overpassDirect: async (q) => { direct += 1; assert.ok(q.includes('around:150,36,6.005')); return { elements: [road, b1] }; }
+      }, 36.0, 6.005));
+    assert.equal(direct, 1, 'overpassDirect appelé une fois en repli');
+    assert.ok(s && s.largeur_facades === 8);
+  });
+
+  test('relais 502 MAP_DATA_UNAVAILABLE → erreur propagée avec retryAfter', async () => {
+    await withFetch(async () => ({
+      ok: false, status: 502,
+      json: async () => ({ ok: false, error: 'MAP_DATA_UNAVAILABLE', retryAfter: 30 })
+    }), async () => {
+      await assert.rejects(
+        () => fetchSurveyOSM({ overpassDirect: async () => ({ elements: [road, b1] }) }, 36.0, 6.005),
+        (e) => e.code === 'MAP_DATA_UNAVAILABLE' && e.retryAfter === 30
+      );
+    });
   });
 });
