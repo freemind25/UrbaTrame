@@ -1013,6 +1013,15 @@ function renderSiteReport() {
         : T('Aucune couche OSM chargée', 'No OSM layer loaded');
   intro.append(introText, badge); host.append(intro);
 
+  /* pont vers l'espace « Analyse architecturale » (relevé de rue calculé) */
+  const archiP = document.createElement('p'); archiP.className = 'report-archi-link';
+  const archiA = document.createElement('a');
+  archiA.href = '/atelier-archi.html?nom=' + encodeURIComponent(site.name || 'Site') +
+    '&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+  archiA.textContent = T('🖊 Analyse architecturale de ce site — relevé de rue, coupe H/L, élévations, ombres, avant/après →',
+    '🖊 Architectural analysis of this site — street survey, H/L section, elevations, shadows, before/after →');
+  archiP.append(archiA); host.append(archiP);
+
   /* « Lecture du site » : interprétation auto-rédigée localement (sans IA cloud). */
   const reading = siteReading({ m, olm: S.olm, olmEnv: S.olmEnv, windrose: S.windrose, lang: S.lang, siteName: site.name });
   if (reading.length) {

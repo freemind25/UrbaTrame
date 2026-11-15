@@ -8,7 +8,7 @@ import {
   ARCHI_VERSION, DEMO_SURVEY, normalizeSurvey, surveyWarnings, computeMetrics,
   describeHL, dayOfYear, solarDeclination, sunPosition, solarToLegal, legalOffsetHours,
   formatHour, litWidth, daylightStudy, daylightSummary, demainScenario,
-  surveyFromJSON, surveyToJSON
+  surveyFromJSON, surveyToJSON, surveyFromParams
 } from '../public/js/archi-rue.mjs';
 import { renderAll, svgPlanche, PLANCHE_W, PLANCHE_H } from '../public/js/archi-rue-draw.mjs';
 
@@ -304,5 +304,28 @@ describe('Analyse architecturale · page et navigation', () => {
 
   test('la version du module est datée pour le cache navigateur', () => {
     assert.match(ARCHI_VERSION, /^\d{8}archi\d+$/);
+  });
+});
+
+describe('surveyFromParams (pont app → atelier archi)', () => {
+  test('renvoie null sans paramètre', () => {
+    assert.equal(surveyFromParams(''), null);
+    assert.equal(surveyFromParams('?foo=1'), null);
+  });
+  test('pré-remplit nom, lieu, lat, lon depuis l’URL', () => {
+    const s = surveyFromParams('?nom=El%20Khroub&lieu=El%20Khroub%2C%20DZ&lat=36.2642&lon=6.6969');
+    assert.ok(s);
+    assert.equal(s.nom, 'El Khroub');
+    assert.equal(s.lieu, 'El Khroub, DZ');
+    assert.equal(s.latitude, 36.2642);
+    assert.equal(s.longitude, 6.6969);
+    /* le reste vient de la base (démo) */
+    assert.ok(s.largeur_facades > 0);
+  });
+  test('borne les coordonnées invalides', () => {
+    const s = surveyFromParams('?lat=999&lon=abc');
+    assert.ok(s);
+    assert.equal(s.latitude, 90);
+    assert.equal(s.longitude, 6.61); /* lon non numérique ignoré → valeur de base */
   });
 });

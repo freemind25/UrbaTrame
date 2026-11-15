@@ -541,6 +541,20 @@ export function surveyFromJSON(text) {
   return normalizeSurvey(data);
 }
 
+/* Pré-remplissage depuis l'URL (pont depuis l'app principale) :
+   /atelier-archi.html?nom=…&lieu=…&lat=…&lon=… Renvoie null si aucun paramètre. */
+export function surveyFromParams(search, base = DEMO_SURVEY) {
+  const q = new URLSearchParams(String(search || ''));
+  if (!q.has('nom') && !q.has('lieu') && !q.has('lat') && !q.has('lon')) return null;
+  const patch = {};
+  if (q.get('nom')) patch.nom = q.get('nom');
+  if (q.get('lieu')) patch.lieu = q.get('lieu');
+  const lat = Number(q.get('lat')), lon = Number(q.get('lon'));
+  if (Number.isFinite(lat) && q.has('lat')) patch.latitude = lat;
+  if (Number.isFinite(lon) && q.has('lon')) patch.longitude = lon;
+  return normalizeSurvey({ ...surveyToJSON(base), ...patch });
+}
+
 export function surveyToJSON(survey) {
   return JSON.stringify(normalizeSurvey(survey), null, 2);
 }

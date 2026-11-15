@@ -4,7 +4,7 @@
 
 import {
   normalizeSurvey, computeMetrics, describeHL, daylightSummary, demainScenario,
-  surveyWarnings, surveyFromJSON, surveyToJSON, DEMO_SURVEY, fr, formatHour
+  surveyWarnings, surveyFromJSON, surveyToJSON, surveyFromParams, DEMO_SURVEY, fr, formatHour
 } from './archi-rue.mjs';
 import { renderAll, PLANCHE_W, PLANCHE_H } from './archi-rue-draw.mjs';
 
@@ -324,6 +324,9 @@ function boot() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) survey = surveyFromJSON(saved);
   } catch (e) { /* fichier de session illisible : on repart de l’exemple */ }
+  /* pont depuis l'app principale : ?nom=&lieu=&lat=&lon= pré-remplit le relevé */
+  const fromUrl = surveyFromParams(window.location.search, survey);
+  if (fromUrl) survey = fromUrl;
 
   fillForm(survey);
 
