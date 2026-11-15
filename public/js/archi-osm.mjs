@@ -159,7 +159,9 @@ export async function fetchOverpassRelay(kind, lat, lon, radius) {
   } catch (e) {
     const err = new Error('RELAIS_INDISPONIBLE'); err.code = 'RELAIS_INDISPONIBLE'; throw err;
   }
-  if (r.status === 404 || r.status === 405) {
+  if (r.status === 401 || r.status === 403 || r.status === 404 || r.status === 405) {
+    /* relais inaccessible pour ce navigateur (auth requise, page statique…) :
+       on signale RELAIS_ABSENT pour que l'appelant retombe sur les miroirs publics */
     const err = new Error('RELAIS_ABSENT'); err.code = 'RELAIS_ABSENT'; err.status = r.status; throw err;
   }
   const d = await r.json().catch(() => null);
@@ -174,15 +176,20 @@ export async function fetchOverpassRelay(kind, lat, lon, radius) {
 }
 
 export async function fetchSurveyOSM(routes, lat, lon, radius = 150) {
-  let elements;
+  let elements = null;
   try {
     elements = await fetchOverpassRelay('rue', lat, lon, radius);
   } catch (e) {
-    if (e.code !== 'RELAIS_ABSENT') throw e; /* erreur réelle du relais (502…) : on ne la masque pas */
-    const q = `[out:json][timeout:25];(way["highway"](around:${radius},${lat},${lon});` +
-      `way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););out geom 600;`;
-    const data = await routes.overpassDirect(q, 30_000);
-    elements = (data && data.elements) || [];
+    /* relais absent ou en erreur : on tente les miroirs publics directement ;
+       si eux aussi échouent, on propage l'erreur du relais (plus pertinente) */
+    try {
+      const q = `[out:json][timeout:25];(way["highway"](around:${radius},${lat},${lon});` +
+        `way["building"](around:${radius},${lat},${lon});way["building:part"](around:${radius},${lat},${lon}););out geom 600;`;
+      const data = await routes.overpassDirect(q, 30_000);
+      elements = (data && data.elements) || [];
+    } catch (e2) {
+      throw e;
+    }
   }
   const survey = surveyFromOSM(elements, { lat, lon });
   if (!survey) { const e = new Error('RUE_INTROUVABLE'); e.code = 'RUE_INTROUVABLE'; throw e; }
