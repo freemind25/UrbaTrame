@@ -168,6 +168,10 @@ export function detectShapefileCrs(prjText) {
     if (match) return normalizeCrs(`EPSG:${match[1]}`);
   } catch { /* Continue with common WKT names below. */ }
   if (/WGS[_\s-]*1984|WGS\s*84/i.test(text) && !/PROJECTION\s*\[/i.test(text)) return 'EPSG:4326';
+  /* GEOGCS « générique » type MapInfo (ex. GEOGCS["MapInfo Generic Lat/Long", … SPHEROID["World_Geodetic_System_of_1984",…], UNIT["Degree",…]) */
+  if (/^GEOGCS/i.test(text) && !/PROJECTION\s*\[/i.test(text) &&
+      /WORLD_GEODETIC_SYSTEM[_\s-]*OF[_\s-]*1984|WGS[_\s-]*84|GRS[_\s-]*80|World Geodetic System 1984/i.test(text) &&
+      /UNIT\s*\[\s*"Degree"/i.test(text)) return 'EPSG:4326';
   if (/WGS[_\s-]*1984|WGS\s*84/i.test(text) && /TRANSVERSE_MERCATOR/i.test(text)) {
     const central = text.match(/Central_Meridian"?\s*,\s*([-+\d.]+)/i);
     const falseNorthing = text.match(/False_Northing"?\s*,\s*([-+\d.]+)/i);
@@ -179,6 +183,34 @@ export function detectShapefileCrs(prjText) {
     }
   }
   return '';
+}
+
+/* Regroupe les fichiers extraits d'un zip (ou d'une sélection multiple) par nom
+   de base : chaque groupe avec exactement un .shp forme un shapefile importable
+   (avec SON .dbf/.prj/.cpg). Les groupes sans .shp (fichiers orphelins, .lock…)
+   sont ignorés. */
+export function groupShapefileFiles(files) {
+  const groups = new Map();
+  for (const file of files || []) {
+    const base = String(file.name || '').split('/').pop(); /* basename : un zip peut contenir des sous-dossiers */
+    const stem = base.replace(/\.[^.]+$/, '').toLowerCase();
+    if (!groups.has(stem)) groups.set(stem, []);
+    groups.get(stem).push(file);
+  }
+  const bundles = [];
+  for (const group of groups.values()) {
+    const shpFiles = group.filter(f => String(f.name).toLowerCase().endsWith('.shp'));
+    if (shpFiles.length !== 1) continue;
+    bundles.push({
+      stem: String(shpFiles[0].name).split('/').pop().replace(/\.[^.]+$/, '').toLowerCase(),
+      shp: shpFiles[0],
+      dbf: group.find(f => String(f.name).toLowerCase().endsWith('.dbf')) || null,
+      prj: group.find(f => String(f.name).toLowerCase().endsWith('.prj')) || null,
+      cpg: group.find(f => String(f.name).toLowerCase().endsWith('.cpg')) || null
+    });
+  }
+  if (!bundles.length) fail('ZIP_NO_SHP');
+  return bundles;
 }
 
 export function parseShapefileBundle({ shp, dbf = null, sourceCrs, fileName = 'couche.shp', codePage = 'utf-8' } = {}) {

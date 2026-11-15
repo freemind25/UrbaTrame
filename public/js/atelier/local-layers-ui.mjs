@@ -7,7 +7,7 @@ import {
 import { summarizeFeatures } from './local-analysis.mjs';
 import { buildDashboardSummary } from './dashboard.mjs';
 import { layersTopFirst, moveLayerStack } from './layer-stack.mjs';
-import { parseShapefileBundle, detectShapefileCrs } from './shapefile.mjs';
+import { parseShapefileBundle, detectShapefileCrs, groupShapefileFiles } from './shapefile.mjs';
 import { extractShapefileZip, extractKmlFromZip } from './zip-reader.mjs';
 import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './project.mjs';
 import { runLocalRecipe } from './automation.mjs';
@@ -29,7 +29,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
-const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeFiles: null, pendingMesh: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
+const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeGroups: null, pendingMesh: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
 const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
 const MAX_SAVED_SURVEY_TEMPLATES = 20;
 function readSavedSurveyTemplates() {
@@ -276,7 +276,7 @@ function clearPendingImportUi() {
   $('#sourceReference').value = '';
   csvMapping.hidden = true;
   shapeMapping.hidden = true;
-  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null;
+  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeGroups = null;
   fileInput.value = ''; shapeFilesInput.value = '';
 }
 
@@ -2187,7 +2187,6 @@ function addCsvOptions(table, fileName) {
   status(`CSV prêt · ${table.rows.length.toLocaleString('fr-FR')} ligne(s). Confirmez X/Y et le CRS.`, 'success');
 }
 
-function sameStem(name) { return String(name).replace(/\.[^.]+$/, '').toLowerCase(); }
 async function handleShapefileSelection(fileList) {
   const selected = [...(fileList || [])];
   if (!selected.length) return;
@@ -2199,52 +2198,68 @@ async function handleShapefileSelection(fileList) {
     } else {
       files = selected.map(file => ({ name: file.name, file, size: file.size }));
     }
-    const shpFiles = files.filter(file => file.name.toLowerCase().endsWith('.shp'));
-    if (shpFiles.length !== 1) throw new Error('Sélectionnez exactement un fichier .shp avec ses fichiers associés.');
-    const shp = shpFiles[0], stem = sameStem(shp.name);
-    if (files.some(file => sameStem(file.name) !== stem)) throw new Error('Les fichiers .shp/.dbf/.prj/.cpg doivent partager le même nom de base.');
-    if (files.some(file => file.size > MAX_IMPORT_BYTES) || files.reduce((sum, file) => sum + file.size, 0) > 30 * 1024 * 1024)
+    /* Un zip peut contenir PLUSIEURS shapefiles (un par nom de base) :
+       on regroupe par stem et on importera chaque groupe comme une couche. */
+    const bundles = groupShapefileFiles(files);
+    if (bundles.some(b => b.shp.size > MAX_IMPORT_BYTES) || files.reduce((sum, file) => sum + file.size, 0) > 30 * 1024 * 1024)
       throw new Error('Chaque fichier doit faire au plus 15 Mo; le lot SHP/DBF/PRJ au plus 30 Mo.');
-    const prj = files.find(file => file.name.toLowerCase().endsWith('.prj')) || null;
-    const dbf = files.find(file => file.name.toLowerCase().endsWith('.dbf')) || null;
-    const cpg = files.find(file => file.name.toLowerCase().endsWith('.cpg')) || null;
-    const prjText = prj ? (prj.buffer ? new TextDecoder().decode(prj.buffer) : await prj.file.text()) : '';
-    const detected = detectShapefileCrs(prjText);
+    const groups = [];
+    for (const b of bundles) {
+      const prjText = b.prj ? (b.prj.buffer ? new TextDecoder().decode(b.prj.buffer) : await b.prj.file.text()) : '';
+      groups.push({
+        shpFileName: b.shp.name, shpBuffer: b.shp.buffer || null, shpFile: b.shp.file || null,
+        dbfBuffer: b.dbf?.buffer || null, dbfFile: b.dbf?.file || null,
+        cpgText: b.cpg?.buffer ? new TextDecoder().decode(b.cpg.buffer) : b.cpg?.file ? await b.cpg.file.text() : 'utf-8',
+        detected: detectShapefileCrs(prjText)
+      });
+    }
     state.pendingCsv = null; state.pendingCsvFileName = ''; csvMapping.hidden = true;
-    state.pendingShapeFiles = {
-      shpFileName: shp.name, shpBuffer: shp.buffer || null, shpFile: shp.file || null,
-      dbfBuffer: dbf?.buffer || null, dbfFile: dbf?.file || null,
-      cpgText: cpg?.buffer ? new TextDecoder().decode(cpg.buffer) : cpg?.file ? await cpg.file.text() : 'utf-8'
-    };
-    $('#shapeFilesSummary').textContent = `${files.map(file => file.name).join(' · ')}${detected ? ` · CRS détecté : ${detected} (à vérifier)` : ' · CRS non détecté : saisissez le code exact'}`;
-    $('#shapeCrs').value = detected;
+    state.pendingShapeGroups = groups;
+    $('#shapeFilesSummary').textContent = groups.map(g =>
+      `${g.shpFileName}${g.detected ? ` · CRS détecté : ${g.detected}` : ' · CRS non détecté : champ ci-dessous'}`).join('  |  ');
+    $('#shapeCrs').value = groups.find(g => g.detected)?.detected || '';
     shapeMapping.hidden = false;
     shapeFilesInput.value = '';
-    status('Fichiers Shapefile prêts. Confirmez le CRS source avant l’import.', 'success');
+    status(`${groups.length} shapefile(s) prêt(s) dans l’archive. Confirmez le CRS source avant l’import (champ = repli pour ceux sans .prj reconnu).`, 'success');
   } catch (error) {
-    state.pendingShapeFiles = null; shapeMapping.hidden = true; shapeFilesInput.value = '';
+    state.pendingShapeGroups = null; shapeMapping.hidden = true; shapeFilesInput.value = '';
     status(error?.code ? errorMessage(error) : error.message || 'Archive Shapefile invalide.', 'error');
   }
 }
 shapeFilesInput.addEventListener('change', () => handleShapefileSelection(shapeFilesInput.files));
 $('#addShapefile').addEventListener('click', async () => {
-  const pending = state.pendingShapeFiles;
-  if (!pending) return;
+  const groups = state.pendingShapeGroups;
+  if (!groups || !groups.length) return;
   const button = $('#addShapefile'); button.disabled = true;
   try {
-    const shp = pending.shpBuffer || await pending.shpFile.arrayBuffer();
-    const dbf = pending.dbfBuffer || (pending.dbfFile ? await pending.dbfFile.arrayBuffer() : null);
-    const codePage = pending.cpgText || 'utf-8';
-    const geojson = parseShapefileBundle({ shp, dbf, sourceCrs: $('#shapeCrs').value.trim(), fileName: pending.shpFileName, codePage });
-    addLayer(geojson, pending.shpFileName, $('#sourceReference').value);
-  } catch (error) { status(errorMessage(error), 'error'); }
-  finally { button.disabled = false; }
+    const manualCrs = $('#shapeCrs').value.trim();
+    const imports = [];
+    const errors = [];
+    for (const g of groups) {
+      try {
+        const sourceCrs = g.detected || manualCrs;
+        if (!sourceCrs) throw Object.assign(new Error('SHP_CRS_REQUIRED'), { code: 'SHP_CRS_REQUIRED' });
+        const shp = g.shpBuffer || await g.shpFile.arrayBuffer();
+        const dbf = g.dbfBuffer || (g.dbfFile ? await g.dbfFile.arrayBuffer() : null);
+        const geojson = parseShapefileBundle({ shp, dbf, sourceCrs, fileName: g.shpFileName, codePage: g.cpgText || 'utf-8' });
+        imports.push({ geojson, fileName: g.shpFileName });
+      } catch (error) {
+        errors.push(`${g.shpFileName} : ${errorMessage(error)}`);
+      }
+    }
+    if (imports.length) {
+      addLayers(imports, $('#sourceReference').value);
+      status(`${imports.length} couche(s) importée(s) depuis l’archive${errors.length ? ` · ${errors.length} échec(s)` : ''}.`, 'success');
+    }
+    if (errors.length) status('Non importé : ' + errors.join(' | '), 'error');
+    if (imports.length) { state.pendingShapeGroups = null; shapeMapping.hidden = true; }
+  } finally { button.disabled = false; }
 });
 
 async function handleFile(file) {
   if (!file) return;
   const request = ++state.importRequest;
-  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null; state.pendingMesh = null;
+  state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeGroups = null; state.pendingMesh = null;
   csvMapping.hidden = true; shapeMapping.hidden = true; meshMapping.hidden = true;
   if (file.size > MAX_IMPORT_BYTES) {
     status(errorMessage(Object.assign(new Error(), { code: 'FILE_TOO_LARGE' })), 'error');
@@ -2352,7 +2367,7 @@ async function handleFile(file) {
     if (request !== state.importRequest) return;
     status(errorMessage(error), 'error');
     csvMapping.hidden = true; shapeMapping.hidden = true; meshMapping.hidden = true;
-    state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeFiles = null; state.pendingMesh = null;
+    state.pendingCsv = null; state.pendingCsvFileName = ''; state.pendingShapeGroups = null; state.pendingMesh = null;
     fileInput.value = '';
   }
 }
