@@ -26,7 +26,8 @@ import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs
 import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_MSZ_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
 import { computeMetrics, describeHL, daylightSummary, surveyWarnings, fr as frN, formatHour } from './archi-rue.mjs';
-import { fetchSurveyOSM } from './archi-osm.mjs';
+import { fetchSurveyOSM, surveyFromOSM } from './archi-osm.mjs';
+import { fetchTypomorphoOSM } from './archi-typomorpho.mjs';
 
 const CAT = globalThis.FMCatalog, RND = globalThis.FMRender, ENG = globalThis.FMEngine;
 const $ = s => document.querySelector(s);
@@ -949,7 +950,8 @@ function renderArchiSection(host, site) {
   body.append(reportNote(T('Relevé OSM de la rue en cours…', 'Surveying the street from OSM…')));
   section.append(body);
   host.append(section);
-  fetchSurveyOSM(new Routes(''), lat, lon).then(survey => {
+  fetchTypomorphoOSM(new Routes(''), lat, lon, 250).then(typo => {
+    const survey = surveyFromOSM(typo.elements, { lat, lon, nom: site.name || '' });
     if (!survey) throw new Error('RUE_INTROUVABLE');
     const m = computeMetrics(survey);
     const { summer, winter } = daylightSummary(survey);
@@ -968,7 +970,15 @@ function renderArchiSection(host, site) {
       reportMetric(T('Soleil direct au sol · 21 juin', 'Direct sun on the ground · Jun 21'), fmtDay(summer)),
       reportMetric(T('Soleil direct au sol · 21 déc.', 'Direct sun on the ground · Dec 21'), fmtDay(winter)),
       reportMetric(T('Immeubles relevés', 'Buildings surveyed'), reportNumber(nb),
-        supposeCount ? T('hauteurs supposées pour certains immeubles (niveaux OSM × 3,1 m)', 'heights assumed for some buildings (OSM levels × 3.1 m)') : '')
+        supposeCount ? T('hauteurs supposées pour certains immeubles (niveaux OSM × 3,1 m)', 'heights assumed for some buildings (OSM levels × 3.1 m)') : ''),
+      reportMetric(T('Type d’édifice dominant', 'Dominant building type'),
+        typo.typeDominant ? typo.typeDominant.id + ' — ' + typo.typeDominant.label : '—',
+        T(`${typo.types.length} type(s) repéré(s) dans un rayon de ${typo.radius} m`, `${typo.types.length} type(s) found within ${typo.radius} m`)),
+      reportMetric(T('Continuité du front bâti', 'Built-front continuity'), frN(typo.continuiteFrontPct, 0) + ' %',
+        T(`${typo.trous.length} parcelle(s) vacante(s) le long de l’axe · ${typo.carrefours.length} carrefour(s) proche(s)`,
+          `${typo.trous.length} vacant plot(s) along the axis · ${typo.carrefours.length} nearby junction(s)`)),
+      reportMetric(T('Lecture topologique', 'Topological reading'), typo.lecture.code,
+        typo.lecture.label)
     );
     body.append(grid);
     const p = document.createElement('p'); p.className = 'report-archi-link';

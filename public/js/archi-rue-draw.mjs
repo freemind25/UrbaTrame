@@ -1343,7 +1343,7 @@ export function svgPlanche(drawings, survey) {
 }
 
 /* Toutes les planches d'un relevé, prêtes à prévisualiser ou exporter. */
-export function renderAll(survey) {
+export function renderAll(survey, typo = null) {
   const s = normalizeSurvey(survey);
   const drawings = {
     usages: svgUsages(s),
@@ -1353,8 +1353,137 @@ export function renderAll(survey) {
     ombres: svgOmbres(s),
     demain: svgDemain(s)
   };
+  if (typo) drawings.typomorpho = svgTypomorpho(typo, s);
   drawings.planche = svgPlanche(drawings, s);
   return drawings;
+}
+
+/* ------------------------------------------------------------------ */
+/* Planche 7 · Typo-morphologie (lecture du tissu, d'après le cours   */
+/* Analyse typo-morphologique — Univ. Constantine 3)                   */
+/* ------------------------------------------------------------------ */
+
+const TYPE_COLORS = ['#e87722', '#2f5f9e', '#5a8f4f', '#9e2f5f', '#b8860b', '#6a5acd', '#c0c0c0', '#1d1d1f'];
+
+export function svgTypomorpho(typo, survey) {
+  const s = normalizeSurvey(survey);
+  const parts = [];
+  const cx = 540, cy = 470;                 /* centre = point du site */
+  const winM = 240;                          /* fenêtre montrée : 240 m de large */
+  const pxPerM = Math.min(984 / winM, 520 / 160);
+
+  /* --- plan schématique de la rue et du front bâti --- */
+  parts.push(T(48, 186, 'PLAN DU TISSU AUTOUR DU POINT · la rue au centre, les édifices colorés par type', { size: 20, fill: C.grey, letter: 2 }));
+  const L = typo.voie.largeur;
+  const yRue0 = cy - (L / 2) * pxPerM, yRue1 = cy + (L / 2) * pxPerM;
+  parts.push(rect(48, yRue0, 984, yRue1 - yRue0, { fill: '#ded8ca', stroke: C.ink, sw: 1.6 }));
+  parts.push(line(48, cy, 1032, cy, { stroke: '#b8b0a0', sw: 2, dash: '10 8' }));
+  parts.push(T(1032, yRue0 - 10, `${s.nom || 'rue'} · axe ${fr(typo.voie.axeDeg, 0)}° · ${typo.voie.hierarchie || typo.voie.classe} · ${fr(L)} m`, {
+    size: 19, fill: C.ink2, anchor: 'end', weight: 700
+  }));
+
+  const typeColor = id => TYPE_COLORS[(typo.types.findIndex(t => t.id === id) + TYPE_COLORS.length) % TYPE_COLORS.length];
+  /* front bâti : rectangles le long de la rue, un par immeuble, côté = lateral */
+  for (const b of typo.plan) {
+    const x0 = cx + b.t0 * pxPerM, x1 = cx + b.t1 * pxPerM;
+    const w = Math.max(6, (x1 - x0));
+    const profM = Math.min(Math.abs(b.lateral) * 2 + 4, 34);
+    const y0 = b.side === 'est' ? yRue1 : yRue0 - profM * pxPerM;
+    parts.push(rect(x0, y0, w, profM * pxPerM, { fill: typeColor(b.typeId), stroke: C.ink, sw: 1, opacity: 0.88 }));
+    if (b.hauteur > 0) {
+      parts.push(T(x0 + w / 2, y0 + profM * pxPerM / 2 + 6, `${fr(b.hauteur, 0)} m`, {
+        size: 15, fill: '#ffffff', anchor: 'middle', weight: 700
+      }));
+    }
+  }
+  /* trous (parcelles vacantes) le long du front */
+  for (const tr of typo.trous) {
+    const x0 = cx + tr.debut * pxPerM, x1 = cx + tr.fin * pxPerM;
+    if (x1 - x0 < 4) continue;
+    parts.push(rect(x0, yRue0 - 14, x1 - x0, 14, { fill: 'url(#hatch)', stroke: C.red, sw: 1.2 }));
+    parts.push(T((x0 + x1) / 2, yRue0 - 20, 'parcelle vacante', { size: 14, fill: C.red, anchor: 'middle' }));
+  }
+  /* carrefours proches */
+  for (const c of typo.carrefours.slice(0, 4)) {
+    const px = cx + (c.at ? (c.at.lon - s.longitude) * Math.cos(s.latitude * Math.PI / 180) * 111320 : 0) * pxPerM;
+    const py = cy - (c.at ? (c.at.lat - s.latitude) * 111320 : 0) * pxPerM;
+    if (px < 60 || px > 1020 || py < 200 || py > 740) continue;
+    parts.push(circle(px, py, 11, { fill: C.orange, stroke: '#fff', sw: 2 }));
+    parts.push(T(px + 16, py + 5, `${c.type} (${c.branches} branches) · ${fr(c.distanceM, 0)} m`, { size: 16, fill: C.orange, weight: 700 }));
+  }
+  /* barrières */
+  for (const b of typo.croissance.barrieres.slice(0, 3)) {
+    parts.push(T(52, 742, `⛔ ${b.kind} à ${fr(b.distanceM, 0)} m`, { size: 17, fill: C.red }));
+  }
+  /* échelle */
+  parts.push(line(48, 762, 48 + 50 * pxPerM, 762, { stroke: C.ink, sw: 3 }));
+  parts.push(T(48 + 50 * pxPerM + 10, 767, '50 m', { size: 17, fill: C.ink2 }));
+
+  /* --- typologie des édifices --- */
+  let y = 830;
+  parts.push(T(48, y, 'TYPOLOGIE DES ÉDIFICES (critères : hauteur, accolés/isolés, RDC, rapport à la rue)', { size: 20, fill: C.grey, letter: 2 }));
+  y += 16;
+  for (const t of typo.types) {
+    y += 40;
+    parts.push(rect(48, y - 18, 26, 20, { fill: typeColor(t.id), stroke: C.ink, sw: 1 }));
+    const hMoy = t.hauteurs.length ? t.hauteurs.reduce((a, b) => a + b, 0) / t.hauteurs.length : 0;
+    const pct = typo.nbImmeubles > 0 ? Math.round(t.effectif / typo.nbImmeubles * 100) : 0;
+    parts.push(T(84, y, `${t.id} · ${t.label}`, { size: 22, weight: 700 }));
+    parts.push(T(84, y + 24, `${t.effectif} immeuble(s) · ${pct} % · hauteur moyenne ${fr(hMoy, 1)} m`, { size: 18, fill: C.ink2 }));
+    if (typo.typeDominant && typo.typeDominant.id === t.id) {
+      parts.push(T(1032, y, 'TYPE DOMINANT', { size: 17, fill: '#fff', anchor: 'end', weight: 800 }));
+      parts.push(rect(880, y - 22, 152, 26, { fill: C.orange, rx: 13 }));
+      parts.push(T(956, y - 3, 'TYPE DOMINANT', { size: 15, fill: '#fff', anchor: 'middle', weight: 800 }));
+    }
+  }
+
+  /* --- morphologie de la voie + îlot --- */
+  y += 66;
+  parts.push(T(48, y, 'MORPHOLOGIE : LA VOIE ET L’ÎLOT', { size: 20, fill: C.grey, letter: 2 }));
+  y += 34;
+  const il = typo.ilot;
+  const voieTxt = [
+    `Voie ${typo.voie.hierarchie || typo.voie.classe || ''} · largeur ${fr(L)} m · axe ${fr(typo.voie.axeDeg, 0)}°${typo.voie.axeHypothese ? ' (hypothèse)' : ''}`,
+    `Front bâti continu à ${fr(typo.continuiteFrontPct, 0)} % sur ${fr(Math.min(typo.voie.longueurM || 0, 2 * typo.radius), 0)} m de voie · ${typo.trous.length} parcelle(s) vacante(s) le long de l’axe`,
+    `Carrefours proches : ${typo.carrefours.length ? typo.carrefours.slice(0, 3).map(c => `${c.type} à ${fr(c.distanceM, 0)} m`).join(', ') : 'aucun'}`,
+    `Îlot : ${il.nbBatiments} bâtiments · densité bâtie ${fr(il.densiteBatiePct, 1)} % de la zone · emprise moyenne au sol ${fr(il.empriseMoyenneM2, 0)} m²`
+  ];
+  for (const l of voieTxt) {
+    parts.push(T(66, y, '• ' + l, { size: 20, fill: C.ink2 }));
+    y += 30;
+  }
+
+  /* --- lecture topologique + croissance --- */
+  y += 26;
+  parts.push(T(48, y, 'LECTURE TOPOLOGIQUE ET CROISSANCE', { size: 20, fill: C.grey, letter: 2 }));
+  y += 34;
+  parts.push(T(66, y, '• Espace : ' + typo.lecture.label, { size: 20, fill: C.ink2 }));
+  y += 30;
+  parts.push(T(66, y, `• Croissance ${typo.croissance.type} selon l’axe ${fr(typo.croissance.axeDeg, 0)}° — ${typo.croissance.ligne}`, { size: 20, fill: C.ink2 }));
+  y += 30;
+  const d = typo.croissance.densification;
+  parts.push(T(66, y, `• Densification possible : par substitution ${d.parSubstitution} parcelle(s) vacante(s) · par élévation ${d.parElevation} immeuble(s) sous la hauteur moyenne`, { size: 20, fill: C.ink2 }));
+  y += 30;
+  if (typo.croissance.barrieres.length) {
+    parts.push(T(66, y, '• Barrières : ' + typo.croissance.barrieres.slice(0, 3).map(b => `${b.kind} à ${fr(b.distanceM, 0)} m`).join(' · '), { size: 20, fill: C.red }));
+  }
+
+  const legend = legendRow(48, 1740, typo.types.slice(0, 4).map(t => ({ solid: typeColor(t.id), label: t.id })).concat([
+    { symbol: 'cut', label: 'parcelle vacante' },
+    { dot: C.orange, label: 'carrefour' }
+  ]), { size: 19, gap: 16 });
+
+  return frame({
+    numero: '7/7',
+    categorie: 'TYPOMORPHOLOGIE · LECTURE DU TISSU (ÉCOLE ITALIENNE / VERSAILLES)',
+    titre: 'Trame viaire, îlot et types d’édifices',
+    sousTitre: `${s.nom} · ${s.lieu} · ${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)} · rayon ${fr(typo.radius, 0)} m`,
+    corps: parts.join(''),
+    legende: legend,
+    cartouche: `${(s.nom || 'RUE').toUpperCase()} · TYPOMORPHOLOGIE`,
+    note: 'calculé depuis OpenStreetMap (voie, bâtiments, barrières) — typologie indicative, à recouper par un relevé de terrain ; hauteurs supposées quand absentes d’OSM',
+    date: s.date
+  });
 }
 
 
