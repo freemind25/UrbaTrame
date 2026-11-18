@@ -26,6 +26,9 @@ const API_PATHS = new Set([
   '/api/atelier/terrain',
   '/api/atelier/archi',
   '/api/layeratlas/search',
+  '/api/atlasco/templates',
+  '/api/atlasco/map',
+  '/api/atlasco/layers',
   '/api/util',
   '/analysis/2d'
 ]);

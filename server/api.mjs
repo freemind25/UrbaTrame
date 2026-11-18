@@ -4,6 +4,9 @@
      GET  /api/status           état du service + clé publique Ed25519
      GET  /api/layeratlas/search  q, category, organization, keyword, limit, offset
                                   → catalogue Layer Atlas (layeratlas.com) en LECTURE SEULE
+     GET  /api/atlasco/templates  q, kind, collection, limit, offset → modèles atlas.co/community/maps/
+     GET  /api/atlasco/map        slug → carte partagée publique (shareId, liens)
+     GET  /api/atlasco/layers     project → couches d'une carte partagée publique (métadonnées)
    Les autres GET servent les fichiers de public/.                              */
 import { plan, buildingsQuery, FREE_IDS, MAX_IDS, LIMITS, VERSION } from '../public/js/plan-2d.mjs';
 import { SOURCES, accessMode, isOpenAccess } from './config.mjs';
@@ -19,6 +22,7 @@ import { glo30 } from './sources/glo30.mjs';
 import { fetchOpenBuildingMap } from './sources/openbuildingmap.mjs';
 import { createAtelierHandlers } from './atelier-api.mjs';
 import { createLayerAtlasSearchHandler } from './layeratlas.mjs';
+import { createAtlasCoHandlers } from './atlasco.mjs';
 import { createQuota } from './quota.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
 
@@ -439,13 +443,15 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
   const analysis = createAnalysisHandler({ licence, quota, runs });
   const atelier = createAtelierHandlers();
   const layeratlas = { search: createLayerAtlasSearchHandler() };
+  const atlasco = createAtlasCoHandlers();
   const authHandlers = createStudentAuthHandlers(studentAuth);
   const codecraftRelay = createCodecraftRelay();
   const protectedPaths = new Set([
     '/api/util', '/analysis/2d',
     '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
     '/api/atelier/cadrage-extract', '/api/atelier/gadm', '/api/atelier/terrain',
-    '/api/atelier/archi', '/api/layeratlas/search'
+    '/api/atelier/archi', '/api/layeratlas/search',
+    '/api/atlasco/templates', '/api/atlasco/map', '/api/atlasco/layers'
   ]);
 
   return async function handler(req, res) {
@@ -477,6 +483,9 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (url.pathname === '/api/atelier/terrain') return atelier.terrain(req, res);
     if (url.pathname === '/api/atelier/archi') return atelier.archi(req, res);
     if (url.pathname === '/api/layeratlas/search') return layeratlas.search(req, res, ip);
+    if (url.pathname === '/api/atlasco/templates') return atlasco.templates(req, res, ip);
+    if (url.pathname === '/api/atlasco/map') return atlasco.map(req, res, ip);
+    if (url.pathname === '/api/atlasco/layers') return atlasco.layers(req, res, ip);
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/util'))
       return utility(req, res);
     if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft'))
