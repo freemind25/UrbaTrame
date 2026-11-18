@@ -25,6 +25,7 @@ const API_PATHS = new Set([
   '/api/atelier/gadm',
   '/api/atelier/terrain',
   '/api/atelier/archi',
+  '/api/layeratlas/search',
   '/api/util',
   '/analysis/2d'
 ]);

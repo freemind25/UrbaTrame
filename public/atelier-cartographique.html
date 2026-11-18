@@ -6,17 +6,18 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Atelier cartographique UrbaTrame : importer et superposer des couches vectorielles GeoPackage, GeoJSON, CSV, Shapefile et des rasters GeoTIFF locaux.">
   <title>UrbaTrame — Atelier cartographique</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261108bot1" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261108bot1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261108bot1">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261108bot1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261115zip1"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261115la1" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261115la1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261115la1">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261115la1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261115la1"></script>
+  <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115la1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main" data-fr="Aller au contenu principal" data-en="Skip to main content">Aller au contenu principal</a>
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261108bot1" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261115la1" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -121,6 +122,38 @@
             <button id="addMeshLayer" class="button-primary" type="button">Ajouter la couche de référence</button>
           </section>
           <p id="importStatus" class="status" role="status" aria-live="polite">Aucun fichier chargé.</p>
+        </section>
+
+        <section class="panel la-panel" id="layeratlasPanel" aria-labelledby="la-title">
+          <div class="panel-heading">
+            <span class="step">01b / CATALOGUE EXTERNE</span>
+            <h2 id="la-title">Catalogue Layer Atlas</h2>
+          </div>
+          <p class="source-footnote">Recherche en <strong>lecture seule</strong> dans le catalogue communautaire <a href="https://layeratlas.com/" target="_blank" rel="noopener noreferrer">layeratlas.com</a> (couches géospatiales publiques). Seuls vos mots de recherche transitent par le serveur UrbaTrame vers ce service externe ; <strong>aucune couche locale n'est transmise</strong>. Les fichiers des couches restent hébergés par Layer Atlas : ouvrez-les depuis leur site ou via le plugin QGIS officiel.</p>
+          <label class="field-label" for="laQuery">Recherche
+            <input id="laQuery" type="search" maxlength="120" list="laSuggestions" placeholder="ex. OSM, Algeria, WMS, limites…" autocomplete="off">
+            <datalist id="laSuggestions"></datalist>
+          </label>
+          <div class="la-filters">
+            <label class="field-label" for="laCategory">Catégorie
+              <select id="laCategory"><option value="">Toutes les catégories</option></select>
+            </label>
+            <label class="field-label" for="laOrganization">Organisation
+              <select id="laOrganization"><option value="">Toutes</option></select>
+            </label>
+          </div>
+          <button id="laSearch" class="button-primary" type="button">Rechercher dans Layer Atlas</button>
+          <p id="laStatus" class="status" role="status" aria-live="polite">Aucune recherche lancée. Rien n'a été envoyé à un service externe.</p>
+          <div id="laResults" class="la-results" aria-live="polite"></div>
+          <div class="la-pager">
+            <button id="laPrev" class="button-secondary" type="button" disabled>‹ Précédent</button>
+            <span id="laPageInfo" class="la-page-info"></span>
+            <button id="laNext" class="button-secondary" type="button" disabled>Suivant ›</button>
+          </div>
+          <div class="la-favs">
+            <h3 class="la-favs-title">Favoris (stockés dans ce navigateur uniquement)</h3>
+            <ul id="laFavorites"></ul>
+          </div>
         </section>
 
         <section class="panel field-survey-panel" aria-labelledby="survey-title">
@@ -467,6 +500,6 @@
       <span>Les couches affichées proviennent des fichiers importés. UrbaTrame ne crée ni ne certifie de limites cadastrales ou juridiques.</span>
     </footer>
   </main>
-  <script type="module" src="/js/chat-widget.mjs?v=20261113cc1"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261115la1"></script>
 </body>
 </html>
