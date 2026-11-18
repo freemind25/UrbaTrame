@@ -24,6 +24,17 @@ export const ATLASCO_SUGGESTIONS = [
   'restaurant', 'airbnb', 'wind', 'population', 'submarine', 'melbourne', 'school'
 ];
 
+/* Extrait l'identifiant de projet d'un lien de carte partagée Atlas collé
+   par l'utilisateur : URL complète /shared/<id> ou /embeds/<id>, ou ID brut. */
+export function extractAtlasProjectId(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw) throw Object.assign(new Error('Indiquez un lien ou un identifiant de carte partagée Atlas.'), { code: 'PROJECT_INVALID' });
+  const m = raw.match(/(?:app\.atlas\.co\/(?:shared|embeds)\/)?([A-Za-z0-9]{10,30})\b/);
+  const id = m ? m[1] : raw;
+  if (!/^[A-Za-z0-9]{10,30}$/.test(id)) throw Object.assign(new Error('Lien ou identifiant Atlas invalide.'), { code: 'PROJECT_INVALID' });
+  return id;
+}
+
 export function buildTemplatesParams({ q = '', kind = '', collection = '', limit = ATLASCO_PAGE_SIZE, offset = 0 } = {}) {
   const query = String(q ?? '').trim();
   if (query.length > ATLASCO_MAX_Q) throw Object.assign(new Error('La recherche dépasse 120 caractères.'), { code: 'QUERY_TOO_LONG' });
