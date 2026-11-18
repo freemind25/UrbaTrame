@@ -5,7 +5,7 @@ import {
   sanitizeTemplatesQuery, sanitizeSlug, sanitizeProjectId, filterTemplates, createAtlasCoClient, createAtlasCoHandlers
 } from '../server/atlasco.mjs';
 import {
-  ATLASCO_KINDS as CLIENT_KINDS, buildTemplatesParams, normalizeTemplate, kindFr,
+  ATLASCO_KINDS as CLIENT_KINDS, buildTemplatesParams, normalizeTemplate, kindFr, extractAtlasProjectId,
   buildCitation, readFavorites, toggleFavorite, ATLASCO_FAVORITES_KEY
 } from '../public/js/atelier/atlasco.mjs';
 
@@ -197,6 +197,16 @@ describe('UrbaTrame · cartes communautaires Atlas (atlas.co), lecture seule', (
     for (let i = 0; i < 31; i++) { last = mkRes(); await h.templates(req('templates', '?q=x' + i), last, '2.2.2.2'); }
     assert.equal(last.statusCode, 429);
     assert.equal(JSON.parse(last.body).error, 'RATE_LIMITED');
+  });
+
+  test('client : extractAtlasProjectId accepte lien shared/embeds ou ID brut, refuse le reste', () => {
+    assert.equal(extractAtlasProjectId('https://app.atlas.co/shared/YoMNg7XIlgeQkwf9yXQb?loc=8.3,17.9,2.1z'), 'YoMNg7XIlgeQkwf9yXQb');
+    assert.equal(extractAtlasProjectId('https://app.atlas.co/embeds/YoMNg7XIlgeQkwf9yXQb'), 'YoMNg7XIlgeQkwf9yXQb');
+    assert.equal(extractAtlasProjectId('  YoMNg7XIlgeQkwf9yXQb  '), 'YoMNg7XIlgeQkwf9yXQb');
+    assert.throws(() => extractAtlasProjectId(''), e => e.code === 'PROJECT_INVALID');
+    assert.throws(() => extractAtlasProjectId('https://atlas.co/maps/global-power-plants-map/'), e => e.code === 'PROJECT_INVALID');
+    assert.throws(() => extractAtlasProjectId('https://app.atlas.co/shared/ab!'), e => e.code === 'PROJECT_INVALID');
+    assert.throws(() => extractAtlasProjectId('12345'), e => e.code === 'PROJECT_INVALID');
   });
 
   test('client : params, normalisation, citation, favoris', () => {

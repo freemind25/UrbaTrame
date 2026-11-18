@@ -6,19 +6,19 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Atelier cartographique UrbaTrame : importer et superposer des couches vectorielles GeoPackage, GeoJSON, CSV, Shapefile et des rasters GeoTIFF locaux.">
   <title>UrbaTrame — Atelier cartographique</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261115at1" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261115at1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261115at1">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261115at1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261115at1"></script>
-  <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115at1"></script>
-  <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115at1"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261115at2" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261115at2">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261115at2">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261115at2"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261115at2"></script>
+  <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115at2"></script>
+  <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115at2"></script>
 </head>
 <body>
   <a class="skip-link" href="#main" data-fr="Aller au contenu principal" data-en="Skip to main content">Aller au contenu principal</a>
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261115at1" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261115at2" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -186,6 +186,20 @@
           <div class="la-favs">
             <h3 class="la-favs-title">Favoris (stockés dans ce navigateur uniquement)</h3>
             <ul id="atFavorites"></ul>
+          </div>
+          <div class="atlasco-shared">
+            <h3 class="la-favs-title">Ma carte Atlas partagée</h3>
+            <p class="source-footnote">Dans Atlas : ouvrez votre carte → <strong>Share → activez le lien public</strong>, puis collez ce lien ici (ex. <code>app.atlas.co/shared/…</code>). On liste alors ses couches en <strong>lecture seule</strong> — aucune connexion à votre compte Google n'est nécessaire ni possible.</p>
+            <label class="field-label" for="atSharedLink">Lien public ou identifiant de la carte
+              <input id="atSharedLink" type="text" maxlength="200" placeholder="https://app.atlas.co/shared/…" autocomplete="off">
+            </label>
+            <button id="atSharedBtn" class="button-secondary" type="button">Lister les couches de la carte</button>
+            <div id="atSharedResult" class="atlasco-shared-result" aria-live="polite"></div>
+          </div>
+          <div class="atlasco-publish">
+            <h3 class="la-favs-title">Publier une couche UrbaTrame sur Atlas</h3>
+            <p class="source-footnote">Exportez vos couches visibles en GeoJSON (téléchargement local, rien n'est envoyé), puis importez ce fichier dans un projet Atlas : <em>Add data → votre fichier .geojson → Share → lien public</em>.</p>
+            <button id="atExportForAtlas" class="button-secondary" type="button">Exporter les couches visibles en GeoJSON (prêt pour Atlas)</button>
           </div>
         </section>
 
@@ -533,6 +547,6 @@
       <span>Les couches affichées proviennent des fichiers importés. UrbaTrame ne crée ni ne certifie de limites cadastrales ou juridiques.</span>
     </footer>
   </main>
-  <script type="module" src="/js/chat-widget.mjs?v=20261115at1"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261115at2"></script>
 </body>
 </html>

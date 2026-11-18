@@ -4,7 +4,8 @@
 import {
   ATLASCO_TEMPLATES_URL, ATLASCO_MAP_URL, ATLASCO_LAYERS_URL, ATLASCO_COMMUNITY_URL,
   ATLASCO_KINDS, ATLASCO_SUGGESTIONS,
-  buildTemplatesParams, normalizeTemplate, kindFr, buildCitation, readFavorites, toggleFavorite
+  buildTemplatesParams, normalizeTemplate, kindFr, buildCitation, readFavorites, toggleFavorite,
+  extractAtlasProjectId
 } from './atlasco.mjs';
 
 const $ = s => document.querySelector(s);
@@ -284,10 +285,74 @@ async function runSearch() {
   }
 }
 
+/* « Ma carte partagée » : l'utilisateur colle le lien public de SA carte Atlas
+   (partagée publiquement dans Atlas : Share → lien public) ; on liste alors ses
+   couches en lecture seule via /api/atlasco/layers. Aucune connexion au compte
+   Google n'est nécessaire ni possible ici. */
+async function loadSharedLayers() {
+  const box = $('#atSharedResult');
+  const btn = $('#atSharedBtn');
+  let projectId;
+  try { projectId = extractAtlasProjectId($('#atSharedLink').value); }
+  catch (error) { status(errorMessage(error), 'error'); return; }
+  btn.disabled = true;
+  box.replaceChildren();
+  status('Lecture des couches publiques de la carte Atlas…');
+  try {
+    const res = await fetch(`${ATLASCO_LAYERS_URL}?project=${encodeURIComponent(projectId)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw Object.assign(new Error(data.error || 'HTTP ' + res.status), { code: data.error });
+    box.replaceChildren();
+    const head = document.createElement('p');
+    head.className = 'la-card-desc';
+    const open = document.createElement('a');
+    open.href = `https://app.atlas.co/shared/${projectId}`;
+    open.target = '_blank'; open.rel = 'noopener noreferrer';
+    open.textContent = 'Ouvrir la carte sur Atlas ↗';
+    head.append(`${data.layers.length} couche(s) publique(s) — `, open);
+    box.appendChild(head);
+    const ul = document.createElement('ul');
+    ul.className = 'atlasco-layers';
+    for (const layer of data.layers) {
+      const li = document.createElement('li');
+      const bbox = Array.isArray(layer.bbox) ? ` · emprise [${layer.bbox.map(n => n.toFixed(2)).join(', ')}]` : '';
+      li.textContent = `${layer.name} — ${layer.type || 'type inconnu'}${bbox}`;
+      ul.appendChild(li);
+    }
+    box.appendChild(ul);
+    const hint = document.createElement('p');
+    hint.className = 'source-footnote';
+    hint.textContent = 'Pour récupérer les données : dans Atlas, ouvrez la carte → couche → ⋯ → « Télécharger » → GeoJSON, puis glissez le fichier dans le panneau 01 / DONNÉES de cet atelier (lecture 100 % locale).';
+    box.appendChild(hint);
+    status(`${data.layers.length} couche(s) listée(s) en lecture seule. Aucune donnée locale transmise.`, 'success');
+  } catch (error) {
+    box.replaceChildren();
+    const p = document.createElement('p');
+    p.className = 'la-empty';
+    p.textContent = errorMessage(error) + ' Si la carte n’est pas partagée publiquement dans Atlas (Share → lien public), ses couches ne sont pas lisibles ici — exportez plutôt le GeoJSON depuis Atlas.';
+    box.appendChild(p);
+    status(errorMessage(error), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* « Publier sur Atlas » : on réutilise l’export GeoJSON existant de l’atelier
+   (bouton #exportGeoJSON) ; l’utilisateur importe ensuite le fichier dans Atlas. */
+function exportForAtlas() {
+  const btn = $('#exportGeoJSON');
+  if (!btn || btn.disabled) { status('Importez d’abord une couche vectorielle (panneau 01 / DONNÉES) pour pouvoir l’exporter en GeoJSON.', 'error'); return; }
+  btn.click();
+  status('Export GeoJSON lancé (téléchargement local). Étapes pour publier sur Atlas : app.atlas.co → nouveau projet → « Add data » → importez le fichier GeoJSON → Share → activez le lien public.', 'success');
+}
+
 function init() {
   if (!$('#atlascoPanel')) return;
   fillKinds();
   renderFavorites();
+  $('#atSharedBtn').addEventListener('click', loadSharedLayers);
+  $('#atSharedLink').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadSharedLayers(); } });
+  $('#atExportForAtlas').addEventListener('click', exportForAtlas);
   $('#atSearch').addEventListener('click', () => { state.offset = 0; runSearch(); });
   $('#atQuery').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); state.offset = 0; runSearch(); } });
   $('#atKind').addEventListener('change', () => { state.offset = 0; runSearch(); });
