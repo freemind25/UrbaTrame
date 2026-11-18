@@ -18,6 +18,7 @@ import { parseGeoTiff, MAX_RASTER_BYTES, MAX_RASTER_PIXELS, MAX_TOTAL_RASTER_BYT
 import { parseKmlText, layersToKml } from './kml.mjs';
 import { createStoredZip } from './zip-writer.mjs';
 import { exportVisibleCsv, normalizeFieldTemplate, defaultFieldTemplate, parseFieldTemplate, serializeFieldTemplate, buildSurveyProperties, MAX_FIELD_TEMPLATE_BYTES, MAX_SURVEY_FIELDS } from './field-survey.mjs';
+import { URBANIS_DZ_PRESETS, getUrbanisDzPreset, URBANIS_DZ_SOURCE } from './presets-urbanis-dz.mjs';
 import { createGeoPackage } from './geopackage-export.mjs';
 import { terrioSupported, importFileWithTerrio } from './terrio-import.mjs';
 import { freeModelsFromCatalog } from './s5-core.mjs';
@@ -1928,6 +1929,23 @@ function renderSurveyFieldDefinitions() {
   });
 }
 
+function updatePresetSelect() {
+  const select = $('#presetTemplates');
+  if (!select) return;
+  select.replaceChildren();
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'Choisir un modèle prêt à l’emploi…';
+  select.append(empty);
+  for (const preset of URBANIS_DZ_PRESETS) {
+    const option = document.createElement('option');
+    option.value = preset.id;
+    option.textContent = preset.name;
+    option.title = preset.description;
+    select.append(option);
+  }
+}
+
 function updateSurveyTemplateSelect() {
   const select = $('#surveyTemplateLibrary');
   if (!select) return;
@@ -2537,6 +2555,17 @@ $('#loadSurveyTemplate').addEventListener('click', () => {
   setSurveyTemplate(savedSurveyTemplates[index]);
   surveyStatus(`Gabarit « ${state.surveyTemplate.name} » chargé.`, 'success');
 });
+$('#loadPresetTemplate').addEventListener('click', () => {
+  const id = $('#presetTemplates').value;
+  if (!id) { surveyStatus('Choisissez d’abord un modèle prêt à l’emploi.', 'error'); return; }
+  try {
+    const preset = getUrbanisDzPreset(id);
+    setSurveyTemplate(preset.template);
+    surveyStatus(`Modèle « ${state.surveyTemplate.name} » chargé (${preset.template.fields.length} champs). Source : ${URBANIS_DZ_SOURCE}.`, 'success');
+  } catch (error) {
+    surveyStatus('Modèle inconnu ou invalide.', 'error');
+  }
+});
 $('#surveyTemplateFile').addEventListener('change', async () => {
   const file = $('#surveyTemplateFile').files?.[0];
   if (!file) return;
@@ -2553,6 +2582,7 @@ $('#terrainProvenance').textContent = TERRAIN_PROVENANCE;
 updateTerrainLegend($('#terrainLegend'), null);
 updateElevationReadout($('#terrainAltitude'), null, NaN, NaN);
 updateSurveyTemplateSelect();
+updatePresetSelect();
 renderSurveyFieldDefinitions();
 renderSurveyForm();
 renderAll();
