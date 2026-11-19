@@ -166,3 +166,32 @@ describe('nettoyage et édition de façade', () => {
     assert.doesNotMatch(svg, /BAD/);
   });
 });
+
+describe('étalonnage et propositions assistées', () => {
+  test('cote connue ajuste les deux axes et conserve le rapport', async () => {
+    const { calibratedScales } = await import('../public/js/archi-facade.mjs');
+    let v = calibratedScales([20, 10], [120, 10], 2, .1, .2);
+    near(v.sx, .02, 1e-12); near(v.sy, .04, 1e-12);
+    v = calibratedScales([0, 0], [30, 40], 10, .1, .2);
+    near(Math.hypot(30*v.sx, 40*v.sy), 10, 1e-10);
+    assert.equal(calibratedScales([0,0], [0,0], 1, .1, .1), null);
+    assert.equal(calibratedScales([0,0], [10,0], -1, .1, .1), null);
+  });
+  test('rectangle détecté comme géométrie candidate, pas comme catégorie sémantique', async () => {
+    const { openingCandidates } = await import('../public/js/archi-facade.mjs');
+    const lines = [{a:[10,10],b:[50,10]},{a:[10,60],b:[50,60]},
+      {a:[10,10],b:[10,60]},{a:[50,10],b:[50,60]}];
+    const boxes = openingCandidates(lines);
+    assert.equal(boxes.length,1);assert.deepEqual(boxes[0],{x1:10,x2:50,y1:10,y2:60});
+    assert.equal(openingCandidates(lines.slice(0,3)).length,0);
+  });
+  test('liaison des seuls traits alignés non chevauchants sur calque hypothèse', async () => {
+    const { bridgeSegments } = await import('../public/js/archi-facade.mjs');
+    const s = {a:[0,10],b:[20,10]}, t = {a:[35,10],b:[55,10]};
+    assert.deepEqual(bridgeSegments(s,t),{a:[20,10],b:[35,10],layer:'HYPOTHESE'});
+    assert.equal(bridgeSegments(s,{a:[35,20],b:[55,20]}),null);
+    assert.equal(bridgeSegments(s,{a:[15,10],b:[55,10]}),null);
+    assert.equal(bridgeSegments(s,{a:[200,10],b:[220,10]}),null);
+    assert.equal(bridgeSegments(s,{a:[35,10],b:[35,30]}),null);
+  });
+});
