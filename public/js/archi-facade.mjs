@@ -220,6 +220,66 @@ export function nearestSegment(segments, point, radius) {
   return best;
 }
 
+/* Une cote ajuste une échelle déjà proportionnée ; elle ne corrige pas le
+   rapport largeur/hauteur choisi lors de la rectification. */
+export function calibratedScales(a, b, distanceMetres, sx, sy) {
+  if (![...a, ...b, distanceMetres, sx, sy].every(Number.isFinite) || distanceMetres <= 0 || sx <= 0 || sy <= 0) return null;
+  const current = Math.hypot((b[0] - a[0]) * sx, (b[1] - a[1]) * sy);
+  if (current < 1e-9 || Math.hypot(b[0] - a[0], b[1] - a[1]) < 2) return null;
+  const factor = distanceMetres / current;
+  if (!Number.isFinite(factor) || factor < 1e-6 || factor > 1e6) return null;
+  return { sx: sx * factor, sy: sy * factor };
+}
+
+/* Propositions géométriques, pas une reconnaissance sémantique : recherche
+   quatre bords presque horizontaux/verticaux à partir des lignes détectées. */
+export function openingCandidates(segments, {tolerance = 5, minSize = 12} = {}) {
+  const horizontal = [], vertical = [];
+  for (const s of segments.slice(0, 1000)) {
+    const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1];
+    if (Math.abs(dx) >= minSize && Math.abs(dy) <= Math.max(2, Math.abs(dx) * 0.04))
+      horizontal.push({x1: Math.min(s.a[0], s.b[0]), x2: Math.max(s.a[0], s.b[0]), y: (s.a[1] + s.b[1]) / 2});
+    if (Math.abs(dy) >= minSize && Math.abs(dx) <= Math.max(2, Math.abs(dy) * 0.04))
+      vertical.push({y1: Math.min(s.a[1], s.b[1]), y2: Math.max(s.a[1], s.b[1]), x: (s.a[0] + s.b[0]) / 2});
+  }
+  // Encadre le coût et évite le blocage sur des façades très texturées.
+  horizontal.length = Math.min(horizontal.length, 100); vertical.length = Math.min(vertical.length, 100);
+  const result = [];
+  for (let i = 0; i < horizontal.length; i++) for (let j = i + 1; j < horizontal.length; j++) {
+    let top = horizontal[i], bottom = horizontal[j]; if (top.y > bottom.y) [top, bottom] = [bottom, top];
+    if (bottom.y - top.y < minSize) continue;
+    const left = Math.max(top.x1, bottom.x1), right = Math.min(top.x2, bottom.x2);
+    if (right - left < minSize) continue;
+    const sides = vertical.filter(v => v.x >= left - tolerance && v.x <= right + tolerance && v.y1 <= top.y + tolerance && v.y2 >= bottom.y - tolerance);
+    for (let l = 0; l < sides.length; l++) for (let r = l + 1; r < sides.length; r++) {
+      const x1 = Math.min(sides[l].x, sides[r].x), x2 = Math.max(sides[l].x, sides[r].x);
+      if (x2 - x1 < minSize) continue;
+      if (result.some(b => Math.abs(b.x1-x1)<tolerance && Math.abs(b.x2-x2)<tolerance && Math.abs(b.y1-top.y)<tolerance && Math.abs(b.y2-bottom.y)<tolerance)) continue;
+      result.push({x1,x2,y1:top.y,y2:bottom.y});
+      if (result.length >= 60) return result;
+    }
+  }
+  return result;
+}
+
+/* Relie seulement deux extrémités distinctes presque colinéaires, sur demande.
+   Il s'agit d'une hypothèse géométrique, pas de reconstruction observée. */
+export function bridgeSegments(a, b, maxGap = 80, tolerance = 4) {
+  const la = length(a), lb = length(b);
+  if (!(la > 2 && lb > 2)) return null;
+  const ux = (a.b[0]-a.a[0])/la, uy = (a.b[1]-a.a[1])/la;
+  const vx = (b.b[0]-b.a[0])/lb, vy = (b.b[1]-b.a[1])/lb;
+  if (Math.abs(ux*vx + uy*vy) < Math.cos(3*Math.PI/180)) return null;
+  const pairs = [[a.a,b.a],[a.a,b.b],[a.b,b.a],[a.b,b.b]].map(([p,q]) => ({p,q,d:Math.hypot(p[0]-q[0],p[1]-q[1])})).sort((x,y)=>x.d-y.d);
+  const {p,q,d} = pairs[0];
+  if (d < 2 || d > maxGap || Math.abs((q[0]-p[0])*uy - (q[1]-p[1])*ux) > tolerance) return null;
+  // Ne pas relier des lignes qui se chevauchent : les extrémités doivent pointer l'une vers l'autre.
+  const otherA = p === a.a ? a.b : a.a, otherB = q === b.a ? b.b : b.a;
+  if ((q[0]-p[0])*(otherA[0]-p[0]) + (q[1]-p[1])*(otherA[1]-p[1]) >= 0 ||
+      (p[0]-q[0])*(otherB[0]-q[0]) + (p[1]-q[1])*(otherB[1]-q[1]) >= 0) return null;
+  return {a:[...p], b:[...q], layer:'HYPOTHESE'};
+}
+
 /* ── Export : entités DXF (mètres) + SVG ─────────────────────── */
 
 /* Convertit des segments en pixels (origine haut-gauche, y vers le bas)
@@ -263,10 +323,10 @@ export function initFacadeRectify(doc) {
   const file = $('facadeFile'), cv = $('facadeCanvas'), res = $('facadeResult');
   if (!file || !cv || !res) return;
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
-  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false;
+  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [];
   const say = m => { $('facadeStatus').textContent = m; };
-  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; rctx.clearRect(0, 0, res.width, res.height); };
-  const remember = () => { history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; rctx.clearRect(0, 0, res.width, res.height); };
+  const remember = () => { revision++; history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
   const render = () => {
     if (!rect) return;
     rctx.putImageData(new ImageData(rect.data, rect.width, rect.height), 0, 0);
@@ -275,6 +335,9 @@ export function initFacadeRectify(doc) {
       rctx.strokeStyle = FACADE_LAYERS[layerOf(s)].svg;
       rctx.beginPath(); rctx.moveTo(...s.a); rctx.lineTo(...s.b); rctx.stroke();
     }
+    rctx.strokeStyle = '#d88400'; rctx.lineWidth = 2; rctx.setLineDash([6,4]);
+    for (const b of candidates) rctx.strokeRect(b.x1,b.y1,b.x2-b.x1,b.y2-b.y1);
+    rctx.setLineDash([]);
     if (pending) { rctx.fillStyle = '#d11'; rctx.beginPath(); rctx.arc(...pending, 4, 0, 2 * Math.PI); rctx.fill(); }
   };
   const drawCorners = () => {
@@ -286,26 +349,47 @@ export function initFacadeRectify(doc) {
       ctx.fillText(String(i + 1), p[0] + 9, p[1] - 9);
     });
   };
-  file.addEventListener('change', () => {
-    const f = file.files[0];
-    if (segs.length && !window.confirm('Changer de photo effacera les lignes actuelles. Continuer ?')) { file.value = ''; return; }
+  const loadSource = (url, revoke, label) => {
     const current = ++loading;
     img = null; corners = []; invalidate(); ctx.clearRect(0, 0, cv.width, cv.height);
-    if (!f) return;
-    if (f.size > 20 * 1024 * 1024) return say('Image trop volumineuse : maximum 20 Mo.');
-    const url = URL.createObjectURL(f), im = new Image();
+    const im = new Image();
     im.onload = () => {
-      URL.revokeObjectURL(url);
+      if (revoke) URL.revokeObjectURL(url);
       if (current !== loading) return;
       if (im.width < 2 || im.height < 2) return say('Image trop petite.');
       const k = Math.min(1, 1200 / Math.max(im.width, im.height));
       cv.width = Math.max(2, Math.round(im.width * k)); cv.height = Math.max(2, Math.round(im.height * k));
       ctx.drawImage(im, 0, 0, cv.width, cv.height);
       img = ctx.getImageData(0, 0, cv.width, cv.height);
-      say('Photo chargée. Cliquez les 4 coins : haut-gauche, haut-droite, bas-droite, bas-gauche.');
+      say(`${label} : cliquez les 4 coins haut-gauche, haut-droite, bas-droite, bas-gauche.`);
     };
-    im.onerror = () => { URL.revokeObjectURL(url); if (current === loading) say('Impossible de lire cette image.'); };
+    im.onerror = () => { if (revoke) URL.revokeObjectURL(url); if (current === loading) say('Impossible de lire cette image.'); };
     im.src = url;
+  };
+  const okReplace = () => !segs.length || window.confirm('Changer d’image effacera les lignes actuelles. Continuer ?');
+  file.addEventListener('change', () => {
+    const f = file.files[0];
+    if (!f) return;
+    if (!okReplace()) { file.value = ''; return; }
+    if (f.size > 20 * 1024 * 1024) return say('Image trop volumineuse : maximum 20 Mo.');
+    loadSource(URL.createObjectURL(f), true, 'Photo chargée');
+  });
+  $('facadeUseReference').addEventListener('click', () => {
+    const preview = $('photoPreview');
+    const src = preview.getAttribute('src');
+    if (!src || !src.startsWith('data:image/')) return say('Choisissez d’abord une photo dans « 5 · La photo de référence ».');
+    if (!okReplace()) return;
+    loadSource(src, false, 'Photo de référence chargée localement');
+  });
+  $('facadeUseFront').addEventListener('click', () => {
+    if (doc.querySelector('[data-tab="fronts"]').getAttribute('aria-selected') !== 'true')
+      return say('Affichez d’abord l’onglet « 3 · Front bâti » dans les planches.');
+    const svg = doc.querySelector('#viewport svg');
+    if (!svg) return say('Planche front bâti introuvable.');
+    if (!okReplace()) return;
+    const markup = new XMLSerializer().serializeToString(svg);
+    loadSource(URL.createObjectURL(new Blob([markup], {type:'image/svg+xml'})), true,
+      'Dessin schématique chargé (ce n’est pas une photo réelle)');
   });
   cv.addEventListener('click', ev => {
     if (!img || corners.length >= 4) return;
@@ -347,7 +431,7 @@ export function initFacadeRectify(doc) {
     setTimeout(() => {
       if (target !== rect || run !== revision) return;
       const found = houghSegments(sobel(toGray(rect), rect.width, rect.height), rect.width, rect.height, { seuil, minLen });
-      remember(); segs = found; pending = null; render();
+      remember(); segs = found; pending = null; candidates = []; firstBridge = -1; render();
       say(`${segs.length} segments détectés. Résultat indicatif à nettoyer et vérifier.`);
     }, 20);
   });
@@ -356,30 +440,67 @@ export function initFacadeRectify(doc) {
     const tol = Number($('facadeTolerance').value);
     if (!Number.isFinite(tol) || tol < 0 || tol > 10) return say('Tolérance autorisée : 0 à 10 pixels.');
     const cleaned = removeDuplicateSegments(segs, tol), n = segs.length - cleaned.length;
-    if (n) { remember(); segs = cleaned; pending = null; render(); }
+    if (n) { remember(); segs = cleaned; pending = null; candidates = []; firstBridge = -1; render(); }
     say(`${n} doublon(s) retiré(s), ${segs.length} ligne(s) conservée(s). Annulez si un trait utile a disparu.`);
   });
   $('facadeEditUndo').addEventListener('click', () => {
-    pending = null;
+    pending = null; candidates = []; firstBridge = -1;
     if (!history.length) { render(); return say('Aucune modification à annuler.'); }
     revision++; segs = history.pop(); render(); say(`Modification annulée : ${segs.length} ligne(s).`);
   });
-  $('facadeEditMode').addEventListener('change', () => { pending = null; render(); });
+  $('facadeEditMode').addEventListener('change', () => { pending = null; firstBridge = -1; refPoints = []; render(); });
+  $('facadePropose').addEventListener('click', () => {
+    if (!rect || dirty || !segs.length) return say('Rectifiez puis extrayez d’abord les lignes.');
+    candidates = openingCandidates(segs); pending = null; firstBridge = -1;
+    $('facadeEditMode').value = 'candidate'; render();
+    say(`${candidates.length} rectangle(s) proposés en orange : ce ne sont pas des fenêtres reconnues. Cliquez pour les classer manuellement.`);
+  });
+  $('facadeCalibrate').addEventListener('click', () => {
+    if (!rect || dirty || refPoints.length !== 2) return say('Choisissez le mode cote, puis cliquez deux points sur la façade rectifiée.');
+    const n = Number($('facadeReferenceLength').value);
+    const result = calibratedScales(refPoints[0], refPoints[1], n, rect.sx, rect.sy);
+    if (!result) return say('Cote invalide : entrez une longueur positive et deux points distincts.');
+    rect.sx = result.sx; rect.sy = result.sy; refPoints = []; pending = null; render();
+    $('facadeW').value = String(rect.sx * (rect.width-1)); $('facadeH').value = String(rect.sy * (rect.height-1));
+    say(`Échelle ajustée sur ${n} m. Les proportions initiales restent supposées : vérifiez les autres cotes.`);
+  });
   res.addEventListener('click', e => {
     if (!rect || dirty) return say('Rectifiez d’abord avec les dimensions actuelles.');
     const box = res.getBoundingClientRect();
     const p = [Math.max(0, Math.min(rect.width - 1, (e.clientX - box.left) * rect.width / box.width)),
       Math.max(0, Math.min(rect.height - 1, (e.clientY - box.top) * rect.height / box.height))];
     const mode = $('facadeEditMode').value, layer = $('facadeLayer').value;
+    if (mode === 'calibrate') {
+      if (refPoints.length === 2) refPoints = [];
+      refPoints.push(p); pending = p; render();
+      return say(refPoints.length === 1 ? 'Premier point de cote posé ; cliquez le second.' : 'Deux points posés : saisissez la cote en mètres puis appliquez.');
+    }
+    if (mode === 'candidate') {
+      const i = candidates.findIndex(b => p[0] >= b.x1-4 && p[0] <= b.x2+4 && p[1] >= b.y1-4 && p[1] <= b.y2+4);
+      if (i < 0) return say('Cliquez dans un rectangle orange proposé.');
+      const b = candidates.splice(i,1)[0]; remember();
+      segs.push({a:[b.x1,b.y1],b:[b.x2,b.y1],layer}, {a:[b.x2,b.y1],b:[b.x2,b.y2],layer},
+        {a:[b.x2,b.y2],b:[b.x1,b.y2],layer}, {a:[b.x1,b.y2],b:[b.x1,b.y1],layer});
+      render(); return say(`Rectangle ajouté au calque ${layer} : classement manuel, à vérifier.`);
+    }
+    if (mode === 'bridge') {
+      const i = nearestSegment(segs, p, Math.max(5, 8 * rect.width / box.width));
+      if (i < 0) return say('Cliquez près d’un trait existant.');
+      if (firstBridge < 0) { firstBridge = i; return say('Premier trait choisi. Cliquez un second trait aligné.'); }
+      const bridge = i === firstBridge ? null : bridgeSegments(segs[firstBridge], segs[i]); firstBridge = -1;
+      if (!bridge) return say('Traits non compatibles : ils doivent être séparés, courts à relier et presque alignés.');
+      remember(); segs.push(bridge); candidates = []; render();
+      return say('Liaison ajoutée en HYPOTHESE : partie masquée non observée, à vérifier.');
+    }
     if (mode === 'draw') {
       if (!pending) { pending = p; render(); return say('Premier point posé : cliquez le second point de la ligne.'); }
       if (Math.hypot(p[0] - pending[0], p[1] - pending[1]) < 2) return say('Les deux points doivent être distincts.');
-      remember(); segs.push({ a: pending, b: p, layer }); pending = null; render();
+      remember(); segs.push({ a: pending, b: p, layer }); pending = null; candidates = []; render();
       return say(`Ligne ajoutée au calque ${layer} ; ${segs.length} ligne(s).`);
     }
     const i = nearestSegment(segs, p, Math.max(5, 8 * rect.width / box.width));
     if (i < 0) return say('Aucune ligne à proximité.');
-    remember();
+    remember(); candidates = [];
     if (mode === 'delete') { segs.splice(i, 1); say(`Ligne supprimée ; ${segs.length} ligne(s).`); }
     else if (mode === 'classify') { segs[i] = { ...segs[i], layer }; say(`Ligne classée dans ${layer}. Classement manuel, à vérifier.`); }
     render();
