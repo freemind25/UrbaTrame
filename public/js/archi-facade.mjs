@@ -280,6 +280,42 @@ export function bridgeSegments(a, b, maxGap = 80, tolerance = 4) {
   return {a:[...p], b:[...q], layer:'HYPOTHESE'};
 }
 
+/* Les masques sont des rectangles choisis par l'utilisateur, en pixels de
+   l'image rectifiée. Ils excluent les contours, pas le contenu de la photo. */
+export function maskEdges(mag, w, h, masks) {
+  const out = new Float32Array(mag);
+  for (const m of masks) {
+    const x1 = Math.max(0, Math.floor(Math.min(m.x1,m.x2))), x2 = Math.min(w-1, Math.ceil(Math.max(m.x1,m.x2)));
+    const y1 = Math.max(0, Math.floor(Math.min(m.y1,m.y2))), y2 = Math.min(h-1, Math.ceil(Math.max(m.y1,m.y2)));
+    for (let y=y1;y<=y2;y++) out.fill(0, y*w+x1, y*w+x2+1);
+  }
+  return out;
+}
+
+/* Coupe aussi les lignes qui traversent un masque après Hough : aucun trait
+   n'est supposé visible dans l'obstacle. Aucune reconstruction implicite. */
+export function clipSegmentsByMasks(segments, masks) {
+  let list = segments.map(s => ({...s, a:[...s.a], b:[...s.b]}));
+  for (const m of masks) {
+    const xmin=Math.min(m.x1,m.x2), xmax=Math.max(m.x1,m.x2), ymin=Math.min(m.y1,m.y2), ymax=Math.max(m.y1,m.y2);
+    const next=[];
+    for (const s of list) {
+      const dx=s.b[0]-s.a[0], dy=s.b[1]-s.a[1];
+      let lo=0, hi=1, intersects=true;
+      for (const [p,q] of [[-dx,s.a[0]-xmin],[dx,xmax-s.a[0]],[-dy,s.a[1]-ymin],[dy,ymax-s.a[1]]]) {
+        if (Math.abs(p)<1e-12) { if (q<0) {intersects=false;break;} }
+        else { const r=q/p; if(p<0) lo=Math.max(lo,r); else hi=Math.min(hi,r); if(lo>hi){intersects=false;break;} }
+      }
+      if (!intersects) { next.push(s); continue; }
+      const at=t=>[s.a[0]+t*dx,s.a[1]+t*dy];
+      if (lo>1e-9) next.push({...s,b:at(lo)});
+      if (hi<1-1e-9) next.push({...s,a:at(hi)});
+    }
+    list=next;
+  }
+  return list;
+}
+
 /* ── Export : entités DXF (mètres) + SVG ─────────────────────── */
 
 /* Convertit des segments en pixels (origine haut-gauche, y vers le bas)
@@ -323,9 +359,9 @@ export function initFacadeRectify(doc) {
   const file = $('facadeFile'), cv = $('facadeCanvas'), res = $('facadeResult');
   if (!file || !cv || !res) return;
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
-  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [];
+  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [], masks = [];
   const say = m => { $('facadeStatus').textContent = m; };
-  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; rctx.clearRect(0, 0, res.width, res.height); };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; rctx.clearRect(0, 0, res.width, res.height); };
   const remember = () => { revision++; history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
   const render = () => {
     if (!rect) return;
@@ -335,6 +371,7 @@ export function initFacadeRectify(doc) {
       rctx.strokeStyle = FACADE_LAYERS[layerOf(s)].svg;
       rctx.beginPath(); rctx.moveTo(...s.a); rctx.lineTo(...s.b); rctx.stroke();
     }
+    for (const m of masks) { rctx.fillStyle = 'rgba(213, 40, 100, .22)'; rctx.fillRect(m.x1,m.y1,m.x2-m.x1,m.y2-m.y1); rctx.strokeStyle = '#c71657'; rctx.lineWidth = 2; rctx.strokeRect(m.x1,m.y1,m.x2-m.x1,m.y2-m.y1); }
     rctx.strokeStyle = '#d88400'; rctx.lineWidth = 2; rctx.setLineDash([6,4]);
     for (const b of candidates) rctx.strokeRect(b.x1,b.y1,b.x2-b.x1,b.y2-b.y1);
     rctx.setLineDash([]);
@@ -430,7 +467,8 @@ export function initFacadeRectify(doc) {
     const target = rect;
     setTimeout(() => {
       if (target !== rect || run !== revision) return;
-      const found = houghSegments(sobel(toGray(rect), rect.width, rect.height), rect.width, rect.height, { seuil, minLen });
+      const edges = maskEdges(sobel(toGray(rect), rect.width, rect.height), rect.width, rect.height, masks);
+      const found = clipSegmentsByMasks(houghSegments(edges, rect.width, rect.height, { seuil, minLen }), masks);
       remember(); segs = found; pending = null; candidates = []; firstBridge = -1; render();
       say(`${segs.length} segments détectés. Résultat indicatif à nettoyer et vérifier.`);
     }, 20);
@@ -449,6 +487,12 @@ export function initFacadeRectify(doc) {
     revision++; segs = history.pop(); render(); say(`Modification annulée : ${segs.length} ligne(s).`);
   });
   $('facadeEditMode').addEventListener('change', () => { pending = null; firstBridge = -1; refPoints = []; render(); });
+  $('facadeMaskUndo').addEventListener('click', () => {
+    pending = null;
+    if (!masks.length) { render(); return say('Aucune zone d’exclusion à retirer.'); }
+    revision++; masks.pop(); render();
+    say(`Dernière zone retirée (${masks.length} restante(s)). Relancez l’extraction pour actualiser les lignes.`);
+  });
   $('facadePropose').addEventListener('click', () => {
     if (!rect || dirty || !segs.length) return say('Rectifiez puis extrayez d’abord les lignes.');
     candidates = openingCandidates(segs); pending = null; firstBridge = -1;
@@ -470,6 +514,15 @@ export function initFacadeRectify(doc) {
     const p = [Math.max(0, Math.min(rect.width - 1, (e.clientX - box.left) * rect.width / box.width)),
       Math.max(0, Math.min(rect.height - 1, (e.clientY - box.top) * rect.height / box.height))];
     const mode = $('facadeEditMode').value, layer = $('facadeLayer').value;
+    if (mode === 'mask') {
+      if (!pending) { pending = p; render(); return say('Premier coin posé : cliquez le coin opposé de l’obstacle.'); }
+      const x1=Math.min(p[0],pending[0]), y1=Math.min(p[1],pending[1]);
+      const x2=Math.max(p[0],pending[0]), y2=Math.max(p[1],pending[1]);
+      if (x2-x1 < 3 || y2-y1 < 3) return say('Choisissez une zone d’au moins 3 × 3 pixels.');
+      if (masks.length >= 30) return say('Maximum 30 zones d’exclusion.');
+      masks.push({x1,y1,x2,y2}); pending=null; revision++; candidates=[]; render();
+      return say(`Zone ${masks.length} ajoutée : relancez l’extraction pour exclure ses contours. La photo ne sera pas effacée.`);
+    }
     if (mode === 'calibrate') {
       if (refPoints.length === 2) refPoints = [];
       refPoints.push(p); pending = p; render();
