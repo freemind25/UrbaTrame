@@ -6,19 +6,19 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Analyse architecturale UrbaTrame : relevé d’une rue à partir d’une photo, indicateurs calculés et six dessins cotés — usages, profil, front bâti, axonométrie, ombres, avant/après.">
   <title>UrbaTrame — Analyse architecturale</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac4" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261011fac4">
-  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac4">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac4"></script>
-  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac4"></script>
-  <script type="module" src="/js/archi-facade.mjs?v=20261011fac4"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac5" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261011fac5">
+  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac5">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac5"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac5"></script>
+  <script type="module" src="/js/archi-facade.mjs?v=20261011fac5"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Aller au contenu principal</a>
 
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac4" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac5" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -42,6 +42,7 @@
       <div class="hero-title-row">
         <div>
           <h1 id="page-title">Analyse architecturale</h1>
+          <p><a class="button-secondary" href="#facade-title">Aller à l’analyse géométrique d’une façade ↓</a></p>
           <p class="lede">Une rue, une photo, un relevé : UrbaTrame calcule les indicateurs et dessine six planches cotées — plan des usages, profil en travers, front bâti déroulé, axonométrie, ombres et avant/après. Tout est calculé en code depuis le relevé, aucune image n’est générée.</p>
         </div>
       </div>
@@ -301,8 +302,8 @@
     <section class="reading" aria-labelledby="facade-title">
       <span class="step" data-fr="04 / PHOTO DE FAÇADE → VECTEUR" data-en="04 / FACADE PHOTO → VECTOR">04 / PHOTO DE FAÇADE → VECTEUR</span>
       <h2 id="facade-title" data-fr="Rectifier une façade et en extraire les lignes (100 % local)" data-en="Rectify a facade and extract its lines (100% local)">Rectifier une façade et en extraire les lignes (100 % local)</h2>
-      <p class="hint" data-fr="Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 (mètres) / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image."
-         data-en="No image leaves this browser: 4-point homography, Sobel edges, Hough transform, then DXF R12 (meters) / SVG / PNG export. No AI, no upload — a geometric survey, not image generation.">Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 (mètres) / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image.</p>
+      <p class="hint" data-fr="Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image."
+         data-en="No image leaves this browser: 4-point homography, Sobel edges, Hough transform, then DXF R12 / SVG / PNG export. No AI, no upload — a geometric survey, not image generation.">Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image.</p>
       <div class="reading-grid">
         <article>
           <h3 data-fr="1 · Photo et 4 coins" data-en="1 · Photo and 4 corners">1 · Photo et 4 coins</h3>
@@ -318,23 +319,28 @@
           </p>
         </article>
         <article>
-          <h3 data-fr="2 · Rectifier (échelle réelle)" data-en="2 · Rectify (real-world scale)">2 · Rectifier (échelle réelle)</h3>
-          <label>Largeur mesurée ou estimée entre les coins (m) <input id="facadeW" type="number" step="0.1" min="0.5" max="500" placeholder="ex. 12" required></label>
-          <label>Hauteur mesurée ou estimée entre les coins (m) <input id="facadeH" type="number" step="0.1" min="0.5" max="200" placeholder="ex. 9" required></label>
-          <p class="hint">Ces deux valeurs fixent les proportions de la rectification. Si elles sont estimées, indiquez des valeurs provisoires puis ajustez l’échelle avec une cote connue. Une seule cote ne corrige pas des proportions erronées. Façade supposée plane et rectangulaire.</p>
+          <h3>2 · Rectifier et définir les proportions</h3>
+          <label>Largeur entre les coins (proportion ou mètres) <input id="facadeW" type="number" step="0.1" min="0.5" max="500" placeholder="ex. 12" required></label>
+          <label>Hauteur entre les coins (proportion ou mètres) <input id="facadeH" type="number" step="0.1" min="0.5" max="200" placeholder="ex. 9" required></label>
+          <label for="facadeUnit">Unités pour le DXF</label>
+          <select id="facadeUnit"><option value="relative">Proportions estimées — unités arbitraires (sans échelle)</option><option value="metric">Dimensions réellement mesurées — mètres</option></select>
+          <p class="hint">Ces deux valeurs fixent les proportions de la rectification. Sans mesures réelles, utilisez deux valeurs estimées et gardez « unités arbitraires » : le DXF ne sera pas à l’échelle. Si elles sont estimées, indiquez des valeurs provisoires puis ajustez l’échelle avec une cote connue. Une seule cote ne corrige pas des proportions erronées ; ne déclarez des mètres que si les dimensions/proportions sont fiables. Façade supposée plane et rectangulaire.</p>
           <p><button id="facadeRectify" class="button-primary" type="button" data-fr="Rectifier la perspective" data-en="Rectify perspective">Rectifier la perspective</button></p>
         </article>
         <article>
           <h3 data-fr="3 · Lignes → DXF / SVG / PNG" data-en="3 · Lines → DXF / SVG / PNG">3 · Lignes → DXF / SVG / PNG</h3>
           <label>Seuil de contour <input id="facadeSeuil" type="number" step="10" min="20" max="800" value="120"></label>
           <label>Longueur min. d’un segment (px) <input id="facadeMinLen" type="number" step="2" min="6" max="400" value="24"></label>
+          <p><button id="facadeAnalyze" class="button-primary" type="button">Analyser la façade : traits et rectangles</button></p>
+          <p class="hint">Après rectification : extraction des lignes, retrait des doublons et proposition de rectangles. Ce bouton ne produit pas automatiquement une lecture architecturale ni ne reconnaît les fenêtres ou portes.</p>
+          <p id="facadeAnalysisSummary" class="hint" role="status" aria-live="polite"></p>
           <p><button id="facadeLines" class="button-primary" type="button" data-fr="Extraire les lignes" data-en="Extract lines">Extraire les lignes</button></p>
           <p>
-            <button id="facadeDxf" class="button-secondary" type="button">DXF (m)</button>
+            <button id="facadeDxf" class="button-secondary" type="button">DXF</button>
             <button id="facadeSvg" class="button-secondary" type="button">SVG</button>
             <button id="facadePng" class="button-secondary" type="button">PNG</button>
           </p>
-          <p class="hint">DXF : lignes en coordonnées locales métriques, sans géoréférencement ; élévation verticale, pas plan au sol. SVG : lignes seules. PNG : photo rectifiée et superpositions affichées, y compris les zones d’exclusion. Les résultats sont approximatifs : textures, ombres et objets peuvent produire des faux traits ; les liaisons masquées ne sont que des hypothèses géométriques. Nettoyage et contrôle sur site indispensables.</p>
+          <p class="hint">DXF : lignes en coordonnées locales selon les unités choisies, sans géoréférencement ; élévation verticale, pas plan au sol. SVG : lignes seules. PNG : photo rectifiée et superpositions affichées, y compris les zones d’exclusion. Les résultats sont approximatifs : textures, ombres et objets peuvent produire des faux traits ; les liaisons masquées ne sont que des hypothèses géométriques. Nettoyage et contrôle sur site indispensables.</p>
           <h3>4 · Nettoyer et corriger les lignes</h3>
           <p class="hint">Le nettoyage retire des traits presque superposés. Il peut aussi supprimer un détail réel : vérifiez et utilisez « Annuler ». Le classement des éléments est manuel, non automatique.</p>
           <label>Tolérance des doublons (pixels, 0–10) <input id="facadeTolerance" type="number" min="0" max="10" step="0.5" value="2"></label>
@@ -361,6 +367,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/chat-widget.mjs?v=20261011fac4"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261011fac5"></script>
 </body>
 </html>

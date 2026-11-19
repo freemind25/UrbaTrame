@@ -316,6 +316,16 @@ export function clipSegmentsByMasks(segments, masks) {
   return list;
 }
 
+/* Pipeline géométrique local : des segments et des rectangles candidats,
+   sans déduction de la fonction, du style ou de l'époque des éléments. */
+export function analyzeFacadeGeometry(image, {seuil = 120, minLen = 24, tolerance = 2, masks = []} = {}) {
+  const edges = maskEdges(sobel(toGray(image), image.width, image.height), image.width, image.height, masks);
+  const raw = clipSegmentsByMasks(houghSegments(edges, image.width, image.height, {seuil, minLen}), masks);
+  const segments = removeDuplicateSegments(raw, tolerance);
+  const rectangles = openingCandidates(segments);
+  return { segments, rectangles, rawCount: raw.length, removed: raw.length - segments.length };
+}
+
 /* ── Export : entités DXF (mètres) + SVG ─────────────────────── */
 
 /* Convertit des segments en pixels (origine haut-gauche, y vers le bas)
@@ -330,9 +340,10 @@ export function segmentsToEntities(segs, h, scale, scaleY = scale) {
   }));
 }
 
-export function facadeDxf(segs, h, scale, titre, scaleY = scale) {
-  return dxf(segmentsToEntities(segs, h, scale, scaleY), Object.entries(FACADE_LAYERS).map(([nom, v]) => ({ nom, couleur: v.couleur })),
+export function facadeDxf(segs, h, scale, titre, scaleY = scale, unitless = false) {
+  const out = dxf(segmentsToEntities(segs, h, scale, scaleY), Object.entries(FACADE_LAYERS).map(([nom, v]) => ({ nom, couleur: v.couleur })),
     { titre: titre || 'Facade UrbaTrame' });
+  return unitless ? out.replace('$INSUNITS\n70\n6\n', '$INSUNITS\n70\n0\n') : out;
 }
 
 export function segmentsToSvg(segs, w, h) {
@@ -361,7 +372,8 @@ export function initFacadeRectify(doc) {
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
   let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [], masks = [];
   const say = m => { $('facadeStatus').textContent = m; };
-  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; rctx.clearRect(0, 0, res.width, res.height); };
+  const clearSummary = () => { $('facadeAnalysisSummary').textContent = ''; };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; clearSummary(); rctx.clearRect(0, 0, res.width, res.height); };
   const remember = () => { revision++; history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
   const render = () => {
     if (!rect) return;
@@ -388,6 +400,7 @@ export function initFacadeRectify(doc) {
   };
   const loadSource = (url, revoke, label) => {
     const current = ++loading;
+    $('facadeUnit').value = 'relative';
     img = null; corners = []; invalidate(); ctx.clearRect(0, 0, cv.width, cv.height);
     const im = new Image();
     im.onload = () => {
@@ -433,7 +446,7 @@ export function initFacadeRectify(doc) {
     const r = cv.getBoundingClientRect();
     corners.push([(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]);
     invalidate(); drawCorners();
-    say(corners.length === 4 ? '4 coins posés. Saisissez les deux dimensions mesurées puis rectifiez.' : `Coin ${corners.length} posé sur 4.`);
+    say(corners.length === 4 ? '4 coins posés. Saisissez les proportions ou dimensions mesurées puis rectifiez.' : `Coin ${corners.length} posé sur 4.`);
   });
   $('facadeUndo').addEventListener('click', () => { if (segs.length && !window.confirm('Modifier les coins effacera les lignes actuelles. Continuer ?')) return; corners.pop(); invalidate(); drawCorners(); say('Dernier coin retiré ; rectifiez de nouveau.'); });
   for (const id of ['facadeW', 'facadeH']) $(id).addEventListener('input', () => { if (rect) { dirty = true; revision++; pending = null; render(); say('Dimensions modifiées : rectifiez de nouveau avant d’exporter. Les lignes actuelles seront remplacées.'); } });
@@ -447,7 +460,7 @@ export function initFacadeRectify(doc) {
     if (!img || !validCorners(corners)) return say('Posez 4 coins distincts dans l’ordre indiqué, formant un quadrilatère convexe.');
     const wm = Number($('facadeW').value), hm = Number($('facadeH').value);
     if (!Number.isFinite(wm) || !Number.isFinite(hm) || wm < 0.5 || wm > 500 || hm < 0.5 || hm > 200 || Math.max(wm / hm, hm / wm) > 100)
-      return say('Saisissez des dimensions positives mesurées (largeur 0,5–500 m, hauteur 0,5–200 m, rapport inférieur à 100).');
+      return say('Saisissez des valeurs positives (largeur 0,5–500, hauteur 0,5–200, rapport inférieur à 100).');
     const k = Math.min(40, 799 / Math.max(wm, hm));
     const w = Math.max(2, Math.round(wm * k) + 1), h = Math.max(2, Math.round(hm * k) + 1);
     rect = warpToRect(img, corners, w, h);
@@ -457,6 +470,7 @@ export function initFacadeRectify(doc) {
     say(`Photo rectifiée : ${w} × ${h} pixels. Vous pouvez extraire les lignes.`);
   });
   $('facadeLines').addEventListener('click', () => {
+    clearSummary();
     if (!rect || dirty) return say('Rectifiez d’abord avec les dimensions actuelles.');
     const seuil = Number($('facadeSeuil').value), minLen = Number($('facadeMinLen').value);
     if (!(seuil >= 20 && seuil <= 800 && minLen >= 6 && minLen <= 400)) return say('Seuil : 20–800 ; longueur minimale : 6–400 px.');
@@ -471,6 +485,24 @@ export function initFacadeRectify(doc) {
       const found = clipSegmentsByMasks(houghSegments(edges, rect.width, rect.height, { seuil, minLen }), masks);
       remember(); segs = found; pending = null; candidates = []; firstBridge = -1; render();
       say(`${segs.length} segments détectés. Résultat indicatif à nettoyer et vérifier.`);
+    }, 20);
+  });
+  $('facadeAnalyze').addEventListener('click', () => {
+    if (!rect || dirty) return say('Choisissez une photo, posez 4 coins puis rectifiez avant l’analyse.');
+    const seuil = Number($('facadeSeuil').value), minLen = Number($('facadeMinLen').value);
+    const tolerance = Number($('facadeTolerance').value);
+    if (!(seuil >= 20 && seuil <= 800 && minLen >= 6 && minLen <= 400 && tolerance >= 0 && tolerance <= 10))
+      return say('Vérifiez les paramètres : seuil 20–800, longueur 6–400 px, tolérance 0–10 px.');
+    if (segs.length && !window.confirm('L’analyse remplacera les lignes actuelles. Continuer ?')) return;
+    const run = ++revision, target = rect;
+    clearSummary(); say('Analyse géométrique locale en cours…');
+    setTimeout(() => {
+      if (target !== rect || run !== revision) return;
+      const result = analyzeFacadeGeometry(rect, {seuil, minLen, tolerance, masks});
+      remember(); segs = result.segments; candidates = result.rectangles; pending = null; firstBridge = -1;
+      $('facadeEditMode').value = 'candidate'; render();
+      $('facadeAnalysisSummary').textContent = `À la fin de l’analyse géométrique : ${result.rawCount} segments bruts, ${result.removed} doublons retirés, ${segs.length} lignes conservées et ${candidates.length} rectangles candidats. Ce ne sont pas des fenêtres ou portes identifiées. Résultats approximatifs à vérifier et classer manuellement.`;
+      say('Analyse terminée. Cliquez un rectangle orange pour le classer, ou corrigez les traits.');
     }, 20);
   });
   $('facadeClean').addEventListener('click', () => {
@@ -564,8 +596,9 @@ export function initFacadeRectify(doc) {
   };
   $('facadeDxf').addEventListener('click', () => {
     if (!rect || dirty || !segs.length) return say('Aucune ligne à exporter : rectifiez avec les dimensions actuelles puis ajoutez des lignes.');
-    dl('facade.dxf', facadeDxf(segs, rect.height - 1, rect.sx, 'Facade', rect.sy), 'application/dxf');
-    say('DXF téléchargé : coordonnées locales en mètres.');
+    const unitless = $('facadeUnit').value !== 'metric';
+    dl('facade.dxf', facadeDxf(segs, rect.height - 1, rect.sx, 'Facade', rect.sy, unitless), 'application/dxf');
+    say(unitless ? 'DXF téléchargé en unités arbitraires : ne pas lire les coordonnées comme des mètres.' : 'DXF téléchargé en mètres déclarés : validité conditionnée aux mesures saisies.');
   });
   $('facadeSvg').addEventListener('click', () => {
     if (!rect || dirty || !segs.length) return say('Aucune ligne à exporter avec les dimensions actuelles.');
