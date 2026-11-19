@@ -219,3 +219,18 @@ describe('zones d’exclusion manuelles', () => {
     assert.deepEqual(got.map(s=>[s.a,s.b]),[[[0,0],[4,0]],[[6,0],[10,0]],[[15,0],[20,0]]]);
   });
 });
+
+describe('bouton analyser et unités déclarées', () => {
+  test('analyse géométrique : image vide sans lignes ni rectangles', async () => {
+    const {analyzeFacadeGeometry} = await import('../public/js/archi-facade.mjs');
+    const width=60,height=60, data=new Uint8ClampedArray(width*height*4).fill(255);
+    const r=analyzeFacadeGeometry({width,height,data}, {seuil:120,minLen:12});
+    assert.equal(r.rawCount,0);assert.equal(r.removed,0);assert.deepEqual(r.segments,[]);assert.deepEqual(r.rectangles,[]);
+  });
+  test('DXF sans unité si proportions estimées ; métrique uniquement sur choix explicite', () => {
+    const segs=[{a:[0,0],b:[10,10]}];
+    const a=facadeDxf(segs,20,1,'Test',1,true),b=facadeDxf(segs,20,1,'Test',1,false);
+    assert.ok(a.includes('$INSUNITS\n70\n0\n'));assert.ok(b.includes('$INSUNITS\n70\n6\n'));
+    assert.equal(parseDxfText(a).entities.length,1);
+  });
+});
