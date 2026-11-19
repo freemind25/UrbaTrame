@@ -6,18 +6,19 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Analyse architecturale UrbaTrame : relevé d’une rue à partir d’une photo, indicateurs calculés et six dessins cotés — usages, profil, front bâti, axonométrie, ombres, avant/après.">
   <title>UrbaTrame — Analyse architecturale</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261108bot1" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261108bot1">
-  <link rel="stylesheet" href="/atelier-archi.css?v=20261115notice1">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261108bot1"></script>
-  <script type="module" src="/js/archi-rue-ui.mjs?v=20261115relay1"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261115fac1" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261115fac1">
+  <link rel="stylesheet" href="/atelier-archi.css?v=20261115fac1">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261115fac1"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261115fac1"></script>
+  <script type="module" src="/js/archi-facade.mjs?v=20261115fac1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Aller au contenu principal</a>
 
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261108bot1" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261115fac1" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -297,9 +298,48 @@
         <article><h3>6 · Demain</h3><p>Un réaménagement minimal sans toucher aux immeubles : fosses d’arbres de 1,50 × 1,50 m, joints ouverts, passage libre jamais sous 1,80 m. Trois chiffres changent, et ce qu’il faut vérifier sur place est écrit.</p></article>
       </div>
     </section>
+    <section class="reading" aria-labelledby="facade-title">
+      <span class="step" data-fr="04 / PHOTO DE FAÇADE → VECTEUR" data-en="04 / FACADE PHOTO → VECTOR">04 / PHOTO DE FAÇADE → VECTEUR</span>
+      <h2 id="facade-title" data-fr="Rectifier une façade et en extraire les lignes (100 % local)" data-en="Rectify a facade and extract its lines (100% local)">Rectifier une façade et en extraire les lignes (100 % local)</h2>
+      <p class="hint" data-fr="Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 (mètres) / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image."
+         data-en="No image leaves this browser: 4-point homography, Sobel edges, Hough transform, then DXF R12 (meters) / SVG / PNG export. No AI, no upload — a geometric survey, not image generation.">Aucune image ne quitte ce navigateur : homographie 4 points, contours de Sobel, transformée de Hough, puis export DXF R12 (mètres) / SVG / PNG. Aucune IA, aucun envoi — c’est un relevé géométrique, pas une génération d’image.</p>
+      <div class="reading-grid">
+        <article>
+          <h3 data-fr="1 · Photo et 4 coins" data-en="1 · Photo and 4 corners">1 · Photo et 4 coins</h3>
+          <label for="facadeFile">Choisir une photo de façade (20 Mo maximum)</label>
+          <input id="facadeFile" type="file" accept="image/*">
+          <p class="hint" data-fr="Cliquez ensuite les 4 coins de la façade sur la photo : haut-gauche, haut-droite, bas-droite, bas-gauche." data-en="Then click the 4 facade corners on the photo: top-left, top-right, bottom-right, bottom-left.">Cliquez ensuite les 4 coins de la façade sur la photo : haut-gauche, haut-droite, bas-droite, bas-gauche.</p>
+          <canvas id="facadeCanvas" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px;cursor:crosshair"></canvas>
+          <p>
+            <button id="facadeUndo" class="button-secondary" type="button" data-fr="Retirer le dernier coin" data-en="Remove last corner">Retirer le dernier coin</button>
+          </p>
+        </article>
+        <article>
+          <h3 data-fr="2 · Rectifier (échelle réelle)" data-en="2 · Rectify (real-world scale)">2 · Rectifier (échelle réelle)</h3>
+          <label>Largeur mesurée entre les coins (m) <input id="facadeW" type="number" step="0.1" min="0.5" max="500" placeholder="ex. 12" required></label>
+          <label>Hauteur mesurée entre les coins (m) <input id="facadeH" type="number" step="0.1" min="0.5" max="200" placeholder="ex. 9" required></label>
+          <p class="hint">Deux dimensions sont nécessaires pour fixer les proportions. Une photo seule ne permet pas de déduire des mesures fiables. Façade supposée plane et rectangulaire.</p>
+          <p><button id="facadeRectify" class="button-primary" type="button" data-fr="Rectifier la perspective" data-en="Rectify perspective">Rectifier la perspective</button></p>
+        </article>
+        <article>
+          <h3 data-fr="3 · Lignes → DXF / SVG / PNG" data-en="3 · Lines → DXF / SVG / PNG">3 · Lignes → DXF / SVG / PNG</h3>
+          <label>Seuil de contour <input id="facadeSeuil" type="number" step="10" min="20" max="800" value="120"></label>
+          <label>Longueur min. d’un segment (px) <input id="facadeMinLen" type="number" step="2" min="6" max="400" value="24"></label>
+          <p><button id="facadeLines" class="button-primary" type="button" data-fr="Extraire les lignes" data-en="Extract lines">Extraire les lignes</button></p>
+          <p>
+            <button id="facadeDxf" class="button-secondary" type="button">DXF (m)</button>
+            <button id="facadeSvg" class="button-secondary" type="button">SVG</button>
+            <button id="facadePng" class="button-secondary" type="button">PNG</button>
+          </p>
+          <p class="hint">DXF : lignes en coordonnées locales métriques, sans géoréférencement ; élévation verticale, pas plan au sol. SVG : lignes seules. PNG : photo rectifiée et lignes affichées. Les résultats sont approximatifs : textures, ombres et objets peuvent produire des faux traits ; aucun objet masqué n’est reconstruit. Nettoyage et contrôle sur site indispensables.</p>
+          <canvas id="facadeResult" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px"></canvas>
+          <p id="facadeStatus" class="hint" role="status" aria-live="polite"></p>
+        </article>
+      </div>
+    </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/chat-widget.mjs?v=20261113cc1"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261115fac1"></script>
 </body>
 </html>
