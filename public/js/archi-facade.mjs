@@ -370,10 +370,11 @@ export function initFacadeRectify(doc) {
   const file = $('facadeFile'), cv = $('facadeCanvas'), res = $('facadeResult');
   if (!file || !cv || !res) return;
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
+  const mini = $('facadeRectPreview'), mctx = mini.getContext('2d');
   let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [], masks = [];
-  const say = m => { $('facadeStatus').textContent = m; };
+  const say = m => { for (const id of ['facadeStatus','facadePhotoStatus','facadeRectStatus','facadeActionStatus']) $(id).textContent = m; };
   const clearSummary = () => { $('facadeAnalysisSummary').textContent = ''; };
-  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; clearSummary(); rctx.clearRect(0, 0, res.width, res.height); };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; clearSummary(); mini.hidden = true; rctx.clearRect(0, 0, res.width, res.height); };
   const remember = () => { revision++; history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
   const render = () => {
     if (!rect) return;
@@ -449,7 +450,7 @@ export function initFacadeRectify(doc) {
     say(corners.length === 4 ? '4 coins posés. Saisissez les proportions ou dimensions mesurées puis rectifiez.' : `Coin ${corners.length} posé sur 4.`);
   });
   $('facadeUndo').addEventListener('click', () => { if (segs.length && !window.confirm('Modifier les coins effacera les lignes actuelles. Continuer ?')) return; corners.pop(); invalidate(); drawCorners(); say('Dernier coin retiré ; rectifiez de nouveau.'); });
-  for (const id of ['facadeW', 'facadeH']) $(id).addEventListener('input', () => { if (rect) { dirty = true; revision++; pending = null; render(); say('Dimensions modifiées : rectifiez de nouveau avant d’exporter. Les lignes actuelles seront remplacées.'); } });
+  for (const id of ['facadeW', 'facadeH']) $(id).addEventListener('input', () => { if (rect) { dirty = true; mini.hidden = true; revision++; pending = null; render(); say('Dimensions modifiées : rectifiez de nouveau avant d’exporter. Les lignes actuelles seront remplacées.'); } });
   for (const id of ['facadeSeuil', 'facadeMinLen']) $(id).addEventListener('input', () => {
     revision++; pending = null; render();
     say('Paramètres modifiés : une nouvelle extraction remplacera les lignes actuelles.');
@@ -457,17 +458,24 @@ export function initFacadeRectify(doc) {
   $('facadeRectify').addEventListener('click', () => {
     if (segs.length && !window.confirm('Rectifier de nouveau effacera les lignes actuelles. Continuer ?')) return;
     invalidate();
-    if (!img || !validCorners(corners)) return say('Posez 4 coins distincts dans l’ordre indiqué, formant un quadrilatère convexe.');
+    if (!img) return say('Choisissez d’abord une photo dans l’étape 1.');
+    if (corners.length !== 4) return say(`Posez 4 coins sur la photo dans l’ordre indiqué : ${corners.length} sur 4 actuellement.`);
+    if (!validCorners(corners)) return say('Les 4 coins ne forment pas un quadrilatère valide. Retirez-les puis recommencez dans l’ordre indiqué.');
     const wm = Number($('facadeW').value), hm = Number($('facadeH').value);
-    if (!Number.isFinite(wm) || !Number.isFinite(hm) || wm < 0.5 || wm > 500 || hm < 0.5 || hm > 200 || Math.max(wm / hm, hm / wm) > 100)
-      return say('Saisissez des valeurs positives (largeur 0,5–500, hauteur 0,5–200, rapport inférieur à 100).');
+    if (!Number.isFinite(wm) || !Number.isFinite(hm) || wm < 0.5 || wm > 500 || hm < 0.5 || hm > 200 || Math.max(wm / hm, hm / wm) > 100) {
+      say('Remplissez les deux cases largeur et hauteur : largeur 0,5–500, hauteur 0,5–200 et rapport maximal de 100 ; sans cote, utilisez des proportions estimées.');
+      if (!(wm >= 0.5 && wm <= 500)) $('facadeW').focus();
+      else if (!(hm >= 0.5 && hm <= 200)) $('facadeH').focus();
+      return;
+    }
     const k = Math.min(40, 799 / Math.max(wm, hm));
     const w = Math.max(2, Math.round(wm * k) + 1), h = Math.max(2, Math.round(hm * k) + 1);
     rect = warpToRect(img, corners, w, h);
     if (!rect) return say('Rectification impossible : vérifiez les coins.');
     rect.sx = wm / (w - 1); rect.sy = hm / (h - 1);
     res.width = w; res.height = h; rctx.putImageData(new ImageData(rect.data, w, h), 0, 0);
-    say(`Photo rectifiée : ${w} × ${h} pixels. Vous pouvez extraire les lignes.`);
+    mini.width = w; mini.height = h; mctx.putImageData(new ImageData(rect.data, w, h), 0, 0); mini.hidden = false;
+    say(`Photo rectifiée : ${w} × ${h} pixels. L’aperçu est sous ce bouton ; poursuivez avec « Analyser la façade » à l’étape 3.`);
   });
   $('facadeLines').addEventListener('click', () => {
     clearSummary();
