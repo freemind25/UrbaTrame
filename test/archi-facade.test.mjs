@@ -134,3 +134,35 @@ describe('validation et interopérabilité', () => {
     assert.ok(data.includes('10\n0.000\n20\n8.000'));
   });
 });
+
+describe('nettoyage et édition de façade', () => {
+  test('supprime seulement le doublon proche, conserve les lignes éloignées et croisées', async () => {
+    const { removeDuplicateSegments } = await import('../public/js/archi-facade.mjs');
+    const a = { a: [0, 0], b: [100, 0] };
+    const b = { a: [100, 1], b: [0, 1] };
+    const c = { a: [0, 8], b: [100, 8] };
+    const d = { a: [50, -50], b: [50, 50] };
+    assert.deepEqual(removeDuplicateSegments([a, b, c, d], 2), [a, c, d]);
+    assert.equal(removeDuplicateSegments([a, b], 0).length, 2);
+    assert.equal(removeDuplicateSegments([a, {...b, layer: 'FENETRE'}], 2).length, 2);
+  });
+  test('ne fusionne pas des lignes partiellement superposées ou de longueur très différente', async () => {
+    const { removeDuplicateSegments } = await import('../public/js/archi-facade.mjs');
+    assert.equal(removeDuplicateSegments([{a:[0,0],b:[100,0]}, {a:[40,0],b:[140,0]}], 2).length, 2);
+    assert.equal(removeDuplicateSegments([{a:[0,0],b:[100,0]}, {a:[10,0],b:[50,0]}], 2).length, 2);
+  });
+  test('sélection du segment le plus proche et distance maximale', async () => {
+    const { nearestSegment } = await import('../public/js/archi-facade.mjs');
+    const segs = [{a:[0,0],b:[10,0]}, {a:[0,10],b:[10,10]}];
+    assert.equal(nearestSegment(segs, [5,9], 3), 1);
+    assert.equal(nearestSegment(segs, [30,30], 3), -1);
+  });
+  test('calques manuels préservés en DXF et SVG ; calques inconnus refusés', () => {
+    const lines = [{a:[0,0],b:[10,10], layer:'FENETRE'}, {a:[0,2],b:[10,2], layer:'HYPOTHESE'}, {a:[1,1],b:[2,2],layer:'BAD\n0\nEOF'}];
+    const parsed = parseDxfText(facadeDxf(lines, 20, 1));
+    assert.deepEqual(parsed.entities.map(e => e.layer), ['FENETRE', 'HYPOTHESE', 'FACADE']);
+    const svg = segmentsToSvg(lines,20,20);
+    assert.match(svg, /data-layer="FENETRE"/); assert.match(svg, /data-layer="HYPOTHESE"/);
+    assert.doesNotMatch(svg, /BAD/);
+  });
+});
