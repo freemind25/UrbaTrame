@@ -173,6 +173,53 @@ export function houghSegments(mag, w, h, o = {}) {
   return segs.slice(0, 1000);
 }
 
+/* Les classes sont choisies par l'utilisateur, pas reconnues par IA. */
+export const FACADE_LAYERS = Object.freeze({
+  FACADE: { couleur: 7, svg: '#153e3d' }, MUR: { couleur: 1, svg: '#d22b3a' },
+  FENETRE: { couleur: 5, svg: '#245ad3' }, PORTE: { couleur: 3, svg: '#16834d' },
+  CORNICHE: { couleur: 2, svg: '#ae7700' }, HYPOTHESE: { couleur: 6, svg: '#a2229a' }
+});
+const layerOf = s => Object.hasOwn(FACADE_LAYERS, s.layer) ? s.layer : 'FACADE';
+const length = s => Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]);
+
+/* Déduplication volontairement prudente : ne supprime que les segments presque
+   superposés et de longueurs comparables, jamais les traits parallèles éloignés.
+   L'utilisateur peut annuler car deux véritables bords proches restent possibles. */
+export function removeDuplicateSegments(segments, tolerance = 2) {
+  const tol = Math.max(0, Math.min(10, Number(tolerance) || 0));
+  const retained = [];
+  const ranked = segments.map((s, i) => ({s, i})).sort((a, b) => length(b.s) - length(a.s));
+  for (const entry of ranked) {
+    const s = entry.s, len = length(s);
+    if (!Number.isFinite(len) || len < 0.001) continue;
+    const ux = (s.b[0] - s.a[0]) / len, uy = (s.b[1] - s.a[1]) / len;
+    const duplicate = retained.some(({s: t}) => {
+      if (layerOf(s) !== layerOf(t)) return false;
+      const tl = length(t), vx = (t.b[0] - t.a[0]) / tl, vy = (t.b[1] - t.a[1]) / tl;
+      if (Math.abs(ux * vx + uy * vy) < Math.cos(2 * Math.PI / 180)) return false;
+      const cross = p => Math.abs((p[0] - s.a[0]) * uy - (p[1] - s.a[1]) * ux);
+      if (cross(t.a) > tol || cross(t.b) > tol) return false;
+      const project = p => (p[0] - s.a[0]) * ux + (p[1] - s.a[1]) * uy;
+      const a = project(t.a), b = project(t.b);
+      const overlap = Math.max(0, Math.min(len, Math.max(a, b)) - Math.max(0, Math.min(a, b)));
+      return overlap >= 0.85 * Math.max(len, tl);
+    });
+    if (!duplicate) retained.push(entry);
+  }
+  return retained.sort((a, b) => a.i - b.i).map(e => e.s);
+}
+
+export function nearestSegment(segments, point, radius) {
+  let best = -1, distance = radius;
+  segments.forEach((s, i) => {
+    const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], d = dx * dx + dy * dy;
+    const t = d ? Math.max(0, Math.min(1, ((point[0] - s.a[0]) * dx + (point[1] - s.a[1]) * dy) / d)) : 0;
+    const dist = Math.hypot(point[0] - s.a[0] - t * dx, point[1] - s.a[1] - t * dy);
+    if (dist <= distance) { best = i; distance = dist; }
+  });
+  return best;
+}
+
 /* ── Export : entités DXF (mètres) + SVG ─────────────────────── */
 
 /* Convertit des segments en pixels (origine haut-gauche, y vers le bas)
@@ -181,21 +228,21 @@ export function houghSegments(mag, w, h, o = {}) {
 export function segmentsToEntities(segs, h, scale, scaleY = scale) {
   return segs.map(s => ({
     t: 'ligne',
-    calque: 'FACADE',
+    calque: layerOf(s),
     a: [s.a[0] * scale, (h - s.a[1]) * scaleY],
     b: [s.b[0] * scale, (h - s.b[1]) * scaleY]
   }));
 }
 
 export function facadeDxf(segs, h, scale, titre, scaleY = scale) {
-  return dxf(segmentsToEntities(segs, h, scale, scaleY), [{ nom: 'facade', couleur: 7 }],
+  return dxf(segmentsToEntities(segs, h, scale, scaleY), Object.entries(FACADE_LAYERS).map(([nom, v]) => ({ nom, couleur: v.couleur })),
     { titre: titre || 'Facade UrbaTrame' });
 }
 
 export function segmentsToSvg(segs, w, h) {
   const l = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`];
   for (const s of segs)
-    l.push(`<line x1="${s.a[0].toFixed(1)}" y1="${s.a[1].toFixed(1)}" x2="${s.b[0].toFixed(1)}" y2="${s.b[1].toFixed(1)}" stroke="#153e3d" stroke-width="1"/>`);
+    l.push(`<line x1="${s.a[0].toFixed(1)}" y1="${s.a[1].toFixed(1)}" x2="${s.b[0].toFixed(1)}" y2="${s.b[1].toFixed(1)}" stroke="${FACADE_LAYERS[layerOf(s)].svg}" stroke-width="1" data-layer="${layerOf(s)}"/>`);
   l.push('</svg>');
   return l.join('\n');
 }
@@ -216,9 +263,20 @@ export function initFacadeRectify(doc) {
   const file = $('facadeFile'), cv = $('facadeCanvas'), res = $('facadeResult');
   if (!file || !cv || !res) return;
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
-  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0;
+  let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false;
   const say = m => { $('facadeStatus').textContent = m; };
-  const invalidate = () => { revision++; rect = null; segs = []; rctx.clearRect(0, 0, res.width, res.height); };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; rctx.clearRect(0, 0, res.width, res.height); };
+  const remember = () => { history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
+  const render = () => {
+    if (!rect) return;
+    rctx.putImageData(new ImageData(rect.data, rect.width, rect.height), 0, 0);
+    rctx.lineWidth = Math.max(1, rect.width / 600);
+    for (const s of segs) {
+      rctx.strokeStyle = FACADE_LAYERS[layerOf(s)].svg;
+      rctx.beginPath(); rctx.moveTo(...s.a); rctx.lineTo(...s.b); rctx.stroke();
+    }
+    if (pending) { rctx.fillStyle = '#d11'; rctx.beginPath(); rctx.arc(...pending, 4, 0, 2 * Math.PI); rctx.fill(); }
+  };
   const drawCorners = () => {
     if (!img) return;
     ctx.putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
@@ -229,7 +287,9 @@ export function initFacadeRectify(doc) {
     });
   };
   file.addEventListener('change', () => {
-    const f = file.files[0], current = ++loading;
+    const f = file.files[0];
+    if (segs.length && !window.confirm('Changer de photo effacera les lignes actuelles. Continuer ?')) { file.value = ''; return; }
+    const current = ++loading;
     img = null; corners = []; invalidate(); ctx.clearRect(0, 0, cv.width, cv.height);
     if (!f) return;
     if (f.size > 20 * 1024 * 1024) return say('Image trop volumineuse : maximum 20 Mo.');
@@ -254,14 +314,14 @@ export function initFacadeRectify(doc) {
     invalidate(); drawCorners();
     say(corners.length === 4 ? '4 coins posés. Saisissez les deux dimensions mesurées puis rectifiez.' : `Coin ${corners.length} posé sur 4.`);
   });
-  $('facadeUndo').addEventListener('click', () => { corners.pop(); invalidate(); drawCorners(); say('Dernier coin retiré ; rectifiez de nouveau.'); });
-  for (const id of ['facadeW', 'facadeH']) $(id).addEventListener('input', () => { invalidate(); say('Dimensions modifiées : rectifiez de nouveau.'); });
+  $('facadeUndo').addEventListener('click', () => { if (segs.length && !window.confirm('Modifier les coins effacera les lignes actuelles. Continuer ?')) return; corners.pop(); invalidate(); drawCorners(); say('Dernier coin retiré ; rectifiez de nouveau.'); });
+  for (const id of ['facadeW', 'facadeH']) $(id).addEventListener('input', () => { if (rect) { dirty = true; revision++; pending = null; render(); say('Dimensions modifiées : rectifiez de nouveau avant d’exporter. Les lignes actuelles seront remplacées.'); } });
   for (const id of ['facadeSeuil', 'facadeMinLen']) $(id).addEventListener('input', () => {
-    revision++; segs = [];
-    if (rect) rctx.putImageData(new ImageData(rect.data, rect.width, rect.height), 0, 0);
-    say('Paramètres modifiés : extrayez de nouveau les lignes.');
+    revision++; pending = null; render();
+    say('Paramètres modifiés : une nouvelle extraction remplacera les lignes actuelles.');
   });
   $('facadeRectify').addEventListener('click', () => {
+    if (segs.length && !window.confirm('Rectifier de nouveau effacera les lignes actuelles. Continuer ?')) return;
     invalidate();
     if (!img || !validCorners(corners)) return say('Posez 4 coins distincts dans l’ordre indiqué, formant un quadrilatère convexe.');
     const wm = Number($('facadeW').value), hm = Number($('facadeH').value);
@@ -276,38 +336,69 @@ export function initFacadeRectify(doc) {
     say(`Photo rectifiée : ${w} × ${h} pixels. Vous pouvez extraire les lignes.`);
   });
   $('facadeLines').addEventListener('click', () => {
-    if (!rect) return say('Rectifiez d’abord.');
+    if (!rect || dirty) return say('Rectifiez d’abord avec les dimensions actuelles.');
     const seuil = Number($('facadeSeuil').value), minLen = Number($('facadeMinLen').value);
     if (!(seuil >= 20 && seuil <= 800 && minLen >= 6 && minLen <= 400)) return say('Seuil : 20–800 ; longueur minimale : 6–400 px.');
-    segs = [];
+    if (segs.length && !window.confirm('Une nouvelle extraction remplacera les lignes actuelles. Continuer ?')) return;
     const run = ++revision;
     say('Extraction en cours…');
     // Laisse le navigateur afficher le message avant le calcul.
     const target = rect;
     setTimeout(() => {
       if (target !== rect || run !== revision) return;
-      segs = houghSegments(sobel(toGray(rect), rect.width, rect.height), rect.width, rect.height, { seuil, minLen });
-      rctx.putImageData(new ImageData(rect.data, rect.width, rect.height), 0, 0);
-      rctx.strokeStyle = '#e11d48'; rctx.lineWidth = 1;
-      for (const s of segs) { rctx.beginPath(); rctx.moveTo(...s.a); rctx.lineTo(...s.b); rctx.stroke(); }
+      const found = houghSegments(sobel(toGray(rect), rect.width, rect.height), rect.width, rect.height, { seuil, minLen });
+      remember(); segs = found; pending = null; render();
       say(`${segs.length} segments détectés. Résultat indicatif à nettoyer et vérifier.`);
     }, 20);
+  });
+  $('facadeClean').addEventListener('click', () => {
+    if (!rect || dirty || !segs.length) return say('Rectifiez avec les dimensions actuelles et ajoutez des lignes avant de nettoyer.');
+    const tol = Number($('facadeTolerance').value);
+    if (!Number.isFinite(tol) || tol < 0 || tol > 10) return say('Tolérance autorisée : 0 à 10 pixels.');
+    const cleaned = removeDuplicateSegments(segs, tol), n = segs.length - cleaned.length;
+    if (n) { remember(); segs = cleaned; pending = null; render(); }
+    say(`${n} doublon(s) retiré(s), ${segs.length} ligne(s) conservée(s). Annulez si un trait utile a disparu.`);
+  });
+  $('facadeEditUndo').addEventListener('click', () => {
+    pending = null;
+    if (!history.length) { render(); return say('Aucune modification à annuler.'); }
+    revision++; segs = history.pop(); render(); say(`Modification annulée : ${segs.length} ligne(s).`);
+  });
+  $('facadeEditMode').addEventListener('change', () => { pending = null; render(); });
+  res.addEventListener('click', e => {
+    if (!rect || dirty) return say('Rectifiez d’abord avec les dimensions actuelles.');
+    const box = res.getBoundingClientRect();
+    const p = [Math.max(0, Math.min(rect.width - 1, (e.clientX - box.left) * rect.width / box.width)),
+      Math.max(0, Math.min(rect.height - 1, (e.clientY - box.top) * rect.height / box.height))];
+    const mode = $('facadeEditMode').value, layer = $('facadeLayer').value;
+    if (mode === 'draw') {
+      if (!pending) { pending = p; render(); return say('Premier point posé : cliquez le second point de la ligne.'); }
+      if (Math.hypot(p[0] - pending[0], p[1] - pending[1]) < 2) return say('Les deux points doivent être distincts.');
+      remember(); segs.push({ a: pending, b: p, layer }); pending = null; render();
+      return say(`Ligne ajoutée au calque ${layer} ; ${segs.length} ligne(s).`);
+    }
+    const i = nearestSegment(segs, p, Math.max(5, 8 * rect.width / box.width));
+    if (i < 0) return say('Aucune ligne à proximité.');
+    remember();
+    if (mode === 'delete') { segs.splice(i, 1); say(`Ligne supprimée ; ${segs.length} ligne(s).`); }
+    else if (mode === 'classify') { segs[i] = { ...segs[i], layer }; say(`Ligne classée dans ${layer}. Classement manuel, à vérifier.`); }
+    render();
   });
   const dl = (name, data, mime) => {
     const a = doc.createElement('a'), url = URL.createObjectURL(new Blob([data], { type: mime }));
     a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
   $('facadeDxf').addEventListener('click', () => {
-    if (!rect || !segs.length) return say('Aucune ligne à exporter : rectifiez puis extrayez les lignes.');
+    if (!rect || dirty || !segs.length) return say('Aucune ligne à exporter : rectifiez avec les dimensions actuelles puis ajoutez des lignes.');
     dl('facade.dxf', facadeDxf(segs, rect.height - 1, rect.sx, 'Facade', rect.sy), 'application/dxf');
     say('DXF téléchargé : coordonnées locales en mètres.');
   });
   $('facadeSvg').addEventListener('click', () => {
-    if (!rect || !segs.length) return say('Aucune ligne à exporter.');
+    if (!rect || dirty || !segs.length) return say('Aucune ligne à exporter avec les dimensions actuelles.');
     dl('facade.svg', segmentsToSvg(segs, rect.width, rect.height), 'image/svg+xml'); say('SVG téléchargé.');
   });
   $('facadePng').addEventListener('click', () => {
-    if (!rect) return say('Rectifiez d’abord.');
+    if (!rect || dirty) return say('Rectifiez d’abord avec les dimensions actuelles.');
     res.toBlob(b => { if (b) { dl('facade.png', b, 'image/png'); say('PNG téléchargé : photo rectifiée avec les lignes affichées.'); } else say('Export PNG impossible.'); }, 'image/png');
   });
 }
