@@ -6,19 +6,19 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Analyse architecturale UrbaTrame : relevé d’une rue à partir d’une photo, indicateurs calculés et six dessins cotés — usages, profil, front bâti, axonométrie, ombres, avant/après.">
   <title>UrbaTrame — Analyse architecturale</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac5" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261011fac5">
-  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac5">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac5"></script>
-  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac5"></script>
-  <script type="module" src="/js/archi-facade.mjs?v=20261011fac5"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac6" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261011fac6">
+  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac6">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac6"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac6"></script>
+  <script type="module" src="/js/archi-facade.mjs?v=20261011fac6"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Aller au contenu principal</a>
 
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac5" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac6" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -314,6 +314,7 @@
           <p class="hint">La planche est un dessin schématique calculé, non une photo ; ses détails peuvent être supposés. Elle convient aux essais, pas à la validation d’une reconnaissance sur bâtiments réels.</p>
           <p class="hint" data-fr="Cliquez ensuite les 4 coins de la façade sur la photo : haut-gauche, haut-droite, bas-droite, bas-gauche." data-en="Then click the 4 facade corners on the photo: top-left, top-right, bottom-right, bottom-left.">Cliquez ensuite les 4 coins de la façade sur la photo : haut-gauche, haut-droite, bas-droite, bas-gauche.</p>
           <canvas id="facadeCanvas" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px;cursor:crosshair"></canvas>
+          <p id="facadePhotoStatus" class="hint"></p>
           <p>
             <button id="facadeUndo" class="button-secondary" type="button" data-fr="Retirer le dernier coin" data-en="Remove last corner">Retirer le dernier coin</button>
           </p>
@@ -326,6 +327,8 @@
           <select id="facadeUnit"><option value="relative">Proportions estimées — unités arbitraires (sans échelle)</option><option value="metric">Dimensions réellement mesurées — mètres</option></select>
           <p class="hint">Ces deux valeurs fixent les proportions de la rectification. Sans mesures réelles, utilisez deux valeurs estimées et gardez « unités arbitraires » : le DXF ne sera pas à l’échelle. Si elles sont estimées, indiquez des valeurs provisoires puis ajustez l’échelle avec une cote connue. Une seule cote ne corrige pas des proportions erronées ; ne déclarez des mètres que si les dimensions/proportions sont fiables. Façade supposée plane et rectangulaire.</p>
           <p><button id="facadeRectify" class="button-primary" type="button" data-fr="Rectifier la perspective" data-en="Rectify perspective">Rectifier la perspective</button></p>
+          <p id="facadeRectStatus" class="hint" role="status" aria-live="polite">Chargez une photo, posez quatre coins puis remplissez largeur et hauteur.</p>
+          <canvas id="facadeRectPreview" hidden aria-label="Aperçu de la façade rectifiée" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px"></canvas>
         </article>
         <article>
           <h3 data-fr="3 · Lignes → DXF / SVG / PNG" data-en="3 · Lines → DXF / SVG / PNG">3 · Lignes → DXF / SVG / PNG</h3>
@@ -334,6 +337,7 @@
           <p><button id="facadeAnalyze" class="button-primary" type="button">Analyser la façade : traits et rectangles</button></p>
           <p class="hint">Après rectification : extraction des lignes, retrait des doublons et proposition de rectangles. Ce bouton ne produit pas automatiquement une lecture architecturale ni ne reconnaît les fenêtres ou portes.</p>
           <p id="facadeAnalysisSummary" class="hint" role="status" aria-live="polite"></p>
+          <p id="facadeActionStatus" class="hint"></p>
           <p><button id="facadeLines" class="button-primary" type="button" data-fr="Extraire les lignes" data-en="Extract lines">Extraire les lignes</button></p>
           <p>
             <button id="facadeDxf" class="button-secondary" type="button">DXF</button>
@@ -360,13 +364,13 @@
           <select id="facadeLayer"><option value="FACADE">Façade / non classé</option><option value="MUR">Mur</option><option value="FENETRE">Fenêtre</option><option value="PORTE">Porte</option><option value="CORNICHE">Corniche</option><option value="HYPOTHESE">Hypothèse à vérifier</option></select>
           <p class="hint">Les lignes du calque « Hypothèse » sont des propositions manuelles, non des éléments observés. Les modifications restent dans cet onglet : téléchargez avant de quitter.</p>
           <canvas id="facadeResult" aria-label="Image rectifiée et lignes à corriger : utilisez le mode choisi puis cliquez sur l’image" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px;cursor:crosshair"></canvas>
-          <p id="facadeStatus" class="hint" role="status" aria-live="polite"></p>
+          <p id="facadeStatus" class="hint"></p>
         </article>
       </div>
     </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/chat-widget.mjs?v=20261011fac5"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261011fac6"></script>
 </body>
 </html>
