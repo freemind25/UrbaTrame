@@ -195,3 +195,27 @@ describe('étalonnage et propositions assistées', () => {
     assert.equal(bridgeSegments(s,{a:[35,10],b:[35,30]}),null);
   });
 });
+
+describe('zones d’exclusion manuelles', () => {
+  test('masque Sobel sans modifier la source ni ses voisins', async () => {
+    const {maskEdges} = await import('../public/js/archi-facade.mjs');
+    const mag = new Float32Array(25).fill(42);
+    const result = maskEdges(mag,5,5,[{x1:1,y1:1,x2:3,y2:3}]);
+    assert.equal(result[2*5+2],0); assert.equal(result[0],42);assert.equal(mag[2*5+2],42);
+  });
+  test('coupe un segment traversant un masque et retire les segments inclus', async () => {
+    const {clipSegmentsByMasks} = await import('../public/js/archi-facade.mjs');
+    const mask={x1:4,y1:2,x2:6,y2:8};
+    const a={a:[0,5],b:[10,5],layer:'FACADE'};
+    const inside={a:[4.5,5],b:[5.5,5],layer:'FACADE'};
+    const outside={a:[0,1],b:[10,1],layer:'MUR'};
+    const got=clipSegmentsByMasks([a,inside,outside],[mask]);
+    assert.deepEqual(got,[{...a,b:[4,5]},{...a,a:[6,5]},outside]);
+    assert.deepEqual(a,{a:[0,5],b:[10,5],layer:'FACADE'});
+  });
+  test('plusieurs masques découpent sans inventer de traits', async () => {
+    const {clipSegmentsByMasks}=await import('../public/js/archi-facade.mjs');
+    const got=clipSegmentsByMasks([{a:[0,0],b:[20,0]}],[{x1:4,y1:-1,x2:6,y2:1},{x1:10,y1:-1,x2:15,y2:1}]);
+    assert.deepEqual(got.map(s=>[s.a,s.b]),[[[0,0],[4,0]],[[6,0],[10,0]],[[15,0],[20,0]]]);
+  });
+});
