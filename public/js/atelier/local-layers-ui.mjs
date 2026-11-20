@@ -11,6 +11,7 @@ import { parseShapefileBundle, detectShapefileCrs, groupShapefileFiles } from '.
 import { extractShapefileZip, extractKmlFromZip } from './zip-reader.mjs';
 import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './project.mjs';
 import { runLocalRecipe } from './automation.mjs';
+import { guidedAnalysis } from './guided-analysis.mjs';
 import { buildVectorRequestUrl, buildWmtsTileUrl, fetchPaginatedVectorService, MAX_REMOTE_FEATURES, MAX_REMOTE_PAGES } from './remote-services.mjs';
 import { deleteFeature, moveVertex, insertVertex, deleteVertex, setFeatureAttribute, deleteFeatureAttribute, getVertex, canDeleteVertex, canInsertVertex, recordLayerEdit, undoLayerEdit, redoLayerEdit } from './editing.mjs';
 import { parseGeoPackage } from './geopackage.mjs';
@@ -223,6 +224,11 @@ function errorMessage(error) {
   if (code === 'PROJECT_RASTER_SOURCE_MISSING') return 'Le projet ne contient plus les données source de ce GeoTIFF; réimportez le fichier original.';
   if (code === 'PROJECT_TOO_MANY_RASTER_BYTES') return 'Les GeoTIFF du projet dépassent la limite cumulée de 15 Mo.';
   if (code === 'PROJECT_TOO_MANY_RASTER_PIXELS') return 'Les GeoTIFF du projet dépassent la limite cumulée de 4 millions de pixels.';
+  if (code === 'GUIDED_LAYER_REQUIRED') return 'Choisissez les couches vectorielles nécessaires.';
+  if (code === 'GUIDED_FIELD_REQUIRED') return 'Saisissez un nom de champ valide.';
+  if (code === 'GUIDED_NUMBER_INVALID') return 'Saisissez une valeur numérique et une comparaison valides.';
+  if (code === 'GUIDED_POLYGON_INDEX') return 'Choisissez une entité surfacique de référence.';
+  if (code === 'RECIPE_POLYGON_REQUIRED') return 'L’entité choisie dans la couche de référence doit être un polygone ou multipolygone.';
   if (code === 'RECIPE_SPATIAL_COMPLEXITY') return 'Analyse spatiale trop complexe; simplifiez les géométries ou réduisez le nombre de points comparés.';
   if (code === 'RECIPE_DISTANCE_INVALID') return 'Distance de sélection invalide : utilisez une valeur de 0 à 100 000 m.';
   if (code === 'RECIPE_TARGET_POINTS_REQUIRED') return 'La couche cible ne contient pas de Point/MultiPoint exploitable.';
@@ -1441,6 +1447,74 @@ $('#projectFile').addEventListener('change', async () => {
   } catch (error) { status(error?.code ? errorMessage(error) : 'Projet invalide.', 'error'); }
   finally { $('#projectFile').value = ''; }
 });
+function renderGuidedLayers() {
+  for (const selector of ['#guidedTarget', '#guidedReference']) {
+    const select = $(selector), previous = select.value;
+    select.replaceChildren();
+    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choisir une couche'; select.append(placeholder);
+    for (const layer of state.layers.filter(item => item.kind !== 'raster')) {
+      const option = document.createElement('option'); option.value = layer.id;
+      option.textContent = `${layer.name} · ${layer.geojson.features.length} entité(s) · ${layer.source}`;
+      select.append(option);
+    }
+    select.value = previous;
+  }
+  renderGuidedPolygons();
+}
+function renderGuidedPolygons(reset = false) {
+  const select = $('#guidedPolygon'), previous = reset ? '' : select.value;
+  select.replaceChildren();
+  const layer = state.layers.find(item => item.id === $('#guidedReference').value && item.kind !== 'raster');
+  const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choisir une entité surfacique'; select.append(placeholder);
+  let count = 0;
+  const isPolygon = g => g && (g.type === 'Polygon' || g.type === 'MultiPolygon' || (g.type === 'GeometryCollection' && g.geometries.some(isPolygon)));
+  for (const [index, feature] of (layer?.geojson.features || []).entries()) {
+    if (!isPolygon(feature.geometry)) continue;
+    if (count++ >= 2000) break;
+    const option = document.createElement('option'); option.value = String(index);
+    const title = feature.properties?.name ?? feature.id ?? feature.properties?.id ?? 'sans nom';
+    option.textContent = `Entité ${index + 1} · ${String(title).slice(0, 100)}`; select.append(option);
+  }
+  if (previous && [...select.options].some(option => option.value === previous)) select.value = previous;
+}
+$('#guidedReference').addEventListener('change', () => renderGuidedPolygons(true));
+function updateGuidedControls() {
+  const op = $('#guidedOperation').value;
+  $('#guidedReferenceField').hidden = !['within-distance', 'within-polygon'].includes(op);
+  $('#guidedDistanceField').hidden = !['buffer-points', 'buffer-lines', 'within-distance'].includes(op);
+  $('#guidedNumericFields').hidden = op !== 'filter-number';
+  $('#guidedPolygonField').hidden = op !== 'within-polygon';
+  $('#guidedDistance').min = op === 'within-distance' ? '0' : '1';
+  $('#guidedDistance').max = op === 'within-distance' ? '100000' : '5000';
+  $('#guidedHelp').textContent = ({
+    'buffer-points': 'Rayon 1–5 000 m ; un disque approximatif par point, non dissous. Ni limite foncière ni trajet.',
+    'buffer-lines': 'Rayon 1–5 000 m ; capsules approximatives par segment, non dissoutes et chevauchantes. Les surfaces ne s’additionnent pas.',
+    'within-distance': 'Points et multipoints uniquement ; distance à vol d’oiseau sur une sphère (0–100 000 m), pas un temps de marche.',
+    'within-polygon': 'Points et multipoints uniquement ; sélection entière si au moins un point est dedans. Utilise une seule entité de référence ; trous exclus. Sélection parmi les 2 000 premières entités surfaciques.',
+    'filter-number': 'Seules les valeurs numériques valides sont comparées ; les valeurs manquantes ou non numériques sont exclues.'
+  })[op] || '';
+}
+$('#guidedOperation').addEventListener('change', updateGuidedControls);
+$('#runGuided').addEventListener('click', () => {
+  try {
+    const op = $('#guidedOperation').value, distanceText = $('#guidedDistance').value;
+    const result = guidedAnalysis(state.layers, {
+      operation: op, targetId: $('#guidedTarget').value, referenceId: $('#guidedReference').value,
+      distanceMeters: distanceText === '' ? NaN : Number(distanceText),
+      polygonFeature: $('#guidedPolygon').value === '' ? NaN : Number($('#guidedPolygon').value),
+      field: $('#guidedField').value, comparison: $('#guidedComparison').value, threshold: $('#guidedThreshold').value
+    });
+    if (!result.collection.features.length) { $('#guidedResult').textContent = `Aucun résultat. ${result.report.note || 'Vérifiez les couches et paramètres.'}`; return; }
+    if (!addLayer(result.collection, 'analyse-guidee.geojson', result.sourceDescription)) {
+      $('#guidedResult').textContent = 'Couche non ajoutée : limite de l’atelier atteinte. Voir le message général.'; return;
+    }
+    const count = result.collection.features.length.toLocaleString('fr-FR');
+    const missing = Number.isInteger(result.report.nonNumericOrMissing) ? ` ${result.report.nonNumericOrMissing} valeur(s) absente(s) ou non numérique(s) exclue(s).` : '';
+    $('#guidedResult').textContent = `${count} entité(s) ajoutée(s). ${result.report.note || ''}${missing} Sources et paramètres enregistrés dans la couche ; vérifiez le résultat.`;
+  } catch (error) { $('#guidedResult').textContent = error?.code ? errorMessage(error) : 'Calcul impossible. Vérifiez les données et paramètres.'; }
+});
+updateGuidedControls();
+
 $('#runAutomation').addEventListener('click', () => {
   const text = $('#automationRecipe').value;
   const output = $('#automationResults'), artifactList = $('#automationArtifacts');
@@ -2183,6 +2257,7 @@ function renderAll() {
   renderMap();
   renderAttributes();
   renderAiLayerOptions();
+  renderGuidedLayers();
 }
 
 function addCsvOptions(table, fileName) {
