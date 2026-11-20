@@ -13,6 +13,7 @@ import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './p
 import { runLocalRecipe } from './automation.mjs';
 import { guidedAnalysis } from './guided-analysis.mjs';
 import { scopedLayer, scopedIndex, publicScopeInfo } from './scope.mjs';
+import { listGalleryExamples, createGalleryExample } from './planning-gallery.mjs';
 import { buildVectorRequestUrl, buildWmtsTileUrl, fetchPaginatedVectorService, MAX_REMOTE_FEATURES, MAX_REMOTE_PAGES } from './remote-services.mjs';
 import { deleteFeature, moveVertex, insertVertex, deleteVertex, setFeatureAttribute, deleteFeatureAttribute, getVertex, canDeleteVertex, canInsertVertex, recordLayerEdit, undoLayerEdit, redoLayerEdit } from './editing.mjs';
 import { parseGeoPackage } from './geopackage.mjs';
@@ -316,7 +317,7 @@ function clearPendingImportUi() {
   fileInput.value = ''; shapeFilesInput.value = '';
 }
 
-function addLayers(imports, sourceReference = '') {
+function addLayers(imports, sourceReference = '', { preservePendingImport = false } = {}) {
   if (!Array.isArray(imports) || !imports.length) return false;
   const totalFeatures = state.layers.reduce((sum, layer) => sum + layer.geojson.features.length, 0);
   const totalPositions = state.layers.reduce((sum, layer) => sum + (layer.positionCount ?? countFeaturePositions(layer.geojson.features)), 0);
@@ -336,7 +337,7 @@ function addLayers(imports, sourceReference = '') {
       name: layerTitle(item.name || geojson.name || fileName), fileName,
       source: String(sourceReference || item.source || fileName || 'Fichier importé').trim(),
       importedAt, crs: 'EPSG:4326', sourceCrs: geojson.sourceCrs || item.sourceCrs || 'EPSG:4326',
-      color: PALETTE[(state.layers.length + index) % PALETTE.length],
+      color: /^#[\da-f]{6}$/i.test(item.color || '') ? item.color : PALETTE[(state.layers.length + index) % PALETTE.length],
       categoryField: '', categoryColors: new Map(), labelField: '', filter: null,
       editHistory: { undo: [], redo: [] }, visible: true,
       positionCount: countFeaturePositions(geojson.features), geojson
@@ -345,7 +346,7 @@ function addLayers(imports, sourceReference = '') {
   state.layers.push(...layers);
   state.selectedLayerId = layers.at(-1).id;
   state.selectedFeature = null;
-  clearPendingImportUi();
+  if (!preservePendingImport) clearPendingImportUi();
   const countLabel = layers.length === 1 ? `${layers[0].geojson.features.length.toLocaleString('fr-FR')} entité(s) ajoutée(s) · ${layers[0].name}`
     : `${layers.length} couche(s) ajoutée(s) · ${incomingFeatures.toLocaleString('fr-FR')} entité(s)`;
   status(countLabel, 'success');
@@ -2730,6 +2731,78 @@ $('#surveyTemplateFile').addEventListener('change', async () => {
   } catch (error) { surveyStatus(error?.code === 'FIELD_TEMPLATE_TOO_LARGE' ? 'Fichier de gabarit trop volumineux (128 Ko max).' : 'Gabarit invalide ou format UrbaTrame non reconnu.', 'error'); }
   finally { $('#surveyTemplateFile').value = ''; }
 });
+
+// Les aperçus sont calculés à partir des mêmes géométries que les couches ouvertes.
+function galleryPreview(layers) {
+  const preview = createSvgElement('svg', { viewBox: '0 0 320 200', class: 'gallery-preview', 'aria-hidden': 'true' });
+  preview.append(createSvgElement('rect', { width: 320, height: 200, fill: '#eaf1e8' }));
+  const positions = [];
+  const collect = value => {
+    if (!Array.isArray(value)) return;
+    if (typeof value[0] === 'number' && typeof value[1] === 'number') positions.push(value);
+    else value.forEach(collect);
+  };
+  for (const layer of layers) for (const feature of layer.geojson.features) collect(feature.geometry.coordinates);
+  const xs = positions.map(p => p[0]), ys = positions.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const width = Math.max(maxX-minX, .00001), height = Math.max(maxY-minY, .00001);
+  const ratio = Math.cos(36.2642 * Math.PI / 180);
+  const scale = Math.min(282/(width * ratio), 160/height);
+  const project = p => [160 + (p[0]-(minX+maxX)/2)*ratio*scale, 100 - (p[1]-(minY+maxY)/2)*scale];
+  const linePath = coords => coords.map((p, i) => { const [x,y] = project(p); return `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`; }).join(' ');
+  for (const layer of layers) for (const feature of layer.geojson.features) {
+    const g = feature.geometry;
+    if (g.type === 'Point') {
+      const [cx,cy] = project(g.coordinates);
+      preview.append(createSvgElement('circle', { cx, cy, r: 5, fill: layer.color, stroke: '#fff', 'stroke-width': 2 }));
+    } else if (g.type === 'LineString') {
+      preview.append(createSvgElement('path', { d: linePath(g.coordinates), fill: 'none', stroke: layer.color, 'stroke-width': 4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    } else if (g.type === 'Polygon') {
+      preview.append(createSvgElement('path', { d: g.coordinates.map(ring => `${linePath(ring)} Z`).join(' '), fill: layer.color, 'fill-opacity': .68, stroke: layer.color, 'stroke-width': 1.5, 'fill-rule': 'evenodd' }));
+    }
+  }
+  return preview;
+}
+function renderPlanningGallery() {
+  const cards = $('#galleryCards'); cards.replaceChildren();
+  const selected = $('#galleryCategory').value;
+  const examples = listGalleryExamples().filter(example => !selected || example.category === selected);
+  for (const example of examples) {
+    const card = document.createElement('article'); card.className = 'gallery-card';
+    card.append(galleryPreview(createGalleryExample(example.id)));
+    const body = document.createElement('div'); body.className = 'gallery-body';
+    const category = document.createElement('span'); category.className = 'gallery-category'; category.textContent = example.category;
+    const title = document.createElement('h3'); title.textContent = example.title;
+    const description = document.createElement('p'); description.textContent = example.description;
+    const source = document.createElement('p'); source.className = 'gallery-source'; source.textContent = `Fictif · ${example.layerCount} couches · ${example.featureCount} entités · Source : UrbaTrame`;
+    const button = document.createElement('button'); button.className = 'button-primary'; button.type = 'button'; button.textContent = 'Ouvrir dans l’atelier';
+    button.setAttribute('aria-label', `Ouvrir l’exemple fictif ${example.title} dans l’atelier`);
+    button.addEventListener('click', () => {
+      if (state.layers.length && !window.confirm(`Ajouter « ${example.title} » aux couches déjà ouvertes ? Rien ne sera effacé. Le cadrage affichera les couches visibles ensemble.`)) {
+        $('#galleryStatus').textContent = 'Ouverture annulée. Les couches existantes sont inchangées.';
+        return;
+      }
+      const layers = createGalleryExample(example.id);
+      if (!addLayers(layers, '', { preservePendingImport: true })) {
+        $('#galleryStatus').textContent = `Exemple non ajouté : ${importStatus.textContent}`;
+        return;
+      }
+      $('#galleryStatus').textContent = `« ${example.title} » ajouté : ${example.layerCount} couches fictives. Les couches existantes restent intactes.`;
+      $('#map-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('#map-title').focus({ preventScroll: true });
+    });
+    body.append(category,title,description,source,button); card.append(body); cards.append(card);
+  }
+}
+function initializePlanningGallery() {
+  const select = $('#galleryCategory');
+  for (const category of [...new Set(listGalleryExamples().map(example => example.category))]) {
+    const option = document.createElement('option'); option.value = category; option.textContent = category; select.append(option);
+  }
+  select.addEventListener('change', renderPlanningGallery);
+  renderPlanningGallery();
+}
+initializePlanningGallery();
 
 $('#terrainProvenance').textContent = TERRAIN_PROVENANCE;
 updateTerrainLegend($('#terrainLegend'), null);

@@ -8,9 +8,9 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png?v=20261115ud1" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011felt1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011gallery1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011felt1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011gallery1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -45,6 +45,18 @@
         <p class="privacy-note"><strong>Traitement local par défaut.</strong> Fichiers non téléversés. Une source distante n’est contactée qu’après activation; elle reçoit l’URL et/ou l’emprise, jamais vos couches locales.</p>
         <p class="limits-note">Limites : 15 Mo/fichier (lot Shapefile 30 Mo), 20 000 entités et 100 000 positions/couche; 12 couches, 60 000 entités et 300 000 positions/atelier. GeoTIFF : 1 million de pixels/fichier, 4 millions au total; raster nord en haut, 1 bande ou RGB/RGBA. Conversion vers WGS 84 : EPSG:4326, EPSG:3857, UTM WGS 84. Fonds externes facultatifs.</p>
       </div>
+    </section>
+
+    <section id="planningGallery" class="planning-gallery" aria-labelledby="gallery-title">
+      <div class="gallery-head">
+        <div><p class="gallery-kicker">INSPIRATIONS · ATELIER LOCAL</p><h2 id="gallery-title">Galerie de planification</h2>
+          <p>Des exemples pour explorer des façons de représenter un projet urbain et les ouvrir dans votre atelier.</p></div>
+        <label for="galleryCategory">Filtrer par thème<select id="galleryCategory"><option value="">Tous les thèmes</option></select></label>
+      </div>
+      <p class="gallery-notice"><strong>Jeux fictifs, créés pour la démonstration.</strong> Géométries et attributs inventés, positionnés approximativement aux environs d’El Khroub : aucune situation réelle, limite foncière ou donnée cadastrale. Aucun contenu Felt n’est copié.</p>
+      <div id="galleryCards" class="gallery-grid" aria-live="polite"></div>
+      <p id="galleryStatus" class="gallery-status" role="status">L’ouverture ajoute les couches sans effacer votre travail. Les exemples ne sont ni des projets partagés ni un catalogue de vos fichiers. Pour ouvrir votre projet personnel, utilisez « Ouvrir un projet UrbaTrame » dans l’atelier.</p>
+      <p class="gallery-status">Les exemples sont locaux. Si vous avez activé un fond externe, l’emprise affichée peut être transmise à ce service.</p>
     </section>
 
     <section class="workbench" aria-label="Espace de travail cartographique">
@@ -518,7 +530,7 @@
       <div class="map-column">
         <section class="map-panel" aria-labelledby="map-title">
           <div class="map-heading">
-            <div><span class="step">03 / SUPERPOSITION</span><h2 id="map-title">Aperçu des couches</h2></div>
+            <div><span class="step">03 / SUPERPOSITION</span><h2 id="map-title" tabindex="-1">Aperçu des couches</h2></div>
             <div class="map-heading-actions"><span id="mapCrs" class="crs-badge">EPSG:4326 · WGS 84</span></div>
           </div>
           <div class="map-frame">

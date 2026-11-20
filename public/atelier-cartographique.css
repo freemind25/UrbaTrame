@@ -291,3 +291,27 @@ button.dashboard-category:focus-visible{outline:3px solid #2e6b52;outline-offset
 .dashboard-category-count{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .dashboard-category-static{color:#68766b}
 #dashboardClearCategory{margin-top:10px}
+
+/* Galerie de scénarios locaux : les vignettes sont dessinées depuis les données fictives. */
+.planning-gallery{margin:0 0 24px;padding:clamp(16px,2.5vw,28px);border:1px solid #d6e3d9;border-radius:16px;background:#f7faf6;box-shadow:0 8px 24px rgba(32,64,45,.06)}
+.gallery-head{display:flex;align-items:end;justify-content:space-between;gap:20px}
+.gallery-kicker{margin:0;color:#397453;font-size:11px;font-weight:800;letter-spacing:.12em}
+.gallery-head h2{margin:4px 0;color:#203b2c;font:400 clamp(24px,3vw,32px)/1.15 Georgia,serif}
+.gallery-head p:not(.gallery-kicker){margin:5px 0;color:#52665a;font-size:13px}
+.gallery-head label{display:grid;gap:5px;min-width:180px;color:#455d4d;font-size:12px;font-weight:700}
+.gallery-head select{min-height:38px;border:1px solid #b9cfbe;border-radius:8px;background:#fff;padding:0 10px;color:#284835}
+.gallery-notice{margin:16px 0;padding:10px 12px;border-left:3px solid #bd8b4c;background:#fff9ec;color:#67583d;font-size:12px;line-height:1.5}
+.gallery-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.gallery-card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid #dce7dc;border-radius:11px;background:white;box-shadow:0 3px 10px rgba(37,66,48,.05)}
+.gallery-preview{display:block;width:100%;height:auto;aspect-ratio:16/10;background:#eef3ec}
+.gallery-body{display:flex;flex:1;flex-direction:column;align-items:start;padding:14px}
+.gallery-category{color:#347050;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.gallery-body h3{margin:6px 0;color:#203b2c;font:400 20px/1.2 Georgia,serif}
+.gallery-body p{margin:0 0 10px;color:#526158;font-size:12px;line-height:1.5}
+.gallery-body .gallery-source{margin-top:auto;color:#6b776d;font-size:11px}
+.gallery-body button{width:100%;min-height:38px;margin-top:4px}
+.gallery-status{margin:10px 0 0;color:#55695b;font-size:12px;line-height:1.5}
+.gallery-head select:focus-visible,.gallery-body button:focus-visible{outline:3px solid #22684a;outline-offset:2px}
+@media(max-width:1050px){.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.gallery-head{align-items:stretch;flex-direction:column;gap:10px}.gallery-grid{grid-template-columns:1fr}.gallery-head label{min-width:0}}
+@media print{.planning-gallery{display:none!important}}

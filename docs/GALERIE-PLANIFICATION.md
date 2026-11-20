@@ -1,0 +1,9 @@
+# Galerie de planification
+
+Première galerie intégrée à l'atelier cartographique, inspirée de la présentation par thèmes de <https://felt.com/gallery/category/planning> ; elle n'importe pas la galerie ni les cartes Felt et ne constitue pas un service de publication ou de collaboration.
+
+Quatre exemples locaux (occupation du sol, mobilités, équipements, parcelles) sont construits par UrbaTrame avec des coordonnées et attributs **fictifs**, autour d'un repère approximatif aux environs d'El Khroub. Il ne s'agit ni de données OSM ni de limites foncières, bâtiments, équipements, projets ou observations réelles. Ne pas les utiliser pour une étude réelle. Leur source et leur caractère fictif sont renseignés sur chaque couche et sur chaque entité.
+
+Choisir un thème puis « Ouvrir dans l'atelier » ajoute les couches du jeu choisi, avec confirmation si l'atelier contient déjà des couches. Les couches existantes ne sont ni supprimées ni modifiées ; elles peuvent affecter le cadrage et l'ordre d'affichage. Les mêmes limites d'atelier s'appliquent ; si elles empêchent l'ajout, aucune couche de l'exemple n'est ajoutée. Les réglages d'un import en cours sont conservés. Les vignettes SVG sont calculées à partir des mêmes géométries fictives ; elles sont schématiques et n'affichent pas de fond externe.
+
+Les exemples sont fournis avec le site, sans téléchargement externe ; un fond externe déjà activé peut recevoir l'emprise de carte affichée. Un projet personnel s'importe et s'enregistre via les commandes de projet habituelles, pas dans cette galerie : elle n'offre pas d'ajout de cartes personnelles ni de partage public. Les couches fictives ajoutées peuvent être éditées ou sauvegardées comme les autres et leur source est conservée dans le projet et les exports usuels. Comme pour toute donnée locale, conserver séparément les références et ne pas confondre les couches fictives avec les données mesurées. Le fichier projet ne remplace pas une publication web.
