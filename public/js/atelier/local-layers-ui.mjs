@@ -5,7 +5,7 @@ import {
   exportVisibleGeoJSON, parseDxfText, parseObjText, parseGlb, dxfToGeoJSON, meshToGeoJSON
 } from './local-layers.mjs';
 import { summarizeFeatures } from './local-analysis.mjs';
-import { buildDashboardSummary } from './dashboard.mjs';
+import { buildDashboardSummary, dashboardCategoryCounts, matchesDashboardCategory } from './dashboard.mjs';
 import { layersTopFirst, moveLayerStack } from './layer-stack.mjs';
 import { parseShapefileBundle, detectShapefileCrs, groupShapefileFiles } from './shapefile.mjs';
 import { extractShapefileZip, extractKmlFromZip } from './zip-reader.mjs';
@@ -32,6 +32,7 @@ const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
 const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeGroups: null, pendingMesh: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
+const dashboardSelections = new Map(); // temporaire par couche, jamais persisté
 const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
 const MAX_SAVED_SURVEY_TEMPLATES = 20;
 function readSavedSurveyTemplates() {
@@ -265,8 +266,10 @@ function layerTitle(fileName) {
   return String(fileName || 'Couche locale').replace(/\.[^.]+$/, '').slice(0, 100) || 'Couche locale';
 }
 
-function visibleFeatures(layer) {
+function visibleFeatures(layer, { ignoreDashboard = false } = {}) {
+  const selection = ignoreDashboard ? null : dashboardSelections.get(layer.id);
   return layer.geojson.features.map((feature, index) => ({ feature, index })).filter(({ feature }) => {
+    if (!matchesDashboardCategory(feature, selection)) return false;
     if (!layer.filter?.field || !String(layer.filter.value || '').trim()) return true;
     return formatCell(feature.properties?.[layer.filter.field]).toLocaleLowerCase('fr-FR')
       .includes(String(layer.filter.value).trim().toLocaleLowerCase('fr-FR'));
@@ -759,6 +762,7 @@ function renderLayerList() {
     remove.type = 'button'; remove.className = 'remove-layer'; remove.textContent = '×';
     remove.setAttribute('aria-label', `Retirer ${layer.name}`);
     remove.addEventListener('click', () => {
+      dashboardSelections.delete(layer.id);
       state.layers = state.layers.filter(item => item.id !== layer.id);
       if (state.selectedLayerId === layer.id) state.selectedLayerId = state.layers[0]?.id || null;
       state.selectedFeature = null; renderAll();
@@ -833,43 +837,50 @@ function dashboardKpi(label, value, note = '') {
   return article;
 }
 
-function renderDashboardChart(summary, field) {
+function renderDashboardChart(categories, field, layer) {
   const host = $('#dashboardChart'); host.replaceChildren();
-  if (!field) {
+  if (!field || !layer || !categories.length) {
     const empty = document.createElement('p'); empty.className = 'dashboard-empty';
-    empty.textContent = 'Choisissez un attribut pour comparer le nombre d’entités par catégorie.'; host.append(empty); return;
+    empty.textContent = !field ? 'Choisissez un attribut pour comparer les catégories.' : 'Aucune valeur disponible après le filtre texte.';
+    host.append(empty); return;
   }
-  if (!summary.categories.length) {
-    const empty = document.createElement('p'); empty.className = 'dashboard-empty';
-    empty.textContent = `Aucune valeur disponible dans « ${field} » après le filtre appliqué.`; host.append(empty); return;
+  const maxCount = Math.max(1, ...categories.map(item => item.count));
+  const current = dashboardSelections.get(layer.id);
+  for (const item of categories) {
+    const row = document.createElement(item.selectable ? 'button' : 'div');
+    row.className = `dashboard-category${item.selectable ? '' : ' dashboard-category-static'}`;
+    if (item.selectable) {
+      row.type = 'button'; row.dataset.categoryKey = item.key;
+      row.setAttribute('aria-pressed', String(current?.field === field && current.key === item.key));
+      row.setAttribute('aria-label', `${item.label} : ${item.count} entité(s). Activer ou effacer ce filtre.`);
+      row.addEventListener('click', () => {
+        const selected = dashboardSelections.get(layer.id);
+        if (selected?.field === field && selected.key === item.key) dashboardSelections.delete(layer.id);
+        else dashboardSelections.set(layer.id, { field, key: item.key, label: item.label });
+        state.selectedFeature = null;
+        renderLayerTools(); renderMap(); renderAttributes();
+        const replacement = [...host.querySelectorAll('button')].find(button => button.dataset.categoryKey === item.key);
+        replacement?.focus();
+      });
+    } else row.title = 'Regroupement non sélectionnable';
+    const label = document.createElement('span'); label.className = 'dashboard-category-label'; label.textContent = item.label; label.title = item.label;
+    const track = document.createElement('span'); track.className = 'dashboard-category-track'; track.setAttribute('aria-hidden','true');
+    const bar = document.createElement('span'); bar.className = 'dashboard-category-bar'; bar.style.display = 'block'; bar.style.width = `${Math.max(1, item.count / maxCount * 100)}%`; track.append(bar);
+    const count = document.createElement('span'); count.className = 'dashboard-category-count'; count.textContent = item.count.toLocaleString('fr-FR');
+    row.append(label, track, count); host.append(row);
   }
-  const width = 760, rowHeight = 27, height = 22 + summary.categories.length * rowHeight;
-  const labelWidth = 200, chartWidth = 470, maxCount = Math.max(1, ...summary.categories.map(item => item.count));
-  const chart = document.createElementNS(SVG_NS, 'svg');
-  chart.setAttribute('viewBox', `0 0 ${width} ${height}`); chart.setAttribute('role', 'img');
-  chart.setAttribute('aria-label', `Nombre d’entités par valeur de ${field}`);
-  const title = document.createElementNS(SVG_NS, 'title'); title.textContent = `Répartition par ${field}`; chart.append(title);
-  summary.categories.forEach((item, index) => {
-    const y = 16 + index * rowHeight;
-    const label = document.createElementNS(SVG_NS, 'text'); label.setAttribute('x', '8'); label.setAttribute('y', String(y + 10)); label.setAttribute('class', 'bar-label');
-    label.textContent = item.label.length > 32 ? `${item.label.slice(0, 29)}…` : item.label;
-    const labelTitle = document.createElementNS(SVG_NS, 'title'); labelTitle.textContent = item.label; label.append(labelTitle); chart.append(label);
-    const backdrop = document.createElementNS(SVG_NS, 'rect'); backdrop.setAttribute('x', String(labelWidth)); backdrop.setAttribute('y', String(y)); backdrop.setAttribute('width', String(chartWidth)); backdrop.setAttribute('height', '13'); backdrop.setAttribute('rx', '4'); backdrop.setAttribute('class', 'bar-bg'); chart.append(backdrop);
-    const bar = document.createElementNS(SVG_NS, 'rect'); bar.setAttribute('x', String(labelWidth)); bar.setAttribute('y', String(y)); bar.setAttribute('width', String(Math.max(2, chartWidth * item.count / maxCount))); bar.setAttribute('height', '13'); bar.setAttribute('rx', '4'); bar.setAttribute('class', 'bar-value'); chart.append(bar);
-    const count = document.createElementNS(SVG_NS, 'text'); count.setAttribute('x', String(labelWidth + chartWidth + 12)); count.setAttribute('y', String(y + 10)); count.setAttribute('class', 'bar-count'); count.textContent = item.count.toLocaleString('fr-FR'); chart.append(count);
-  });
-  host.append(chart);
 }
 
 function renderDashboard() {
   const root = $('#dashboardKpis'), fieldSelect = $('#dashboardField');
   const layer = selectedLayer(); root.replaceChildren();
   const filterState = $('#dashboardFilterState'), meta = $('#dashboardMeta');
+  $('#dashboardClearCategory').disabled = !layer || !dashboardSelections.has(layer.id);
   if (!layer) {
     fieldSelect.replaceChildren(new Option('Choisir une couche', '')); fieldSelect.disabled = true;
     const empty = document.createElement('p'); empty.className = 'dashboard-empty'; empty.textContent = 'Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.'; root.append(empty);
     filterState.textContent = 'Aucun filtre appliqué'; meta.textContent = 'Calcul local dans le navigateur; aucun appel à un service externe.';
-    renderDashboardChart({ categories: [] }, ''); return;
+    renderDashboardChart([], '', null); return;
   }
   if (layer.kind === 'raster') {
     fieldSelect.replaceChildren(new Option('Aucune statistique par attribut pour le raster', '')); fieldSelect.disabled = true;
@@ -882,14 +893,18 @@ function renderDashboard() {
     );
     filterState.textContent = 'Aucun filtre vectoriel';
     meta.textContent = 'Résumé des métadonnées seulement : aucune agrégation ou analyse pixel par pixel n’est exécutée.';
-    renderDashboardChart({ categories: [] }, ''); return;
+    renderDashboardChart([], '', null); return;
   }
   const fields = [...new Set(layer.geojson.features.flatMap(feature => Object.keys(feature.properties || {})))].slice(0, 80);
-  const currentField = fieldSelect.value;
+  let selection = dashboardSelections.get(layer.id);
+  if (selection && !fields.includes(selection.field)) { dashboardSelections.delete(layer.id); selection = null; $('#dashboardClearCategory').disabled = true; }
+  const currentField = selection?.field || fieldSelect.value;
   fillFieldSelect(fieldSelect, fields, 'Choisir un attribut', currentField);
   fieldSelect.disabled = !fields.length;
   const features = visibleFeatures(layer).map(item => item.feature);
   const summary = buildDashboardSummary(features, fieldSelect.value);
+  const chartFeatures = visibleFeatures(layer, { ignoreDashboard: true }).map(item => item.feature);
+  const categories = fieldSelect.value ? dashboardCategoryCounts(chartFeatures, fieldSelect.value) : [];
   root.append(
     dashboardKpi('Entités après filtre', summary.featureCount.toLocaleString('fr-FR')),
     dashboardKpi('Points', summary.pointCount.toLocaleString('fr-FR')),
@@ -900,11 +915,11 @@ function renderDashboard() {
   );
   const total = layer.geojson.features.length;
   const hiddenNote = layer.visible ? '' : ' · couche masquée sur la carte';
-  filterState.textContent = layer.filter?.field
-    ? `Filtre : ${layer.filter.field} contient « ${layer.filter.value} » · ${features.length.toLocaleString('fr-FR')}/${total.toLocaleString('fr-FR')}${hiddenNote}`
-    : `${features.length.toLocaleString('fr-FR')} entité(s) · aucun filtre${hiddenNote}`;
+  const textFilter = layer.filter?.field ? `Texte : ${layer.filter.field} contient « ${layer.filter.value} »` : 'Aucun filtre texte';
+  const categoryFilter = selection ? ` · catégorie : ${selection.field} = ${selection.label}` : '';
+  filterState.textContent = `${textFilter}${categoryFilter} · ${features.length.toLocaleString('fr-FR')}/${total.toLocaleString('fr-FR')}${hiddenNote}`;
   meta.textContent = `Couche « ${layer.name} » · EPSG:4326 · calcul local dans le navigateur. Les résultats reflètent le filtre de la couche; ils ne sont pas transmis et ne constituent pas une mesure réglementaire.`;
-  renderDashboardChart(summary, fieldSelect.value);
+  renderDashboardChart(categories, fieldSelect.value, layer);
 }
 
 function formatLength(metres) {
@@ -1235,7 +1250,15 @@ $('#insertSelectedVertex').addEventListener('click', insertSelectedVertex);
 $('#deleteSelectedVertex').addEventListener('click', deleteSelectedVertex);
 $('#deleteSelectedFeature').addEventListener('click', deleteSelectedFeature);
 
-$('#dashboardField').addEventListener('change', renderDashboard);
+$('#dashboardField').addEventListener('change', () => {
+  const layer = selectedLayer(); if (layer) dashboardSelections.delete(layer.id);
+  state.selectedFeature = null; renderDashboard(); renderMap(); renderAttributes();
+});
+$('#dashboardClearCategory').addEventListener('click', () => {
+  const layer = selectedLayer(); if (!layer) return;
+  dashboardSelections.delete(layer.id); state.selectedFeature = null;
+  renderLayerTools(); renderMap(); renderAttributes();
+});
 
 $('#applyFilter').addEventListener('click', () => {
   const layer = selectedLayer();
@@ -1438,6 +1461,7 @@ $('#projectFile').addEventListener('change', async () => {
         layer.raster = { ...raster, sourceBytes, opacity, previewDataUrl: rasterPreviewDataUrl(raster) };
       }
     }
+    dashboardSelections.clear();
     state.layers = loaded; state.selectedLayerId = loaded[0]?.id || null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
     setSurveyTemplate(project.surveyTemplate || defaultFieldTemplate());
     state.surveyViewEnabled = false;
@@ -2561,6 +2585,7 @@ $('#exportGpkg').addEventListener('click', async () => {
 });
 
 $('#clearLayers').addEventListener('click', () => {
+  dashboardSelections.clear();
   state.layers = []; state.selectedLayerId = null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
   $('#aiValidateResult').checked = false;
   renderAll(); status('Toutes les couches ont été retirées de cet onglet.', 'success');

@@ -45,3 +45,32 @@ export function buildDashboardSummary(features = [], categoryField = '', maxCate
     categoryCount: ordered.length
   };
 }
+
+/* Valeurs typées : la chaîne "1" et le nombre 1 ne sont jamais confondus.
+   Les objets sont comptés mais ne peuvent pas servir de filtre exact. */
+export function dashboardCategory(value) {
+  if (value == null) return { key: 'null', label: '(absent ou nul)', selectable: true };
+  if (typeof value === 'string') return { key: JSON.stringify(['string', value]), label: value === '' ? '(texte vide)' : `« ${value} »`, selectable: true };
+  if (typeof value === 'number' && Number.isFinite(value)) return { key: JSON.stringify(['number', value]), label: `${value} (nombre)`, selectable: true };
+  if (typeof value === 'boolean') return { key: JSON.stringify(['boolean', value]), label: `${value} (booléen)`, selectable: true };
+  return { key: 'complex', label: '(valeurs complexes)', selectable: false };
+}
+export function dashboardCategoryCounts(features, field, maxCategories = 8) {
+  const counts = new Map();
+  for (const feature of features || []) {
+    const value = feature?.properties && Object.hasOwn(feature.properties, field) ? feature.properties[field] : null;
+    const item = dashboardCategory(value);
+    if (!counts.has(item.key)) counts.set(item.key, { ...item, count: 0 });
+    counts.get(item.key).count++;
+  }
+  const ordered = [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr-FR'));
+  const limit = Number.isInteger(maxCategories) ? Math.max(1, Math.min(20, maxCategories)) : 8;
+  const result = ordered.slice(0, limit), remaining = ordered.slice(limit);
+  if (remaining.length) result.push({ key: null, label: 'Autres catégories', selectable: false, count: remaining.reduce((n, x) => n + x.count, 0) });
+  return result;
+}
+export function matchesDashboardCategory(feature, selection) {
+  if (!selection || !selection.field || !selection.key) return true;
+  const value = feature?.properties && Object.hasOwn(feature.properties, selection.field) ? feature.properties[selection.field] : null;
+  return dashboardCategory(value).key === selection.key;
+}

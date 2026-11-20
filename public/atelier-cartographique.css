@@ -278,3 +278,16 @@ button{cursor:pointer}
 .atlasco-layers{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:140px;overflow:auto}
 .atlasco-layers li{border:1px solid var(--line);border-radius:7px;padding:4px 8px;background:#fbfcfb;font-size:11.5px;color:#35473a}
 .atlasco-shared code{font-size:10.5px;background:#eef2ee;border-radius:4px;padding:1px 4px}
+/* Tableau catégoriel interactif local */
+.dashboard-chart{padding:6px}
+.dashboard-category{display:grid;grid-template-columns:minmax(90px, 2fr) minmax(90px, 4fr) minmax(34px, auto);align-items:center;gap:9px;width:100%;padding:6px 7px;border:1px solid transparent;border-radius:6px;background:transparent;color:#31493a;text-align:left;font:inherit;font-size:12px}
+button.dashboard-category{cursor:pointer}
+button.dashboard-category:hover{background:#eef6ef}
+button.dashboard-category:focus-visible{outline:3px solid #2e6b52;outline-offset:-2px}
+.dashboard-category[aria-pressed="true"]{border-color:#28734f;background:#e7f3e9;font-weight:700}
+.dashboard-category-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-category-track{height:12px;border-radius:5px;background:#e8eee9;overflow:hidden}
+.dashboard-category-bar{height:100%;border-radius:5px;background:#497655}
+.dashboard-category-count{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.dashboard-category-static{color:#68766b}
+#dashboardClearCategory{margin-top:10px}
