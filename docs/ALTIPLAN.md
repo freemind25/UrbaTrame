@@ -51,3 +51,51 @@ Implémentation : `public/atelier.html`, `public/js/atelier/`, `server/atelier-a
 Les couches dépendent de la couverture d’OpenStreetMap et peuvent être vides. Une parcelle ne s’affiche que si une limite correspondante existe dans OSM; Altiplan ne crée ni ne complète de limites juridiques ou cadastrales. Les fichiers ne remplacent pas un relevé de géomètre.
 
 Les coordonnées de contact inutiles (courriel, téléphone, site web et horaires) sont retirées des résultats renvoyés au navigateur. Le jeu d’exemple est également filtré. Les attributions ODbL et les limites de précision figurent dans [DONNEES.md](DONNEES.md).
+
+## Cartes thématiques du bâti
+
+Le bouton **Cartes du bâti** ouvre directement l’onglet Carte vectorielle. Après
+chargement de l’exemple ou extraction du site, choisissez dans « Carte du bâti »
+le type, la hauteur, le nombre de niveaux ou la surface d’emprise. Les couches,
+le style et l’échelle se règlent dans le même panneau. L’aperçu peut être exporté
+en SVG ou PNG, avec sa légende ; l’échelle fixe doit tenir sur la feuille et
+être conservée lors de l’impression.
+
+- Hauteur : valeur OSM `height` numérique en mètres, ou estimation à 3,1 m par
+  niveau entier OSM en l’absence de hauteur. Les valeurs indisponibles ou de
+  format non reconnu sont grises, jamais remplacées par la hauteur 3D par défaut.
+  Les décomptes indiquent les valeurs estimées et inconnues dans les données
+  chargées, pas uniquement les bâtiments visibles après découpe.
+- Niveaux : seules les valeurs entières positives `building:levels` sont
+  représentées. Une hauteur ne permet pas de déduire le nombre de niveaux.
+- Surface : superficie approximative de l’emprise entière en projection locale,
+  cours intérieures connues soustraites ; elle peut inclure des parties hors de
+  l’emprise d’affichage. Ce n’est ni la surface de plancher, ni une mesure
+  cadastrale, ni un relevé de géomètre.
+
+Les classes et la couverture dépendent des données OSM. Les valeurs grises
+indiquent des données manquantes ou non exploitables et non une valeur nulle.
+
+### Catégories de voies et pack SVG
+
+Dans **Cartes du bâti → Carte vectorielle**, la rubrique « Catégories de voirie
+OSM » permet de masquer individuellement les classes de voies dans l’aperçu et
+les SVG/PNG de cette carte. Les tronçons de type inconnu ou non couvert par les
+classes sont dans « Autres ou inconnues ». Les longueurs indiquées portent sur
+les tronçons chargés et sélectionnés, avant découpe à la limite de la carte.
+Ces filtres ne modifient ni le plan DXF ni le modèle 3D, dont les réglages sont
+indépendants.
+
+Le bouton **Pack SVG · 4 cartes** prépare localement un ZIP contenant les quatre
+planches (type/style actuel, hauteur, niveaux et emprise), une notice et un
+fichier JSON de métadonnées. Le style, l’échelle et les couches actuellement
+choisis sont repris pour les quatre planches ; si l’emprise déborde de la feuille
+à l’échelle choisie, le pack est refusé plutôt que de masquer le problème.
+L’archive est limitée à 30 Mo et nécessite des bâtiments chargés et affichés.
+
+Le JSON contient le nom, les coordonnées, le rayon et les réglages du site :
+contrôlez-le avant tout partage. La date indiquée est la date de génération, pas
+celle du relevé. Les SVG sont des planches vectorielles de présentation, non des
+données SIG géoréférencées ; ils ne constituent ni un relevé cadastral, ni un
+ensemble d’exports CAO par calques. Conservez les attributions OSM et vérifiez
+l’échelle à l’impression. Le pack ne contient ni PNG, ni DXF, ni maquette 3D.

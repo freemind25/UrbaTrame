@@ -13,6 +13,8 @@
    ───────────────────────────────────────────────────────────────────────── */
 import * as X from './exports.mjs';
 import { vectorMapSVG } from './vector-map.mjs';
+import { ROAD_GROUPS } from './road-groups.mjs';
+import { buildSiteMapPack } from './site-map-pack.mjs';
 import { arbresDepuisRangées } from './osm-data.mjs';
 
 export function ouvrirExports(o) {
@@ -106,6 +108,10 @@ export function ouvrirExports(o) {
           <label class="xpt-l"><span>${t('Style', 'Preset')}</span>
             <select id="xpt-map-preset"><option value="classic">${t('Classique', 'Classic')}</option><option value="figure-ground">Figure / fond</option><option value="relief">${t('Relief', 'Relief')}</option><option value="night">${t('Nocturne', 'Night')}</option><option value="blueprint">Blueprint</option><option value="contexte-urbain">${t('Contexte urbain (couleurs par catégorie)', 'Urban context (category colors)')}</option></select>
           </label>
+          <label class="xpt-l"><span>${t('Carte du bâti', 'Building map')}</span>
+            <select id="xpt-map-theme"><option value="type">${t('Type / style choisi', 'Type / selected style')}</option><option value="height">${t('Hauteur', 'Height')}</option><option value="floors">${t('Nombre de niveaux', 'Number of floors')}</option><option value="area">${t('Surface d’emprise', 'Footprint area')}</option></select>
+          </label>
+          <p class="xpt-note">${t('Hauteurs issues d’OSM ou estimées à 3,1 m par niveau ; valeurs absentes en gris. Les surfaces d’emprise sont approximatives et ne sont pas des surfaces de plancher.', 'Heights from OSM or estimated at 3.1 m per floor; missing values in grey. Footprint areas are approximate, not floor areas.')}</p>
           <label class="xpt-l"><span>${t('Échelle d’impression', 'Print scale')}</span>
             <select id="xpt-map-scale"><option value="fit">${t('Ajuster à la feuille', 'Fit to page')}</option><option value="2000">1:2 000</option><option value="5000">1:5 000</option><option value="10000">1:10 000</option><option value="25000">1:25 000</option></select>
           </label>
@@ -125,6 +131,10 @@ export function ouvrirExports(o) {
             <label><input type="checkbox" id="xpt-map-sunpath"> ${t('Trajectoire solaire sur la carte 2D', 'Sun path on the 2D map')}</label>
             <label class="xpt-l"><span>${t('Jour du diagramme solaire', 'Sun diagram date')}</span><input id="xpt-sun-date" type="date"></label>
           </fieldset>
+          <fieldset class="xpt-couches"><legend>${t('Catégories de voirie OSM', 'OSM road categories')}</legend>
+            <p class="xpt-note">${t('Ces filtres concernent la carte vectorielle et son pack, pas le plan DXF ou le modèle 3D.', 'These filters apply to the vector map and its pack, not to the DXF plan or 3D model.')}</p>
+            ${ROAD_GROUPS.map(group => `<label><input type="checkbox" data-road-group="${group.id}" checked> ${t(group.fr, group.en)}</label>`).join('')}
+          </fieldset>
           <label class="xpt-couches"><input type="checkbox" id="xpt-map-class" checked> ${t('Colorer les bâtiments par type', 'Colour buildings by type')}</label>
           <label class="xpt-l"><span>${t('Direction du soleil', 'Sun direction')}</span><input id="xpt-map-azimuth" type="range" min="0" max="359" value="315"></label>
           <label class="xpt-l"><span>${t('Hauteur solaire', 'Sun height')}</span><input id="xpt-map-sun-height" type="range" min="5" max="85" value="35"></label>
@@ -142,7 +152,8 @@ export function ouvrirExports(o) {
             <label>${t('Autre', 'Other')} <input type="color" data-map-class-color="other" value="#B7B5AF"></label>
           </fieldset>
           <label class="xpt-l"><span>${t('Épaisseur de trait', 'Outline weight')}</span><input id="xpt-map-outline" type="range" min="0.5" max="3" value="1" step="0.1"></label>
-          <div class="xpt-actions"><button id="xpt-map-reset">${t('Réinitialiser', 'Reset colours')}</button><button id="xpt-map-svg" class="primary">SVG</button><button id="xpt-map-png">PNG</button></div>
+          <div class="xpt-actions"><button id="xpt-map-reset">${t('Réinitialiser', 'Reset colours')}</button><button id="xpt-map-svg" class="primary">SVG</button><button id="xpt-map-png">PNG</button><button id="xpt-map-pack">${t('Pack SVG · 4 cartes', 'SVG pack · 4 maps')}</button></div>
+          <p class="xpt-note">${t('Pack local : 4 SVG, informations et coordonnées du site. Vérifiez avant partage.', 'Local pack: 4 SVGs, metadata and site coordinates. Check before sharing.')}</p>
           <p class="xpt-note" id="xpt-map-note"></p>
           <p class="xpt-warning">${t('Une limite tracée par l’utilisateur est un repère de projet, pas une limite cadastrale. Les largeurs sans valeur OSM sont des estimations par catégorie de voie.',
             'A user-drawn outline is a project marker, not a cadastral boundary. Missing OSM widths are estimated by road class.')}</p>
@@ -300,13 +311,14 @@ export function ouvrirExports(o) {
     ].filter(Boolean).join(' · ');
   }
 
-  function vectorMap() {
+  function mapOptions() {
     const layers = Object.fromEntries([...racine.querySelectorAll('[data-map-layer]')]
       .map(box => [box.dataset.mapLayer, box.checked]));
-    const result = vectorMapSVG(ctx, {
+    return {
       width: 1587, height: 1122, title: o.nom || 'UrbaTrame · Altiplan', lang,
-      shape: ctx.shape, boundary: ctx.boundary, preset: q('#xpt-map-preset').value,
+      shape: ctx.shape, boundary: ctx.boundary, preset: q('#xpt-map-preset').value, buildingTheme: q('#xpt-map-theme').value,
       printScale: q('#xpt-map-scale').value, layers,
+      roadGroups: [...racine.querySelectorAll('[data-road-group]:checked')].map(box => box.dataset.roadGroup),
       colorByType: q('#xpt-map-class').checked,
       sunAzimuth: Number(q('#xpt-map-azimuth').value), sunHeight: Number(q('#xpt-map-sun-height').value),
       shadowStrength: Number(q('#xpt-map-shadow').value) / 100,
@@ -320,7 +332,12 @@ export function ouvrirExports(o) {
       classColors: Object.fromEntries([...racine.querySelectorAll('[data-map-class-color]')]
         .map(input => [input.dataset.mapClassColor, input.value])),
       colors: { road: q('#xpt-map-road-color').value, building: q('#xpt-map-building-color').value }
-    });
+    };
+  }
+  function vectorMap() {
+    const opts = mapOptions();
+    const layers = opts.layers;
+    const result = vectorMapSVG(ctx, opts);
     et.map = result; et.mapSvg = result.svg;
     q('#xpt-ap-carte').innerHTML = result.svg;
     const { buildings, trees, roadsKm } = result.stats;
@@ -328,8 +345,9 @@ export function ouvrirExports(o) {
       `${buildings.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')} ${t('bâtiments', 'buildings')}`,
       `${roadsKm.toFixed(1)} km ${t('de voies', 'of roads')}`,
       `${trees.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')} ${t('arbres OSM', 'OSM trees')}`,
+      result.stats.theme && layers.buildings ? `${result.stats.theme.known} ${t('valeurs connues ou estimées', 'known or estimated values')} / ${result.stats.theme.unknown} ${t('inconnues · données chargées', 'unknown · loaded data')}${q('#xpt-map-theme').value === 'height' ? ` (${result.stats.theme.estimated} ${t('estimées depuis les niveaux', 'estimated from floors')})` : ''}` : '',
       result.fitsPage ? `${t('échelle', 'scale')} 1:${result.scale.toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')}` : t('emprise trop grande à cette échelle · choisissez “Ajuster” ou une échelle plus petite', 'site does not fit at this scale · choose “Fit” or a smaller scale')
-    ].join(' · ');
+    ].filter(Boolean).join(' · ');
     return result;
   }
 
@@ -495,7 +513,7 @@ export function ouvrirExports(o) {
     await versPNG(a.svg, nomFichier('plan', 'png'), 1);
   });
 
-  for (const control of racine.querySelectorAll('[data-map-layer], [data-map-class-color], #xpt-map-preset, #xpt-map-scale, #xpt-map-class, #xpt-map-azimuth, #xpt-map-sun-height, #xpt-map-shadow, #xpt-map-hillshade, #xpt-map-depth, #xpt-map-road-color, #xpt-map-building-color, #xpt-map-outline, #xpt-map-grid-interval, #xpt-map-sunpath, #xpt-sun-date, #xpt-heure')) {
+  for (const control of racine.querySelectorAll('[data-map-layer], [data-road-group], [data-map-class-color], #xpt-map-preset, #xpt-map-theme, #xpt-map-scale, #xpt-map-class, #xpt-map-azimuth, #xpt-map-sun-height, #xpt-map-shadow, #xpt-map-hillshade, #xpt-map-depth, #xpt-map-road-color, #xpt-map-building-color, #xpt-map-outline, #xpt-map-grid-interval, #xpt-map-sunpath, #xpt-sun-date, #xpt-heure')) {
     control.addEventListener(control.type === 'range' || control.type === 'color' ? 'input' : 'change', () => {
       if (et.onglet === 'carte') vectorMap();
     });
@@ -505,6 +523,7 @@ export function ouvrirExports(o) {
   }
   q('#xpt-map-reset').addEventListener('click', () => {
     q('#xpt-map-preset').value = 'classic';
+    q('#xpt-map-theme').value = 'type';
     q('#xpt-sun-date').value = new Date().toISOString().slice(0, 10);
     q('#xpt-map-road-color').value = '#D7C8AA';
     q('#xpt-map-building-color').value = '#BEB8AB';
@@ -513,13 +532,27 @@ export function ouvrirExports(o) {
     q('#xpt-map-shadow').value = 18; q('#xpt-map-hillshade').value = 30; q('#xpt-map-depth').value = 18;
     if (et.onglet === 'carte') vectorMap();
   });
+  q('#xpt-map-pack').addEventListener('click', () => {
+    try {
+      const pack = buildSiteMapPack(ctx, mapOptions());
+      telecharger(pack.bytes, nomFichier('pack-cartes-bati', 'zip'), 'application/zip');
+    } catch (error) {
+      etat.textContent = error?.code === 'PACK_BUILDINGS_REQUIRED'
+        ? t('Activez les bâtiments et chargez des données bâties avant le pack.', 'Enable and load buildings before exporting the pack.')
+        : error?.code === 'PACK_SCALE_OVERFLOW'
+          ? t('Emprise trop grande pour cette échelle : choisissez Ajuster ou une échelle plus petite.', 'Site does not fit: choose Fit or a smaller scale.')
+          : error?.code === 'ZIP_WRITE_TOO_LARGE'
+            ? t('Pack supérieur à 30 Mo : réduisez le rayon ou désactivez des couches.', 'Pack exceeds 30 MB: reduce the radius or turn off layers.')
+            : t('Impossible de préparer le pack local.', 'Could not prepare the local pack.');
+    }
+  });
   q('#xpt-map-svg').addEventListener('click', () => {
     const mapResult = vectorMap();
-    telecharger(mapResult.svg, nomFichier('carte-vectorielle', 'svg'), 'image/svg+xml');
+    telecharger(mapResult.svg, nomFichier(`carte-${q('#xpt-map-theme').value}`, 'svg'), 'image/svg+xml');
   });
   q('#xpt-map-png').addEventListener('click', async () => {
     const mapResult = vectorMap();
-    await versPNG(mapResult.svg, nomFichier('carte-vectorielle', 'png'), 1);
+    await versPNG(mapResult.svg, nomFichier(`carte-${q('#xpt-map-theme').value}`, 'png'), 1);
   });
 
   mini.addEventListener('click', clicMini);
@@ -577,6 +610,7 @@ export function ouvrirExports(o) {
   document.addEventListener('keydown', touche);
 
   etat.textContent = t('données prêtes', 'data ready');
-  dessiner();
+  if (o.initialTab === 'carte') q('[data-ong="carte"]').click();
+  else dessiner();
   return { fermer, etat: et, dessiner };
 }

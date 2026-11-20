@@ -61,6 +61,7 @@
     { id: 'mappingboard', nom: 'Planche de contexte', en: 'Context mapping board', sub: 'composition A3 paysage', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
     { id: 'urbanstations', nom: 'Données urbaines · Nœuds', en: 'Urban data · nodes', sub: 'pôles OSM, services et arrêts regroupés', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
     { id: 'urbangrid', nom: 'Données urbaines · Trame', en: 'Urban data · grid', sub: 'densité quadrillée du bâti et des POI', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
+    { id: 'axoexploded', nom: 'Analyse axonométrique éclatée', en: 'Exploded axonometric analysis', sub: 'couches OSM alignées · lecture indicative', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
     { id: 'axocallout', nom: 'Volumétrie axonométrique annotée', en: 'Annotated axonometric massing', sub: 'bâtiments extrudés et repères OSM', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
     { id: 'insetboard', nom: 'Planche d\'insertion', en: 'Site inset board', sub: 'vue générale et détail des mêmes données', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },
     { id: 'viewcones', nom: 'Cônes de vue indicatifs', en: 'Indicative view cones', sub: 'lignes de visée simplifiées, sans relief', tag: 'PLANCHE', tier: 'max', g: 'board', impl: true },

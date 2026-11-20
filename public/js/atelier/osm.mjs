@@ -9,6 +9,7 @@
      • un utilisateur sans hauteur explicite reste à 0 et sera dessiné à 9 m
        par les renderers, qui le signalent dans leur note. */
 import { classifyBuilding } from './geometry.mjs';
+import { buildingThemeAttributes } from './building-themes.mjs';
 
 export function normalizeElements(into, elements) {
   const out = into || { roads: [], build: [], green: [], pois: [] };
@@ -114,6 +115,7 @@ export function batimentsDepuisOverpass(elements) {
     const h = heightOf(tags) || hauteurEtage(tags);
     out.push({
       g, h, id: 'osm-' + id,
+      ...buildingThemeAttributes(tags),
       /* Cours intérieures : anneaux évidés au rendu (règle pair-impair). */
       trous: (trous || []).map(r => r.map(p => [p[0], p[1]])),
       minH: parseFloat(tags['building:min_height']) || 0,

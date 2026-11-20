@@ -608,6 +608,88 @@
     return page(ctx,'axocallout',p,{title:'Volumétrie axonométrique annotée',en:'Annotated axonometric massing',sub:'Emprises de bâtiments OSM extrudées · repères sélectionnés',subEn:'Extruded OSM building footprints · selected callouts'},body);
   };
 
+  /* Analyse éclatée : chaque couche partage la même projection et la même
+     emprise. La séparation verticale est graphique, pas une altitude. */
+  R.axoexploded = (ctx,sc) => {
+    const p=palette(sc), d=ctx.D||{}, site=siteOf(ctx), cx=151, scale=95/site.radius;
+    const project=(e,n,y)=>[cx+(e-n)*0.70710678*scale,y+(e+n)*0.17*scale];
+    const point=(lat,lon,y)=>{const q=localXY(ctx,lat,lon);return project(q.e,q.n,y);};
+    const footprint=(y)=>{
+      if(Array.isArray(ctx.sitePolygon)&&ctx.sitePolygon.length>=3) {
+        return ctx.sitePolygon.map(q=>Array.isArray(q)?point(q[0],q[1],y):point(q.lat,q.lon==null?q.lng:q.lon,y));
+      }
+      if(ctx.shape==='square'||ctx.shape==='rect') return [[-site.radius,-site.radius],[site.radius,-site.radius],[site.radius,site.radius],[-site.radius,site.radius]].map(q=>project(q[0],q[1],y));
+      return Array.from({length:80},(_,i)=>{const a=i*2*Math.PI/80;return project(site.radius*Math.cos(a),site.radius*Math.sin(a),y);});
+    };
+    const geo=(g,y)=>coords(g).map(q=>point(q[0],q[1],y));
+    const plane=(key,y,label,sub,content)=>{
+      const id='utb-exploded-'+(++clipSerial), boundary=ptsAttr(footprint(y));
+      return '<g data-layer="'+key+'"><defs><clipPath id="'+id+'"><polygon points="'+boundary+'"/></clipPath></defs>'+
+        '<polygon points="'+boundary+'" fill="'+p.panel+'" fill-opacity="0.96" stroke="'+p.accent+'" stroke-opacity="0.55" stroke-width="0.45"/>'+
+        '<g clip-path="url(#'+id+')">'+content+'</g>'+
+        line(238,y,255,y,p.line,0.4)+text(258,y-1,label,2.5,p.ink,{weight:700})+text(258,y+3,sub,2.05,p.muted)+'</g>';
+    };
+    let areas='',roads='',build='',pois='';
+    const ys={areas:235,roads:181,build:127,pois:73};
+    for(const g of d.green||[]) {
+      const pts=geo(g.g,ys.areas); if(pts.length<3) continue;
+      areas+='<polygon points="'+ptsAttr(pts)+'" fill="'+classColor(p,landClass(g))+'" fill-opacity="0.78" stroke="'+p.panel+'" stroke-width="0.2"/>';
+    }
+    for(const r of d.roads||[]) {
+      const pts=geo(r.g,ys.roads); if(pts.length<2) continue;
+      const major=/^(motorway|trunk|primary|secondary|tertiary)/.test(r.h||'');
+      roads+='<path d="'+pathAttr(pts)+'" fill="none" stroke="'+(major?p.hot:p.road)+'" stroke-width="'+(major?0.85:0.35)+'" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    for(const r of d.rail||[]) {
+      const pts=geo(r.g,ys.roads); if(pts.length<2) continue;
+      roads+='<path d="'+pathAttr(pts)+'" fill="none" stroke="'+p.accent+'" stroke-width="0.6" stroke-dasharray="1.5 1"/>';
+    }
+    for(const b of d.build||[]) {
+      const pts=geo(b.g,ys.build); if(pts.length<3) continue;
+      build+='<polygon points="'+ptsAttr(pts)+'" fill="'+classColor(p,buildingClass(b))+'" stroke="'+p.deep+'" stroke-opacity="0.55" stroke-width="0.17"/>';
+    }
+    for(const q of d.pois||[]) {
+      if(!Number.isFinite(+q.x)||!Number.isFinite(+q.y)) continue;
+      const [x,y]=point(q.y,q.x,ys.pois);
+      pois+='<circle cx="'+x.toFixed(2)+'" cy="'+y.toFixed(2)+'" r="1.1" fill="'+classColor(p,poiClass(q))+'" stroke="'+p.panel+'" stroke-width="0.25"/>';
+    }
+    let body=rounded(15,43,280,230,p.map,p.line,1.5,0.3);
+    body+=line(84,73,84,235,p.accent,0.28,'1.5 1.5')+line(218,73,218,235,p.accent,0.28,'1.5 1.5');
+    body+=plane('occupation',ys.areas,tr(ctx,'01 · SOL','01 · LAND'),tr(ctx,'usages OSM','OSM uses'),areas);
+    body+=plane('voirie',ys.roads,tr(ctx,'02 · RÉSEAUX','02 · NETWORK'),tr(ctx,'voirie et rail','roads and rail'),roads);
+    body+=plane('bati',ys.build,tr(ctx,'03 · BÂTI','03 · BUILDINGS'),tr(ctx,'emprises','footprints'),build);
+    body+=plane('poi',ys.pois,tr(ctx,'04 · REPÈRES','04 · PLACES'),tr(ctx,'points OSM','OSM points'),pois);
+    body+=sideBox(p);
+    body+=panelTitle(309,51,93,tr(ctx,'Lecture des couches','Reading the layers'),p);
+    body+=text(309,63,tr(ctx,'01  Sol · usages cartographiés','01  Land · mapped uses'),2.7,p.ink,{weight:700});
+    body+=legendItem(309,71,p.green,tr(ctx,'Vert / loisirs','Green / leisure'),p);
+    body+=legendItem(354,71,p.water,tr(ctx,'Eau','Water'),p);
+    body+=legendItem(309,79,p.civic,tr(ctx,'Équipements','Civic'),p);
+    body+=legendItem(354,79,p.retail,tr(ctx,'Commerce','Retail'),p);
+    body+=legendItem(309,86,p.industry,tr(ctx,'Industrie / militaire','Industry / military'),p);
+    body+=text(309,94,tr(ctx,'Fond clair : usage non renseigné.','Pale background: use not recorded.'),2.25,p.muted);
+    body+=text(309,103,tr(ctx,'02  Voirie et rail','02  Roads and rail'),2.7,p.ink,{weight:700});
+    body+=legendItem(309,111,p.hot,tr(ctx,'Voie principale','Major road'),p,'line');
+    body+=legendItem(357,111,p.road,tr(ctx,'Autre voie','Other road'),p,'line');
+    body+=text(309,126,tr(ctx,'03  Emprises bâties','03  Building footprints'),2.7,p.ink,{weight:700});
+    body+=text(309,134,tr(ctx,'Couleurs : types OSM indicatifs.','Colors: indicative OSM types.'),2.25,p.muted);
+    body+=text(309,141,tr(ctx,'Aucune hauteur représentée.','No building heights shown.'),2.25,p.muted);
+    body+=text(309,155,tr(ctx,'04  Points d’intérêt','04  Points of interest'),2.7,p.ink,{weight:700});
+    body+=text(309,163,tr(ctx,'Services et lieux cartographiés.','Mapped services and places.'),2.25,p.muted);
+    body+=line(309,174,399,174,p.line,0.35);
+    body+=text(309,184,tr(ctx,'INTERPRÉTATION À COMPLÉTER','INTERPRETATION TO BE ADDED'),2.3,p.accent,{weight:700});
+    body+=text(309,193,tr(ctx,'Barrières, axes civiques et directions','Barriers, civic spines and development'),2.15,p.ink);
+    body+=text(309,200,tr(ctx,'de développement : non déduits.','directions: not inferred.'),2.15,p.ink);
+    body+=text(309,207,tr(ctx,'À définir et valider par l’urbaniste.','To be defined and checked by a planner.'),2.15,p.ink);
+    body+=rounded(309,218,90,43,p.pale,p.line,1.4,0.25);
+    body+=text(314,226,tr(ctx,'PRÉCAUTIONS','LIMITATIONS'),2.3,p.accent,{weight:700});
+    body+=text(314,234,tr(ctx,'Données OSM potentiellement incomplètes.','OSM data may be incomplete.'),2.15,p.ink);
+    body+=text(314,241,tr(ctx,'Classement indicatif, non réglementaire.','Indicative classes, not zoning.'),2.15,p.ink);
+    body+=text(314,248,tr(ctx,'Écart entre couches purement graphique.','Layer spacing is purely graphical.'),2.15,p.ink);
+    body+=text(314,255,tr(ctx,'Projection schématique, non cadastrale.','Schematic projection, not cadastral.'),2.15,p.ink);
+    return page(ctx,'axoexploded',p,{title:'Analyse axonométrique éclatée',en:'Exploded axonometric analysis',sub:'Quatre couches alignées · données OpenStreetMap',subEn:'Four aligned layers · OpenStreetMap data'},body);
+  };
+
   /* 5 · Planche d’insertion : vue générale, repère et fenêtre de détail. */
   R.insetboard = (ctx,sc) => {
     const p=palette(sc),d=ctx.D||{},m=mainMap(ctx,p),R0=m.radius,zoom=Math.max(80,Math.min(R0,Math.round(R0*0.34/10)*10));

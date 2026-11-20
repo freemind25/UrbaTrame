@@ -16,6 +16,7 @@ import { summarizeSite, calculateFeasibility, siteReading, climateChartSVG } fro
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
 import { analyzeSpatialQuestion } from './local-assistant.mjs';
+import { mountAxoAssistant } from './axo-ai.mjs?v=20261011providers3';
 import { verifyIssuedLicenseToken } from './licence-client.mjs';
 import { studentAuthReady } from './student-auth-ui.mjs';
 import {
@@ -553,7 +554,7 @@ function renderOne(id) {
   let svg;
   try { svg = fn(ctxFor(id), S.pal[id] || 0); }
   catch (e) { console.error(id, e); svg = ENG.blank(ctxFor(id), 'ERREUR DE RENDU'); }
-  if (S.noText.has(id) && id !== 'obmoccupancy') svg = svg.replace(/<text\b[\s\S]*?<\/text>/g, '');
+  if (S.noText.has(id) && id !== 'obmoccupancy' && id !== 'axoexploded') svg = svg.replace(/<text\b[\s\S]*?<\/text>/g, '');
   return svg;
 }
 
@@ -579,7 +580,7 @@ function renderCards() {
         <span class="ctl">
           ${id === 'volumes' ? `<button title="${T('ouvrir la vue 3D interactive', 'open interactive 3D view')}" data-3d>3D</button>` : ''}
           ${id === 'obmoccupancy' ? '' : `<button title="${T('palette suivante', 'next palette')}" data-pal>◨</button>`}
-          ${id === 'obmoccupancy' ? '' : `<button title="${T('texte on/off', 'text on/off')}" data-txt class="${S.noText.has(id) ? 'off' : ''}">✎</button>`}
+          ${['obmoccupancy', 'axoexploded'].includes(id) ? '' : `<button title="${T('texte on/off', 'text on/off')}" data-txt class="${S.noText.has(id) ? 'off' : ''}">✎</button>`}
           <button title="SVG" data-svg>SVG</button>
           <button title="PNG ×3" data-png>PNG</button>
         </span>
@@ -611,6 +612,11 @@ function renderCards() {
     if (b3d) b3d.addEventListener('click', () => vue3D());
     card.querySelector('[data-svg]').addEventListener('click', () => downloadSVG(id, card));
     card.querySelector('[data-png]').addEventListener('click', () => downloadPNG(id, card));
+    if (id === 'axoexploded') mountAxoAssistant(card, () => ({
+      site: S.dataSite, buckets: S.D,
+      stale: !S.dataSite || reportDataOutOfDate(S.dataSite) ||
+        JSON.stringify(S.dataSite.polygon || null) !== JSON.stringify(S.poly || null)
+    }));
     grid.appendChild(card);
   });
   renderMiniMap();
@@ -2018,7 +2024,7 @@ function openPlans() {
         <li>${T('Accès sans filigrane', 'No watermark')}</li></ul>
       </section>
       <section class="plan max">
-        <h3>Max</h3><div class="per">${T('Tout Pro + les 8 planches Max', 'Everything in Pro + the 8 Max boards')}</div>
+        <h3>Max</h3><div class="per">${T('Tout Pro + les planches Max', 'Everything in Pro + the Max boards')}</div>
         <ul><li>${T('Planches de contexte et d’insertion', 'Context and site-insertion boards')}</li>
         <li>${T('Données urbaines · nœuds et trame', 'Urban data · nodes and grid')}</li>
         <li>${T('Cônes de vue et accès radial', 'View cones and radial access')}</li></ul>
@@ -2307,6 +2313,8 @@ async function init() {
     } catch (e) { log('vérification serveur indisponible : ' + (e.message || e)); }
   }
   await refreshEntitlement();
+  /* Le catalogue a été initialisé avant le chargement du statut d’accès. */
+  renderCatalog();
 
   const mayUseApp = !S.studentAuthRequired || Boolean(S.studentUser);
   if (mayUseApp && (qp.get('vue3d') === '1' || S.sel.has('volumes'))) ensureVue3D();

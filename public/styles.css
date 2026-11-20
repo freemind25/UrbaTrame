@@ -527,3 +527,12 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
 .skel-row{height:44px;margin:6px 0}
 .skel-card{height:220px}
 @media (prefers-reduced-motion:reduce){.skel::after{animation:none;opacity:.4}}
+
+/* Assistance textuelle facultative de la planche axonométrique */
+.axo-ai{padding:12px 14px;background:#f4f1e8;color:#243b36;font-size:13px;line-height:1.45;border-top:1px solid #d8dcd3}
+.axo-ai summary{cursor:pointer;font-weight:700;color:#245d52}
+.axo-ai p{margin:8px 0}.axo-ai label:not(.axo-consent){display:block;margin:8px 0;font-weight:600}
+.axo-ai input:not([type=checkbox]),.axo-ai select,.axo-ai textarea{display:block;width:100%;padding:7px;margin-top:3px;box-sizing:border-box;border:1px solid #9baba4;border-radius:5px;background:white;color:#172d29;font:inherit}
+.axo-ai textarea{resize:vertical}.axo-ai .axo-consent{display:block;margin:9px 0;font-weight:400}
+.axo-ai button{padding:7px 12px;background:#27665a;color:#fff;border:0;border-radius:5px;cursor:pointer}.axo-ai button:disabled{opacity:.5}
+.axo-ai pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;background:white;padding:10px;border:1px solid #d8dcd3;font:inherit}
