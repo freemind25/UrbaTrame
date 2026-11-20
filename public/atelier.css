@@ -95,3 +95,10 @@ textarea:focus-visible{outline:3px solid #2e6b52;outline-offset:2px}
 .skip-link{position:fixed;top:-64px;left:14px;z-index:300;background:#153e3d;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;transition:top .15s ease}.skip-link:focus{top:12px;outline:3px solid var(--ring)}
 
 @media (pointer:coarse){button,.button-primary,.button-secondary,.tool-button,.file-button,.level-card,.search-result,.topnav a,.panel>summary,.resource-action,.library-card a{min-height:44px;padding-top:10px;padding-bottom:10px}}
+
+/* Accès direct aux cartes thématiques du site. */
+.deliverable-buttons{display:grid;gap:8px}.deliverable-buttons .button-outline{width:100%}
+@media(max-width:600px){.deliverable-buttons{grid-column:span 2}}
+/* Garder l’aperçu de la carte visible pendant le réglage des couches. */
+.xpt-corps>section[data-pan="carte"] .xpt-apercu{align-self:start;position:sticky;top:0;height:min(620px,calc(100vh - 190px));min-height:300px}
+@media(max-width:600px){.xpt-corps>section[data-pan="carte"] .xpt-apercu{order:-1;position:static;height:auto;min-height:250px}}

@@ -3,6 +3,8 @@
    aucun script, style ou fichier du service de référence n'est réutilisé. */
 import { courbesDeNiveau, enLocal, equidistance, grilleTerrain } from './exports.mjs';
 import { classifyBuilding, classifyLanduse, LANDUSE_CLASSES, roadSurface, roadWidth } from './geometry.mjs';
+import { THEMES, THEME_COLORS, UNKNOWN_COLOR, buildingThemeClass } from './building-themes.mjs';
+import { filterRoads } from './road-groups.mjs';
 
 export const MAP_PRESETS = Object.freeze(['classic', 'figure-ground', 'relief', 'night', 'blueprint', 'contexte-urbain']);
 export const MAP_CLASSES = Object.freeze({
@@ -81,6 +83,7 @@ export function vectorMapSVG(ctx, options = {}) {
     return projected.length < 2 ? '' : 'M' + projected.map(q => `${fmt(q[0])},${fmt(q[1])}`).join('L') + (closed ? 'Z' : '');
   };
   const d = ctx.D || {};
+  const roads = filterRoads(d.roads, options.roadGroups);
   const layers = { buildings: true, roads: true, bridges: true, rail: true, water: true, green: true,
     trees: true, contours: true, labels: false, siteBoundary: true, grid: !!options.grid, ...(options.layers || {}) };
   const label = (fr, en) => options.lang === 'en' ? en : fr;
@@ -88,6 +91,8 @@ export function vectorMapSVG(ctx, options = {}) {
   const line = Math.max(.45, Math.min(4, Number(options.outlineWeight) || 1));
   const byType = options.colorByType !== false && preset !== 'figure-ground' && preset !== 'night' && preset !== 'blueprint';
   const urban = preset === 'contexte-urbain';
+  const theme = Object.hasOwn(THEMES, options.buildingTheme) ? options.buildingTheme : null;
+  const themeStats = { known: 0, unknown: 0, estimated: 0 };
   const parts = [];
   const framePath = shape === 'square'
     ? `<rect x="${fmt(cx - R * scale)}" y="${fmt(cy - R * scale)}" width="${fmt(2 * R * scale)}" height="${fmt(2 * R * scale)}"/>`
@@ -99,7 +104,7 @@ export function vectorMapSVG(ctx, options = {}) {
   parts.push(`<rect width="${W}" height="${H}" fill="${p.bg}"/>`);
   parts.push(`<defs><clipPath id="fm-map-clip">${clipMarkup}</clipPath><linearGradient id="fm-height" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#EEE2C5"/><stop offset="1" stop-color="#54795B"/></linearGradient></defs>`);
   parts.push(`<text x="${pad}" y="${pad + 2}" font-family="sans-serif" font-size="20" font-weight="700" fill="${p.ink}">${title}</text>`);
-  parts.push(`<text x="${pad}" y="${pad + 22}" font-family="sans-serif" font-size="10" fill="${p.ink}" opacity=".72">${label('Carte vectorielle · ', 'Vector map · ')}${shape === 'square' ? label('emprise carrée', 'square footprint') : label('emprise circulaire', 'circular footprint')} · ${selectedScale ? `1:${selectedScale}` : label('échelle ajustée', 'fit to page')}</text>`);
+  parts.push(`<text x="${pad}" y="${pad + 22}" font-family="sans-serif" font-size="10" fill="${p.ink}" opacity=".72">${theme ? esc(label(THEMES[theme].fr, THEMES[theme].en)) + ' · ' : label('Carte vectorielle · ', 'Vector map · ')}${shape === 'square' ? label('emprise carrée', 'square footprint') : label('emprise circulaire', 'circular footprint')} · ${selectedScale ? `1:${selectedScale}` : label('échelle ajustée', 'fit to page')}</text>`);
 
   parts.push('<g clip-path="url(#fm-map-clip)">');
   /* Fond et ombrage du relief, si le modèle altimétrique est présent. */
@@ -160,7 +165,7 @@ export function vectorMapSVG(ctx, options = {}) {
     }
   }
 
-  if (layers.roads) for (const r of d.roads || []) {
+  if (layers.roads) for (const r of roads) {
     if (!Array.isArray(r.g) || r.g.length < 2) continue;
     const local = r.g.map(point => enLocal(point[0], point[1], ctx.sLat, ctx.sLng));
     const { metres } = Number(r.width) > 0 ? { metres: Number(r.width) } : roadWidth(r.tags || { highway: r.h });
@@ -196,9 +201,15 @@ export function vectorMapSVG(ctx, options = {}) {
       const cls = b.class || classifyBuilding(b.tags || { building: b.t });
       const base = preset === 'figure-ground' ? p.ink : preset === 'night' ? '#D4DFE1' : preset === 'blueprint' ? '#E9F3F7' : byType ? (options.classColors?.[cls] || MAP_CLASSES[cls]?.color || p.ink) : (options.colors?.building || '#BEB8AB');
       const h = clamp(Number(b.h) || 9, 0, 80);
-      const fill = strength && !['figure-ground', 'night', 'blueprint'].includes(preset) ? mix(base, '#342C24', clamp(h / 60 * strength, 0, .65)) : base;
+      const themed = theme ? buildingThemeClass(b, theme, ctx.sLat, ctx.sLng) : null;
+      if (themed) {
+        if (themed.index < 0) themeStats.unknown++; else themeStats.known++;
+        if (theme === 'height' && themed.index >= 0 && b.themeHeightSource === 'levels-estimate') themeStats.estimated++;
+      }
+      const fill = themed ? themed.color : strength && !['figure-ground', 'night', 'blueprint'].includes(preset) ? mix(base, '#342C24', clamp(h / 60 * strength, 0, .65)) : base;
       const poly = b.g.map(geo);
-      parts.push(`<path d="${pathOf(poly, true, q => q)}" fill="${fill}" stroke="${preset === 'figure-ground' ? p.ink : mix(fill, p.ink, .25)}" stroke-width="${line}" stroke-linejoin="round"/>`);
+      const holes = (b.trous || []).map(r => pathOf(r.map(geo), true, q => q)).join(' ');
+      parts.push(`<path d="${pathOf(poly, true, q => q)} ${holes}" fill-rule="evenodd" fill="${fill}" stroke="${preset === 'figure-ground' && !theme ? p.ink : mix(fill, p.ink, .25)}" stroke-width="${line}" stroke-linejoin="round"/>`);
       if (layers.labels && b.nom) {
         const x = poly.reduce((s, q) => s + q[0], 0) / poly.length, y = poly.reduce((s, q) => s + q[1], 0) / poly.length;
         parts.push(`<text x="${fmt(x)}" y="${fmt(y)}" font-family="sans-serif" font-size="${Math.max(7, Math.min(12, scale * 4))}" text-anchor="middle" fill="${p.ink}">${esc(b.nom)}</text>`);
@@ -291,15 +302,24 @@ export function vectorMapSVG(ctx, options = {}) {
   }
   if (options.outline !== false) parts.push(`<rect x="${mapLeft}" y="${mapTop}" width="${mapW}" height="${mapH}" fill="none" stroke="${p.ink}" stroke-width="${line}" opacity=".65"/>`);
 
-  const classes = byType ? Object.entries(MAP_CLASSES).map(([key, c], i) => {
+  const classes = byType && !theme ? Object.entries(MAP_CLASSES).map(([key, c], i) => {
     const x = mapLeft + i * Math.min(165, mapW / 6), y = H - pad + 15;
     const color = options.classColors?.[key] || c.color;
     return `<g><rect x="${fmt(x)}" y="${fmt(y)}" width="8" height="8" fill="${color}"/><text x="${fmt(x + 12)}" y="${fmt(y + 8)}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(label(c.fr, c.en))}</text></g>`;
   }).join('') : '';
   if (classes) parts.push(classes);
-  if (urban) {
+  if (theme && layers.buildings) {
+    const items = [...THEMES[theme].labels.map((name, i) => [THEME_COLORS[i], name]), [UNKNOWN_COLOR, label('Inconnu', 'Unknown')]];
+    parts.push(items.map(([color, name], i) => {
+      const x = mapLeft + i * (mapW / 6), y = H - pad + 15;
+      return `<g><rect x="${fmt(x)}" y="${fmt(y)}" width="8" height="8" fill="${color}"/><text x="${fmt(x + 12)}" y="${fmt(y + 8)}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(name)}</text></g>`;
+    }).join(''));
+    const note = theme === 'height' ? label('Hauteur OSM ou estimation niveaux × 3,1 m', 'OSM height or floors × 3.1 m estimate') : theme === 'floors' ? label('Niveaux OSM renseignés uniquement', 'Recorded OSM floors only') : label('Emprise entière approximative, hors cours ; pas surface de plancher', 'Approximate full footprint, less courtyards; not floor area');
+    parts.push(`<text x="${pad}" y="${H - pad + 34}" font-family="sans-serif" font-size="8" fill="${p.ink}">${esc(note)}</text>`);
+  }
+  if (urban && !theme) {
     const seen = new Map();
-    for (const r of d.roads || []) {
+    for (const r of layers.roads ? roads : []) {
       const c = roadClassColor(r.h);
       if (c && !seen.has(c)) seen.set(c, roadClassLabel(r.h, label));
     }
@@ -316,7 +336,7 @@ export function vectorMapSVG(ctx, options = {}) {
     if (items) parts.push(items);
   }
   const buildings = (d.build || []).length, trees = (d.trees || []).length;
-  const roadsKm = (d.roads || []).reduce((sum, r) => {
+  const roadsKm = (layers.roads ? roads : []).reduce((sum, r) => {
     let length = 0; const pts = r.g || [];
     for (let i = 1; i < pts.length; i++) {
       const a = enLocal(pts[i - 1][0], pts[i - 1][1], ctx.sLat, ctx.sLng), b = enLocal(pts[i][0], pts[i][1], ctx.sLat, ctx.sLng);
@@ -332,6 +352,6 @@ export function vectorMapSVG(ctx, options = {}) {
   const footprintWidth = 2 * R * scale, footprintHeight = 2 * R * scale;
   return {
     svg: parts.join(''), preset, shape, scale: selectedScale || Math.round(3779.52756 / Math.max(scale, .001)),
-    fitsPage: footprintWidth <= mapW && footprintHeight <= mapH, stats: { buildings, trees, roadsKm, contours: contourCount }
+    fitsPage: footprintWidth <= mapW && footprintHeight <= mapH, stats: { buildings, trees, roadsKm, contours: contourCount, theme: theme ? themeStats : null }
   };
 }

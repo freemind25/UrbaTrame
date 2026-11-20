@@ -12,7 +12,7 @@
 export const FREE_IDS = ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover', 'satellite', 'urban'];
 
 export const MAX_IDS = [
-  'mappingboard', 'urbanstations', 'urbangrid', 'axocallout',
+  'mappingboard', 'urbanstations', 'urbangrid', 'axocallout', 'axoexploded',
   'insetboard', 'viewcones', 'zoningplan', 'radialnet'
 ];
 
@@ -90,6 +90,7 @@ export const DEPS = {
   urbanstations: ['roads', 'buildings', 'green', 'poi', 'transit', 'rail', 'coast'],
   urbangrid: ['roads', 'buildings', 'green', 'poi', 'transit'],
   axocallout: ['roads', 'buildings', 'green', 'poi', 'transit', 'rail', 'coast'],
+  axoexploded: ['roads', 'buildings', 'landuse', 'green', 'poi', 'transit', 'rail'],
   insetboard: ['roads', 'buildings', 'landuse', 'green', 'transit', 'rail', 'poi', 'coast'],
   viewcones: ['roads', 'buildings', 'landuse', 'green', 'rail', 'coast'],
   zoningplan: ['roads', 'buildings', 'landuse', 'green', 'poi', 'transit', 'rail', 'coast'],
@@ -100,7 +101,7 @@ export const DEPS = {
    remplacée par une carte explicative (jamais d'échec silencieux). */
 export const LIMITS = Object.fromEntries(Object.keys(DEPS).map(id => [id,
   ['nodes', 'vitality', 'poiheat', 'poitype', 'voronoi', 'sitemap', 'urbanstations',
-   'urbangrid', 'soundmap', 'walkroutes', 'axocallout', 'zoningplan', 'radialnet']
+   'urbangrid', 'soundmap', 'walkroutes', 'axocallout', 'axoexploded', 'zoningplan', 'radialnet']
     .includes(id) ? 1500 :
   ['landuse', 'transit', 'typology', 'isogrid', 'massing', 'contour', 'aspect',
    'wireframe', 'insetboard', 'viewcones', 'climtemp', 'climprecip', 'climover',

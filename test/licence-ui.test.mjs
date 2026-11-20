@@ -13,11 +13,11 @@ await import(new URL('../public/js/catalog.js', import.meta.url));
 const catalog = globalThis.FMCatalog;
 
 describe('matrice Pro/Max', () => {
-  test('les paliers codés correspondent à 8 gratuites, 33 Pro et 8 Max', () => {
-    assert.equal(catalog.length, 49);
+  test('les paliers codés correspondent à 8 gratuites, 33 Pro et 9 Max', () => {
+    assert.equal(catalog.length, 50);
     assert.equal(catalog.filter(item => item.tier === 'free').length, 8);
     assert.equal(catalog.filter(item => item.tier === 'pro').length, 33);
-    assert.equal(catalog.filter(item => item.tier === 'max').length, 8);
+    assert.equal(catalog.filter(item => item.tier === 'max').length, 9);
   });
 });
 

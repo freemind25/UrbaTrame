@@ -104,6 +104,7 @@ function updateFreshness(label = '') {
   const needsLayer = selectedLayers.some(layer => !loadedInclude.has(layer));
   const fresh = !!sameSite && !needsLayer;
   $('#openExports').disabled = !fresh;
+  $('#openSiteMaps').disabled = !fresh;
   if (fresh) {
     if (label) $('#mapState').innerHTML = `<i></i> ${label}`;
   } else {
@@ -473,13 +474,15 @@ function dataPourExport() {
     pois: selected.has('pois') ? data.pois : []
   };
 }
-$('#openExports').addEventListener('click', () => {
+function openSiteExports(initialTab = 'plan') {
   if (!updateFreshness()) { $('#message').textContent = 'Récupérez les données à nouveau : le lieu, le rayon ou les couches ont changé.'; return; }
   if (!data.raw?.length) { $('#message').textContent = 'Chargez un jeu de données ou utilisez l’exemple embarqué avant l’export.'; return; }
   const include = $all('.layer-row input:checked').map(box => box.value);
   ouvrirExports({ lat: site.lat, lon: site.lon, rayon: site.radius, shape: site.shape, boundary: site.boundary,
-    nom: site.name, D: dataPourExport(), terrain: site.terrain, include, langue: 'fr' });
-});
+    nom: site.name, D: dataPourExport(), terrain: site.terrain, include, langue: 'fr', initialTab });
+}
+$('#openExports').addEventListener('click', () => openSiteExports());
+$('#openSiteMaps').addEventListener('click', () => openSiteExports('carte'));
 $('#helpButton').addEventListener('click', () => $('#helpDialog').showModal());
 $('#helpDialog').addEventListener('click', e => { if (e.target === $('#helpDialog')) $('#helpDialog').close(); });
 

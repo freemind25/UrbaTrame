@@ -58,7 +58,8 @@ describe('service', () => {
     assert.equal(j.ok, true);
     assert.match(j.version, /^\d+\.\d+\.\d+$/);
     assert.deepEqual(j.free, ['roads', 'landuse', 'gw', 'fabric', 'obmoccupancy', 'landcover', 'satellite', 'urban']);
-    assert.equal(j.max.length, 8);
+    assert.equal(j.max.length, 9);
+    assert.ok(j.max.includes('axoexploded'));
     assert.equal(Buffer.from(j.pub, 'base64').length, 32);
     assert.equal(j.trace, r.headers.get('x-em-trace'), 'trace renvoyée en en-tête');
     assert.equal('codes' in j, false, 'le statut public ne doit jamais exposer le catalogue de licences');

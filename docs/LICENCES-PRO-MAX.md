@@ -2,13 +2,13 @@
 
 ## Matrice des droits actuellement codée
 
-Le catalogue contient **46 analyses**. La matrice ci-dessous reprend les paliers réellement affectés aux fonctions dans `public/js/catalog.js` — ce n’est pas une nouvelle grille commerciale.
+Le catalogue contient **50 analyses**. La matrice ci-dessous reprend les paliers réellement affectés aux fonctions dans `public/js/catalog.js` — ce n’est pas une nouvelle grille commerciale.
 
 | Palier | Contenu du catalogue | Nombre |
 |---|---|---:|
-| Accès gratuit | Voirie & rues; Zones fonctionnelles; Vert & eau; Tissu urbain; Occupation des bâtiments | 5 |
-| Pro | Les 5 gratuites, plus les 33 analyses Pro ci-dessous | 33 Pro |
-| Max | Tout Pro, plus les 8 planches Max ci-dessous | 8 Max |
+| Accès gratuit | Voirie & rues; Zones fonctionnelles; Vert & eau; Tissu urbain; Occupation des bâtiments; Occupation du sol (satellite); Imagerie satellite; Urban settlement | 8 |
+| Pro | Les 8 gratuites, plus les 33 analyses Pro ci-dessous | 33 Pro |
+| Max | Tout Pro, plus les 9 planches Max ci-dessous | 9 Max |
 
 ### Pro — 33 analyses
 
@@ -18,9 +18,9 @@ Le catalogue contient **46 analyses**. La matrice ci-dessous reprend les paliers
 - **Environnement (7)** : Course solaire & ombres, Topographie, Pente & exposition, Trame de terrain, Contexte urbain, Situation, Rose des vents.
 - **Climat (5)** : Températures, Précipitations, Climat annuel, Heures de jour, Rayonnement.
 
-### Max — 8 planches supplémentaires
+### Max — 9 planches supplémentaires
 
-Planche de contexte; Données urbaines · Nœuds; Données urbaines · Trame; Volumétrie axonométrique annotée; Planche d’insertion; Cônes de vue indicatifs; Zonage fonctionnel OSM; Centralité & accès radial.
+Planche de contexte; Données urbaines · Nœuds; Données urbaines · Trame; Volumétrie axonométrique annotée; Analyse axonométrique éclatée; Planche d’insertion; Cônes de vue indicatifs; Zonage fonctionnel OSM; Centralité & accès radial.
 
 Le module **Cadrage spatial** et les ateliers intégrés ont leur propre périmètre fonctionnel; cette grille ne leur attribue pas automatiquement un droit Pro/Max. Il faudra décider explicitement si ces modules doivent être inclus dans une offre commerciale.
 
