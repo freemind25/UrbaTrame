@@ -316,6 +316,75 @@ export function clipSegmentsByMasks(segments, masks) {
   return list;
 }
 
+/* Trace les contours locaux contigus et simplifie leurs polylignes. Il ne
+   reconnaît pas les éléments architecturaux et ne prolonge pas les tracés à
+   travers les masques. Les pixels, branches et sorties sont bornés. */
+export function detailedFacadeContours(image, {seuil = 120, minPath = 8, epsilon = 1.1, masks = [], maxSegments = 6000} = {}) {
+  const w = image.width, h = image.height, gray = toGray(image), edge = new Uint8Array(w * h);
+  if (!(w >= 3 && h >= 3 && w * h <= 1000000)) return {segments: [], paths: 0, truncated: false};
+  seuil = Math.max(20, Math.min(800, Number(seuil) || 120));
+  minPath = Math.max(3, Math.min(200, Number(minPath) || 8));
+  epsilon = Math.max(.25, Math.min(4, Number(epsilon) || 1.1));
+  maxSegments = Math.max(1, Math.min(10000, Math.floor(Number(maxSegments) || 6000)));
+  const gx = new Float32Array(w*h), gy = new Float32Array(w*h), mag = new Float32Array(w*h);
+  for (let y=1; y<h-1; y++) for (let x=1; x<w-1; x++) {
+    const i=y*w+x;
+    const a=-gray[i-w-1]-2*gray[i-1]-gray[i+w-1]+gray[i-w+1]+2*gray[i+1]+gray[i+w+1];
+    const b=-gray[i-w-1]-2*gray[i-w]-gray[i-w+1]+gray[i+w-1]+2*gray[i+w]+gray[i+w+1];
+    gx[i]=a;gy[i]=b;mag[i]=Math.hypot(a,b);
+  }
+  const outside = maskEdges(mag,w,h,masks);
+  for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++) {
+    const i=y*w+x, m=outside[i]; if (m<seuil) continue;
+    const ax=Math.abs(gx[i]), ay=Math.abs(gy[i]); let d;
+    if (ay <= ax*.4142) d=1; else if (ax <= ay*.4142) d=w;
+    else d=(gx[i]*gy[i]>0 ? w+1 : w-1);
+    if (m>=mag[i-d] && m>mag[i+d]) edge[i]=1;
+  }
+  const dirs=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]], used=new Uint8Array(w*h);
+  const neighbours = i => {
+    const x=i%w,y=Math.floor(i/w), out=[];
+    for (let d=0;d<8;d++) {
+      const [dx,dy]=dirs[d], xx=x+dx, yy=y+dy;
+      if(xx<0||xx>=w||yy<0||yy>=h||!edge[yy*w+xx])continue;
+      if(dx&&dy&&(edge[y*w+xx]||edge[yy*w+x]))continue;
+      out.push(d);
+    }
+    return out;
+  };
+  const simplify = points => {
+    const keep = new Uint8Array(points.length); keep[0]=1;keep[points.length-1]=1;
+    const stack=[[0,points.length-1]];
+    while(stack.length){const [a,b]=stack.pop(), p=points[a],q=points[b],dx=q[0]-p[0],dy=q[1]-p[1], den=Math.hypot(dx,dy);
+      let best=epsilon,index=-1;
+      for(let i=a+1;i<b;i++){const r=points[i], d=den?Math.abs(dx*(p[1]-r[1])-(p[0]-r[0])*dy)/den:Math.hypot(r[0]-p[0],r[1]-p[1]);if(d>best){best=d;index=i;}}
+      if(index>=0){keep[index]=1;stack.push([a,index],[index,b]);}
+    }
+    return points.filter((_,i)=>keep[i]);
+  };
+  const segments=[];let paths=0,truncated=false;
+  const walk=(start,d)=>{
+    let i=start, dir=d;const pts=[[i%w,Math.floor(i/w)]];let distance=0;
+    while(true){
+      if(used[i]&(1<<dir))break;
+      const [dx,dy]=dirs[dir], next=i+dy*w+dx;
+      used[i]|=1<<dir;used[next]|=1<<((dir+4)%8);distance+=dx&&dy?Math.SQRT2:1;i=next;
+      pts.push([i%w,Math.floor(i/w)]);
+      const opts=neighbours(i);if(opts.length!==2)break;
+      const available=opts.filter(k=>!(used[i]&(1<<k)));if(!available.length)break;dir=available[0];
+    }
+    if(distance<minPath)return;
+    paths++; const simp=simplify(pts);
+    for(let j=1;j<simp.length;j++){
+      if(segments.length>=maxSegments){truncated=true;return;}
+      segments.push({a:simp[j-1],b:simp[j],layer:'FACADE'});
+    }
+  };
+  for(let i=0;i<edge.length && !truncated;i++)if(edge[i]){const ns=neighbours(i);if(ns.length===2)continue;for(const d of ns)if(!(used[i]&(1<<d)))walk(i,d);}
+  for(let i=0;i<edge.length && !truncated;i++)if(edge[i])for(const d of neighbours(i))if(!(used[i]&(1<<d)))walk(i,d);
+  return {segments:clipSegmentsByMasks(segments,masks),paths,truncated};
+}
+
 /* Pipeline géométrique local : des segments et des rectangles candidats,
    sans déduction de la fonction, du style ou de l'époque des éléments. */
 export function analyzeFacadeGeometry(image, {seuil = 120, minLen = 24, tolerance = 2, masks = []} = {}) {
@@ -371,14 +440,23 @@ export function initFacadeRectify(doc) {
   if (!file || !cv || !res) return;
   const ctx = cv.getContext('2d'), rctx = res.getContext('2d');
   const mini = $('facadeRectPreview'), mctx = mini.getContext('2d');
+  const sketch = $('facadeDrawing'), sctx = sketch.getContext('2d');
   let img = null, corners = [], rect = null, segs = [], loading = 0, revision = 0, history = [], pending = null, dirty = false, candidates = [], firstBridge = -1, refPoints = [], masks = [];
   const say = m => { for (const id of ['facadeStatus','facadePhotoStatus','facadeRectStatus','facadeActionStatus']) $(id).textContent = m; };
   const clearSummary = () => { $('facadeAnalysisSummary').textContent = ''; };
-  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; clearSummary(); mini.hidden = true; rctx.clearRect(0, 0, res.width, res.height); };
+  const invalidate = () => { revision++; rect = null; segs = []; history = []; pending = null; dirty = false; candidates = []; firstBridge = -1; refPoints = []; masks = []; clearSummary(); mini.hidden = true; sketch.hidden = true; rctx.clearRect(0, 0, res.width, res.height); };
   const remember = () => { revision++; history.push(segs.map(s => ({ ...s, a: [...s.a], b: [...s.b] }))); if (history.length > 30) history.shift(); };
   const render = () => {
     if (!rect) return;
     rctx.putImageData(new ImageData(rect.data, rect.width, rect.height), 0, 0);
+    sketch.hidden = dirty || !segs.length;
+    if (!sketch.hidden) {
+      if (sketch.width !== rect.width || sketch.height !== rect.height) { sketch.width = rect.width; sketch.height = rect.height; }
+      sctx.fillStyle = '#fff'; sctx.fillRect(0, 0, sketch.width, sketch.height);
+      sctx.strokeStyle = '#1b2425'; sctx.lineWidth = 1; sctx.beginPath();
+      for (const s of segs) { sctx.moveTo(...s.a); sctx.lineTo(...s.b); }
+      sctx.stroke();
+    }
     rctx.lineWidth = Math.max(1, rect.width / 600);
     for (const s of segs) {
       rctx.strokeStyle = FACADE_LAYERS[layerOf(s)].svg;
@@ -476,6 +554,22 @@ export function initFacadeRectify(doc) {
     res.width = w; res.height = h; rctx.putImageData(new ImageData(rect.data, w, h), 0, 0);
     mini.width = w; mini.height = h; mctx.putImageData(new ImageData(rect.data, w, h), 0, 0); mini.hidden = false;
     say(`Photo rectifiée : ${w} × ${h} pixels. L’aperçu est sous ce bouton ; poursuivez avec « Analyser la façade » à l’étape 3.`);
+  });
+  $('facadeDetailed').addEventListener('click', () => {
+    if (!rect || dirty) return say('Choisissez une photo, posez 4 coins puis rectifiez avant de tracer.');
+    const seuil = Number($('facadeSeuil').value);
+    if (!(seuil >= 20 && seuil <= 800)) return say('Seuil de contour autorisé : 20 à 800.');
+    if (segs.length && !window.confirm('Ce tracé remplacera les lignes actuelles. Continuer ?')) return;
+    const run = ++revision, target = rect;
+    clearSummary(); say('Tracé des contours détaillés en cours…');
+    setTimeout(() => {
+      if (target !== rect || run !== revision) return;
+      const result = detailedFacadeContours(target, {seuil, masks});
+      remember(); segs = result.segments; candidates = []; pending = null; firstBridge = -1; render();
+      const limit = result.truncated ? ' Limite de segments atteinte : augmentez le seuil.' : '';
+      $('facadeAnalysisSummary').textContent = `${segs.length} segments issus de ${result.paths} contours détectés.${limit} Tracé géométrique brut : ombres, textures et obstacles peuvent être présents. Fenêtres et portes ne sont pas reconnues.`;
+      say(segs.length ? 'Tracé terminé : le dessin sur fond blanc est sous le bouton. Corrigez et vérifiez avant export.' : 'Aucun contour retenu. Essayez un seuil plus bas.');
+    }, 20);
   });
   $('facadeLines').addEventListener('click', () => {
     clearSummary();

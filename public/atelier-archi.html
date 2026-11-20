@@ -6,19 +6,19 @@
   <meta name="theme-color" content="#153e3d">
   <meta name="description" content="Analyse architecturale UrbaTrame : relevé d’une rue à partir d’une photo, indicateurs calculés et six dessins cotés — usages, profil, front bâti, axonométrie, ombres, avant/après.">
   <title>UrbaTrame — Analyse architecturale</title>
-  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac6" type="image/png" sizes="128x128">
-  <link rel="stylesheet" href="/tokens.css?v=20261011fac6">
-  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac6">
-  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac6"></script>
-  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac6"></script>
-  <script type="module" src="/js/archi-facade.mjs?v=20261011fac6"></script>
+  <link rel="icon" href="/urbatrame-favicon.png?v=20261011fac7" type="image/png" sizes="128x128">
+  <link rel="stylesheet" href="/tokens.css?v=20261011fac7">
+  <link rel="stylesheet" href="/atelier-archi.css?v=20261011fac7">
+  <script type="module" src="/js/student-auth-ui.mjs?v=20261011fac7"></script>
+  <script type="module" src="/js/archi-rue-ui.mjs?v=20261011fac7"></script>
+  <script type="module" src="/js/archi-facade.mjs?v=20261011fac7"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Aller au contenu principal</a>
 
   <header class="topbar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac6" width="40" height="40" alt=""></span>
+      <span class="brand-mark" aria-hidden="true"><img src="/urbatrame-emblem.webp?v=20261011fac7" width="40" height="40" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">UrbaTrame</span>
         <span class="brand-subtitle">Analyse des sites urbains</span>
@@ -338,6 +338,9 @@
           <p class="hint">Après rectification : extraction des lignes, retrait des doublons et proposition de rectangles. Ce bouton ne produit pas automatiquement une lecture architecturale ni ne reconnaît les fenêtres ou portes.</p>
           <p id="facadeAnalysisSummary" class="hint" role="status" aria-live="polite"></p>
           <p id="facadeActionStatus" class="hint"></p>
+          <p><button id="facadeDetailed" class="button-primary" type="button">Tracer les contours détaillés (expérimental)</button></p>
+          <p class="hint">Trace des contours courts et des détails visibles sur l’image rectifiée. Résultat brut, pas un dessin architectural reconnu : fenêtres, portes et ornements ne sont pas identifiés ; ombres et obstacles peuvent produire de faux traits. Les zones d’exclusion manuelles restent respectées. Ce tracé remplace les lignes après confirmation.</p>
+          <canvas id="facadeDrawing" hidden aria-label="Aperçu du dessin vectoriel sur fond blanc" style="max-width:100%;border:1px solid var(--line,#ccc);border-radius:8px"></canvas>
           <p><button id="facadeLines" class="button-primary" type="button" data-fr="Extraire les lignes" data-en="Extract lines">Extraire les lignes</button></p>
           <p>
             <button id="facadeDxf" class="button-secondary" type="button">DXF</button>
@@ -371,6 +374,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/js/chat-widget.mjs?v=20261011fac6"></script>
+  <script type="module" src="/js/chat-widget.mjs?v=20261011fac7"></script>
 </body>
 </html>
