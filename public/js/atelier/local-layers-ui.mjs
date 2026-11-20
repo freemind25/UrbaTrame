@@ -1716,6 +1716,65 @@ $('#runGuided').addEventListener('click', () => {
 });
 updateGuidedControls();
 
+let topologyJob = null;
+function renderTopologyControls() {
+  const layers=state.layers.filter(layer=>layer.kind!=='raster');
+  for (const selector of ['#topologyTarget','#topologyReference']) {
+    const select=$(selector),previous=select.value;select.replaceChildren(new Option('Choisir une couche',''));
+    for (const layer of layers) select.append(new Option(`${layer.name} · ${layer.source}`,layer.id));
+    select.value=previous;
+  }
+  updateTopologyCounts();
+}
+function updateTopologyCounts() {
+  const scope=$('#topologyScope').value, ids=[$('#topologyTarget').value,$('#topologyReference').value];
+  const layers=ids.map(id=>state.layers.find(layer=>layer.id===id && layer.kind!=='raster')).filter(Boolean).map(layer=>layerInScope(layer,scope));
+  $('#topologyCounts').textContent=layers.length ? summarizeScopes(layers) : 'Choisissez deux couches.';
+}
+for (const selector of ['#topologyTarget','#topologyReference','#topologyScope']) $(selector).addEventListener('change',updateTopologyCounts);
+function endTopologyJob(job) {
+  if (topologyJob!==job) return false;
+  clearTimeout(job.timer);job.worker.terminate();topologyJob=null;
+  $('#topologyRun').disabled=false;$('#topologyCancel').disabled=true;return true;
+}
+$('#topologyCancel').addEventListener('click',()=>{
+  if (topologyJob && endTopologyJob(topologyJob)) $('#topologyStatus').textContent='Calcul annulé ; aucune couche ajoutée.';
+});
+$('#topologyRun').addEventListener('click',()=>{
+  if (topologyJob) return;
+  const targetId=$('#topologyTarget').value,referenceId=$('#topologyReference').value,scope=$('#topologyScope').value;
+  const target=state.layers.find(layer=>layer.id===targetId && layer.kind!=='raster');
+  const reference=state.layers.find(layer=>layer.id===referenceId && layer.kind!=='raster');
+  const crs=$('#topologyCrs').value.trim().toUpperCase(),operation=$('#topologyOperation').value;
+  if (!target || !reference || targetId===referenceId) { $('#topologyStatus').textContent='Choisissez deux couches vectorielles distinctes.'; return; }
+  if (!/^EPSG:(326|327)(0[1-9]|[1-5][0-9]|60)$/.test(crs)) { $('#topologyStatus').textContent='Choisissez explicitement un CRS UTM WGS 84 (ex. EPSG:32632).'; return; }
+  if (state.layers.length>=MAX_LAYERS) { $('#topologyStatus').textContent=`Retirez une couche : limite de ${MAX_LAYERS} couches atteinte.`; return; }
+  try {
+    const scoped=[layerInScope(target,scope),layerInScope(reference,scope)];
+    const counts=scoped.map(layer=>layer.geojson.features.length);
+    if (counts.some(n=>n===0 || n>100)) { $('#topologyStatus').textContent='Chaque périmètre doit contenir entre 1 et 100 entités.'; return; }
+    const snapshot=layer=>({name:layer.name,fileName:layer.fileName,source:layer.source,sourceCrs:layer.sourceCrs,importedAt:layer.importedAt,publicScope:layer.publicScope,scopeInfo:layer.scopeInfo,geojson:{type:'FeatureCollection',features:layer.geojson.features}});
+    const input={target:snapshot(scoped[0]),reference:snapshot(scoped[1]),options:{operation,crs}};
+    if (new TextEncoder().encode(JSON.stringify(input)).length>8*1024*1024) { $('#topologyStatus').textContent='Données de calcul supérieures à 8 Mo ; réduisez le périmètre.'; return; }
+    const worker=new Worker(new URL('./polygon-overlay-worker.mjs',import.meta.url),{type:'module'});
+    const job={worker,timer:null};topologyJob=job;
+    $('#topologyRun').disabled=true;$('#topologyCancel').disabled=false;
+    $('#topologyStatus').textContent='Calcul local sur un instantané des couches. Vous pouvez annuler ; limite 20 secondes.';
+    job.timer=setTimeout(()=>{if(endTopologyJob(job)) $('#topologyStatus').textContent='Calcul interrompu après 20 secondes ; aucune couche ajoutée.';},20000);
+    worker.onmessage=event=>{
+      if (!endTopologyJob(job)) return;
+      if (!event.data?.ok) { $('#topologyStatus').textContent=event.data?.message || 'Calcul impossible ; aucune couche ajoutée.'; return; }
+      const {collection,report}=event.data.result;
+      if (!collection.features.length) { $('#topologyStatus').textContent=`Aucune surface produite ; ${report.boundaryOnly} contact(s) uniquement linéaires ou ponctuels exclus.`; return; }
+      const source=`${operation==='clip'?'Découpage':'Intersection'} JSTS 2.12.1 · ${target.name} (${target.source}) · ${reference.name} (${reference.source}) · ${crs} · instantané ${scope==='filtered'?'filtré':'complet'}`;
+      if (!addLayer(collection,`geometrie-${operation}.geojson`,source)) { $('#topologyStatus').textContent='Résultat non ajouté : limite de l’atelier atteinte. Voir le message général.'; return; }
+      $('#topologyStatus').textContent=`${report.outputFeatures} surface(s) ajoutée(s) depuis un instantané ; ${report.boundaryOnly} contact(s) sans surface exclu(s). Résultat indicatif, non cadastral ; consultez la provenance.`;
+    };
+    worker.onerror=()=>{if(endTopologyJob(job)) $('#topologyStatus').textContent='Moteur géométrique indisponible ou erreur ; aucune couche ajoutée.';};
+    try {worker.postMessage(input);} catch {if(endTopologyJob(job)) $('#topologyStatus').textContent='Les données ne peuvent pas être transmises au calcul local.';}
+  } catch { $('#topologyStatus').textContent='Préparation des données impossible ; vérifiez les couches et leurs filtres.'; }
+});
+
 let composerSteps = [];
 function composerRecipe() { return {version:1,steps:structuredClone(composerSteps)}; }
 function composerWidgets() {
@@ -2515,6 +2574,7 @@ function updateActions() {
   updateSurveyLayerControls();
   updateScopeSummaries();
   updateCrossStatus();
+  updateTopologyCounts();
   renderGuidedPolygons();
 }
 
@@ -2525,6 +2585,7 @@ function renderAll() {
   renderAiLayerOptions();
   renderGuidedLayers();
   renderCrossControls();
+  renderTopologyControls();
   renderComposer();
   updateScopeSummaries();
 }

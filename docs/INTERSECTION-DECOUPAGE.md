@@ -1,0 +1,27 @@
+# Intersection et découpage polygonaux locaux
+
+## Usage et portée
+
+Dans l'atelier, choisir deux couches vectorielles **distinctes**, l'opération, le périmètre et explicitement le CRS UTM WGS 84 du site (par ex. EPSG:32632 pour El Khroub, à vérifier pour les données). Les coordonnées des couches sont celles de l'atelier, déjà converties en longitude/latitude WGS 84 ; les sources originales restent documentées. Le calcul utilise un instantané du périmètre au lancement, même si les couches ou filtres changent ensuite. Les couches originales ne sont pas modifiées. Une nouvelle couche n'est ajoutée qu'en cas de succès avec au moins une surface ; le calcul peut être annulé ou s'interrompt après 20 secondes.
+
+- **Intersection par paires** : une entité résultat par paire cible/référence possédant une surface commune. Propriétés des deux entités imbriquées dans `cible` et `reference`, plus indices zéro-base et éventuels identifiants source dans `origine_cible` et `origine_reference`. Plusieurs références superposées peuvent entraîner des surfaces de résultat superposées : il ne faut pas additionner leurs surfaces sans en tenir compte.
+- **Découpage** : union de toutes les entités de référence puis intersection avec chaque cible ; au plus une entité résultante par cible, éventuellement multipolygone. Propriétés de la cible et son origine ; liste des références et de leurs indices dans la provenance de couche. Les propriétés des références ne sont pas attribuées à chaque résultat : elles ne sont pas nécessairement homogènes.
+- Contacts uniquement linéaires ou ponctuels exclus ; les portions non polygonales d'un résultat mixte sont ignorées. Les polygones à trous et multipolygones sont pris en charge. Aucun tampon, différence ou découpage par ligne n'est fourni ici.
+
+Le périmètre est au choix toutes les entités ou les entités passant les filtres attributaires actifs **pour chacune des deux couches** (texte, catégories, plage numérique, correspondances croisées). Il ne dépend ni de la visibilité ni de l'emprise affichée. La provenance comprend périmètre, filtres, effectifs, sources, indices d'origine, opération, version du moteur, CRS de calcul et date. Elle est incluse dans le projet et dans les métadonnées de l'export GeoJSON groupé ; les attributs imbriqués et métadonnées ne sont pas garantis dans tous les formats d'export. Attention aux données confidentielles dans les propriétés et la provenance exportées.
+
+## Géométrie, projection et limites
+
+Toutes les géométries doivent être Polygon ou MultiPolygon **strictement 2D**, non vides, fermées, finies et valides ; la moindre erreur interrompt tout le calcul, sans réparation ni résultat partiel. Le moteur vérifie aussi la validité des surfaces obtenues avant et après projection inverse. Il peut échouer sur des problèmes de précision numérique (coordonnées presque confondues, intersections dégénérées). Des surfaces très fines peuvent être sensibles aux erreurs de précision.
+
+La topologie est calculée en coordonnées planes UTM métriques à double précision, sans grille d'arrondi, puis les sommets sont reconvertis en EPSG:4326. Chaque sommet doit être dans le même fuseau UTM conventionnel de 6 degrés et le même hémisphère, entre 80°S et 84°N, et dans les bornes numériques prises en charge. Il n'y a pas de traitement de l'antéméridien ni des exceptions de zones UTM Norvège/Svalbard. **Seuls les sommets sont transformés : les segments ne sont pas densifiés** ; les arêtes dans le plan projeté ne sont donc pas exactement les mêmes que des segments rectilignes en coordonnées géographiques. Il ne s'agit ni d'un calcul géodésique ni d'un résultat cadastral : examiner les sources, leur CRS, la taille du site, les distorsions et les résultats, et utiliser un SIG professionnel adapté lorsque la précision est déterminante.
+
+Limites : 100 entités par couche et 20 000 positions en entrée, 10 000 paires potentielles, 1 000 entités et 30 000 positions en sortie. Transmission vers le worker limitée à 8 Mio et attributs cumulés de sortie à 8 Mio ; provenance limitée à 16 000 octets pour rester lisible lors d'un réimport. Ce sont des garde-fous, pas des garanties de performance ; le timeout de 20 secondes peut arriver plus tôt. Le worker tourne localement dans le navigateur, sans envoyer les géométries à un service distant. À l'ajout, les limites globales préexistantes de l'atelier s'appliquent aussi.
+
+## Bibliothèque et licences
+
+Moteur JSTS 2.12.1, copie locale figée ; voir `public/vendor/jsts/NOTICE.txt`, `JSTS-EDL-1.0.txt` et `FASTPRIORITYQUEUE-APACHE-2.0.txt` pour les notices, la provenance exacte et les licences. JSTS est utilisé sous son option EDL-1.0 ; le paquet amont propose aussi EPL-1.0. Le bundle inclut FastPriorityQueue sous Apache-2.0. Aucun recours à un CDN.
+
+## Vérifications
+
+Les tests `test/polygon-overlay.test.mjs` couvrent notamment intersections, union du masque, trous, multipolygones, contacts, sources non mutées, provenance, hémisphères nord/sud, géométrie invalide, 3D, mauvais fuseau et limites. Une comparaison de trois petits jeux synthétiques contre GEOS 3.13.1 (Shapely 2.1.2) et PROJ (pyproj 3.7.2), après projection des sommets dans le même UTM, a contrôlé l'aire de la différence symétrique : moins de 1,6 × 10⁻⁷ de l'aire attendue sur ces cas. Ce n'est pas une preuve de précision générale. Vérification interactive automatisée sur navigateurs de bureau et mobile avec le portail étudiant masqué uniquement pour le test ; l'authentification réelle n'est pas couverte.
