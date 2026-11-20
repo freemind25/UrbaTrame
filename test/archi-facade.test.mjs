@@ -234,3 +234,39 @@ describe('bouton analyser et unités déclarées', () => {
     assert.equal(parseDxfText(a).entities.length,1);
   });
 });
+
+describe('contours détaillés expérimentaux', () => {
+  const image = (w, h, pixel) => {
+    const data = new Uint8ClampedArray(w*h*4);
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+      const i=(y*w+x)*4, v=pixel(x,y); data[i]=v;data[i+1]=v;data[i+2]=v;data[i+3]=255;
+    }
+    return {width:w,height:h,data};
+  };
+  test('image uniforme : aucun trait', async () => {
+    const {detailedFacadeContours}=await import('../public/js/archi-facade.mjs');
+    assert.deepEqual(detailedFacadeContours(image(80,80,()=>255)).segments,[]);
+  });
+  test('contour rectangulaire synthétique et déterminisme', async () => {
+    const {detailedFacadeContours}=await import('../public/js/archi-facade.mjs');
+    const img=image(80,80,(x,y)=>x>=15&&x<=60&&y>=15&&y<=60?0:255);
+    const result=detailedFacadeContours(img,{seuil:100,minPath:5});
+    assert.ok(result.segments.length>=4); assert.ok(result.segments.every(s=>s.layer==='FACADE'));
+    assert.deepEqual(result,detailedFacadeContours(img,{seuil:100,minPath:5}));
+    assert.equal(result.truncated,false);
+  });
+  test('masque : aucun segment ne traverse la zone exclue', async () => {
+    const {detailedFacadeContours,clipSegmentsByMasks}=await import('../public/js/archi-facade.mjs');
+    const img=image(100,80,(x)=>x<50?0:255), mask={x1:40,y1:30,x2:60,y2:50};
+    const result=detailedFacadeContours(img,{seuil:100,minPath:4,masks:[mask]});
+    assert.ok(result.segments.length>=2);
+    assert.deepEqual(result.segments,clipSegmentsByMasks(result.segments,[mask]));
+    assert.ok(result.segments.every(s=>Math.max(s.a[1],s.b[1])<=30 || Math.min(s.a[1],s.b[1])>=50));
+  });
+  test('nombre de segments borné et signalé', async () => {
+    const {detailedFacadeContours}=await import('../public/js/archi-facade.mjs');
+    const img=image(120,120,(x,y)=>(Math.floor(x/10)+Math.floor(y/10))%2?0:255);
+    const result=detailedFacadeContours(img,{seuil:100,minPath:4,maxSegments:5});
+    assert.ok(result.segments.length<=5); assert.equal(result.truncated,true);
+  });
+});
