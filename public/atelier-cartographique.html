@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
   <link rel="stylesheet" href="/atelier-cartographique.css?v=20261115ud1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261115ud1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011aino1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -378,6 +378,27 @@
             <p id="editStatus" class="source-footnote" role="status">Choisissez une couche et dessinez sur la carte. Les nouvelles géométries sont ajoutées à la couche sélectionnée.</p>
             <p class="source-footnote">Historique borné aux 50 dernières actions et à 4 Mo par couche; il n’est pas inclus dans le projet sauvegardé. Les changements effectués dans les données sont, eux, exportables.</p>
           </div>
+        </section>
+
+        <section class="panel" aria-labelledby="guided-title">
+          <div class="panel-heading"><div><span class="step">ANALYSE SPATIALE LOCALE</span><h2 id="guided-title">Analyses guidées</h2></div></div>
+          <p class="source-footnote">Choisissez les couches et les paramètres : le calcul s’effectue dans votre navigateur, sans IA ni service externe. Toutes les entités de chaque couche sont utilisées, même masquées ou filtrées. Le résultat est ajouté comme nouvelle couche sans modifier les sources.</p>
+          <label class="field-label" for="guidedOperation">Opération<select id="guidedOperation">
+            <option value="buffer-points">Tampon autour de points</option><option value="buffer-lines">Tampon autour de lignes</option>
+            <option value="within-distance">Points à proximité de points</option><option value="within-polygon">Points dans un polygone</option>
+            <option value="filter-number">Filtrer un attribut numérique</option></select></label>
+          <label class="field-label" for="guidedTarget">Couche cible<select id="guidedTarget"></select></label>
+          <label class="field-label" id="guidedReferenceField" for="guidedReference" hidden>Couche de référence<select id="guidedReference"></select></label>
+          <label class="field-label" id="guidedDistanceField" for="guidedDistance">Distance (mètres)<input id="guidedDistance" type="number" min="1" max="5000" value="100" step="any"></label>
+          <label class="field-label" id="guidedPolygonField" for="guidedPolygon" hidden>Polygone de référence<select id="guidedPolygon"></select></label>
+          <div id="guidedNumericFields" hidden>
+            <label class="field-label" for="guidedField">Nom exact de l’attribut<input id="guidedField" type="text" maxlength="120" placeholder="ex. building:levels"></label>
+            <label class="field-label" for="guidedComparison">Comparaison<select id="guidedComparison"><option value="gt">supérieur à</option><option value="gte">supérieur ou égal à</option><option value="lt">inférieur à</option><option value="lte">inférieur ou égal à</option><option value="eq">égal à</option></select></label>
+            <label class="field-label" for="guidedThreshold">Valeur numérique<input id="guidedThreshold" type="number" step="any" placeholder="ex. 3"></label>
+          </div>
+          <p id="guidedHelp" class="source-footnote"></p>
+          <button id="runGuided" class="button-primary full-button" type="button">Calculer et ajouter la couche</button>
+          <p id="guidedResult" class="source-footnote" role="status">Importez d’abord les couches nécessaires.</p>
         </section>
 
         <section class="panel automation-panel" aria-labelledby="automation-title">
