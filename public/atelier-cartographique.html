@@ -8,9 +8,9 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png?v=20261115ud1" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011carto1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011felt1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011carto1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011felt1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -294,6 +294,10 @@
             <p class="empty-layers">Ajoutez un GeoJSON, CSV/TSV, KML/KMZ, Shapefile, GeoPackage ou GeoTIFF pour commencer.</p>
           </div>
           <div class="layer-actions">
+            <label class="field-label" for="exportScope">Entités à exporter (couches vectorielles visibles)
+              <select id="exportScope"><option value="all">Toutes les entités</option><option value="filtered">Seulement les entités après filtres</option></select>
+            </label>
+            <p id="exportScopeSummary" class="source-footnote" role="status">Aucune couche vectorielle visible.</p>
             <div class="export-format-actions" aria-label="Exporter les couches vectorielles visibles">
               <button id="exportGeoJSON" class="button-primary" type="button" disabled>GeoJSON</button>
               <button id="exportCsv" class="button-secondary" type="button" disabled>CSV (tableur)</button>
@@ -301,7 +305,7 @@
               <button id="exportKmz" class="button-secondary" type="button" disabled>KMZ</button>
               <button id="exportGpkg" class="button-secondary" type="button" disabled>GeoPackage</button>
             </div>
-            <p class="source-footnote">Les exports vectoriels contiennent les couches visibles; un GeoTIFF n’est pas exporté en GeoPackage par cet outil.</p>
+            <p class="source-footnote">Le choix s’applique aux exports GeoJSON, CSV, KML/KMZ et GeoPackage, pas à la sauvegarde de projet. Il respecte les filtres d’attribut, pas le cadrage écran. Le GeoTIFF n’est pas inclus dans les exports vectoriels. Les détails du périmètre sont conservés dans les métadonnées GeoJSON ; pour les autres formats, notez les filtres séparément.</p>
             <button id="clearLayers" class="button-secondary" type="button" disabled>Tout retirer</button>
           </div>
           <p class="source-footnote">Chaque couche conserve le nom du fichier, la date d’import et la référence de source fournie.</p>
@@ -382,11 +386,13 @@
 
         <section class="panel" aria-labelledby="guided-title">
           <div class="panel-heading"><div><span class="step">ANALYSE SPATIALE LOCALE</span><h2 id="guided-title">Analyses guidées</h2></div></div>
-          <p class="source-footnote">Choisissez les couches et les paramètres : le calcul s’effectue dans votre navigateur, sans IA ni service externe. Toutes les entités de chaque couche sont utilisées, même masquées ou filtrées. Le résultat est ajouté comme nouvelle couche sans modifier les sources.</p>
+          <p class="source-footnote">Choisissez les couches et les paramètres : le calcul s’effectue dans votre navigateur, sans IA ni service externe. Choisissez les entités entières ou filtrées pour chaque couche utilisée. La visibilité et le cadrage écran ne limitent pas le calcul. Le résultat est ajouté sans modifier les sources.</p>
           <label class="field-label" for="guidedOperation">Opération<select id="guidedOperation">
             <option value="buffer-points">Tampon autour de points</option><option value="buffer-lines">Tampon autour de lignes</option>
             <option value="within-distance">Points à proximité de points</option><option value="within-polygon">Points dans un polygone</option>
             <option value="filter-number">Filtrer un attribut numérique</option></select></label>
+          <label class="field-label" for="guidedScope">Entités à analyser<select id="guidedScope"><option value="all">Toutes les entités</option><option value="filtered">Seulement les entités après filtres</option></select></label>
+          <p id="guidedScopeSummary" class="source-footnote" role="status">Choisissez une couche.</p>
           <label class="field-label" for="guidedTarget">Couche cible<select id="guidedTarget"></select></label>
           <label class="field-label" id="guidedReferenceField" for="guidedReference" hidden>Couche de référence<select id="guidedReference"></select></label>
           <label class="field-label" id="guidedDistanceField" for="guidedDistance">Distance (mètres)<input id="guidedDistance" type="number" min="1" max="5000" value="100" step="any"></label>
@@ -525,10 +531,12 @@
           </div>
           <div class="layout-toolbar">
             <label for="layoutTitle">Titre du plan<input id="layoutTitle" type="text" maxlength="120" value="UrbaTrame · carte locale"></label>
+            <label for="layoutPage">Planche paysagère<select id="layoutPage"><option value="a4">A4 · 297 × 210 mm</option><option value="a3">A3 · 420 × 297 mm</option></select></label>
             <button id="exportMapSvg" class="button-secondary" type="button" disabled>Exporter SVG</button>
             <button id="exportMapPng" class="button-secondary" type="button" disabled>Exporter PNG</button>
-            <button id="printMap" class="button-secondary" type="button" disabled>Imprimer</button>
+            <button id="printMap" class="button-secondary" type="button" disabled>Imprimer la page</button>
           </div>
+          <p class="source-footnote">Planche SVG/PNG : titre, date, sources résumées, nord et échelle graphique approximative. Sans fond externe ; l’échelle varie avec la latitude et l’impression. Les filtres actifs sont signalés ; leur détail figure dans les métadonnées du SVG, pas du PNG. Les limites de l’aperçu sont signalées. Pas de mesure cadastrale.</p>
           <div class="map-footer">
             <span id="mapSummary" role="status">Aucune entité affichée</span>
             <span id="mapAttribution" class="map-attribution"></span>
@@ -552,7 +560,7 @@
           <button id="dashboardClearCategory" class="button-secondary" type="button" disabled>Effacer la sélection du graphique</button>
           <div id="dashboardChart" class="dashboard-chart" aria-label="Répartition interactive des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
           <p id="dashboardMeta" class="dashboard-meta" role="status">Aucune donnée n’a été envoyée à un service externe.</p>
-          <p class="dashboard-meta"><strong>Attention aux exports :</strong> la sélection du graphique ne s’applique qu’à la carte, la table et ces indicateurs. Les exports de données et analyses guidées utilisent les couches entières ; seuls les exports de carte reflètent l’affichage. Sélection temporaire, non enregistrée dans le projet.</p>
+          <p class="dashboard-meta"><strong>Attention aux exports :</strong> la sélection du graphique est temporaire et non enregistrée dans le projet. Pour les analyses guidées ou les exports de données, choisissez explicitement « entités après filtres » ; par défaut les couches entières sont utilisées.</p>
         </section>
 
         <section class="table-panel" aria-labelledby="table-title">

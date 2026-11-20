@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { scopedLayer, scopedIndex, publicScopeInfo } from '../public/js/atelier/scope.mjs';
+import { guidedAnalysis } from '../public/js/atelier/guided-analysis.mjs';
+import { exportVisibleGeoJSON } from '../public/js/atelier/local-layers.mjs';
+const pt = (x, value) => ({ type:'Feature', properties:{ value }, geometry:{ type:'Point', coordinates:[x, 0] } });
+const poly = (x) => ({ type:'Feature', properties:{ x }, geometry:{ type:'Polygon', coordinates:[[[x,-1],[x+1,-1],[x+1,1],[x,1],[x,-1]]] } });
+const make = (id, features) => ({ id, name:id, source:'test', visible:true, geojson:{type:'FeatureCollection',features} });
+test('périmètre entier, filtré, vide et invariance de la source', () => {
+  const layer = make('points', [pt(.5,1), pt(2.5,2)]), before = JSON.stringify(layer);
+  const full = scopedLayer(layer,'all'); const filtered = scopedLayer(layer,'filtered',[{feature:layer.geojson.features[1], index:1}]);
+  assert.equal(full.geojson.features.length,2); assert.equal(filtered.geojson.features.length,1);
+  assert.equal(scopedIndex(filtered,1),0); assert.equal(scopedIndex(filtered,0),-1);
+  assert.equal(scopedLayer(layer,'filtered',[]).geojson.features.length,0);
+  assert.equal(exportVisibleGeoJSON([filtered]).features.length,1);
+  assert.equal(JSON.stringify(layer),before);
+  assert.throws(() => scopedLayer(layer,'filtered',[{feature:layer.geojson.features[0],index:1}]));
+  assert.throws(() => scopedLayer(layer,'other',[]));
+  assert.deepEqual(publicScopeInfo(filtered,{field:'value',value:'2'}, {field:'value',key:'["number",2]',label:'2'}).filters.category.key, '["number",2]');
+});
+test('référence polygonale filtrée conserve sa correspondance et ne modifie pas les sources', () => {
+  const target = make('cible',[pt(.5,1),pt(2.5,2)]), reference = make('zones',[poly(0),poly(2)]);
+  const before = JSON.stringify([target,reference]);
+  const filteredTarget = scopedLayer(target,'filtered',[{feature:target.geojson.features[1],index:1}]);
+  const filteredReference = scopedLayer(reference,'filtered',[{feature:reference.geojson.features[1],index:1}]);
+  const result = guidedAnalysis([filteredTarget,filteredReference], {operation:'within-polygon',targetId:'cible',referenceId:'zones',polygonFeature:scopedIndex(filteredReference,1)});
+  assert.equal(result.collection.features.length,1); assert.equal(result.collection.features[0].properties.value,2);
+  result.collection.features[0].properties.value=99;
+  assert.equal(JSON.stringify([target,reference]),before);
+});

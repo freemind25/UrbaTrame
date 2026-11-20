@@ -76,7 +76,7 @@ describe('UrbaTrame · contrôles d’interface de l’atelier cartographique', 
     assert.match(js, /navigator\.geolocation\.getCurrentPosition/);
     assert.match(js, /extractKmlFromZip\(archive\)/);
     assert.ok(js.includes("createStoredZip([{ name: 'doc.kml'"));
-    assert.match(js, /createGeoPackage\(state\.layers, SQL\)/);
+    assert.match(js, /createGeoPackage\(scoped, SQL\)/);
     assert.match(js, /interpolateGeoidUndulation\(state\.geoidGrid, fix\.lon, fix\.lat\)/);
     assert.match(html, /aucun lien réseau KML n’est suivi/);
     assert.match(html, /appairage Bluetooth\/NTRIP direct n’est pas fourni/);
