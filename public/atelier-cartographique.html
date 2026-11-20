@@ -8,9 +8,9 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png?v=20261115ud1" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011gallery1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011analytic1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011gallery1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011analytic1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -419,9 +419,41 @@
           <p id="guidedResult" class="source-footnote" role="status">Importez d’abord les couches nécessaires.</p>
         </section>
 
+        <section class="panel cross-panel" aria-labelledby="cross-title">
+          <div class="panel-heading"><div><span class="step">FILTRES MULTI-COUCHES</span><h2 id="cross-title">Correspondances par attribut</h2></div></div>
+          <p class="source-footnote">Règles directionnelles explicites : on retient dans la cible les clés présentes dans la source après ses filtres texte, catégorie et intervalle. Comparaison exacte avec type, sans conversion ; valeurs manquantes ou complexes exclues. Les règles ne se propagent pas en cascade. Plusieurs règles sur une cible se combinent par ET. Temporaires, non enregistrées dans le projet.</p>
+          <label class="field-label" for="crossSource">Couche source<select id="crossSource"></select></label>
+          <label class="field-label" for="crossSourceField">Clé source<select id="crossSourceField"></select></label>
+          <label class="field-label" for="crossTarget">Couche cible<select id="crossTarget"></select></label>
+          <label class="field-label" for="crossTargetField">Clé cible<select id="crossTargetField"></select></label>
+          <button id="crossAdd" class="button-secondary full-button" type="button">Ajouter la règle</button>
+          <div id="crossRules" class="cross-rules"></div>
+          <p id="crossStatus" class="source-footnote" role="status">Aucune règle active.</p>
+          <button id="crossExport" class="button-secondary full-button" type="button" disabled>Exporter les cibles filtrées (GeoJSON)</button>
+          <p class="source-footnote">Export séparé des couches cibles, même masquées, avec règles, sources et comptages. Les géométries sources restent intactes. Aucune relation spatiale n’est déduite.</p>
+        </section>
+
         <section class="panel automation-panel" aria-labelledby="automation-title">
           <div class="panel-heading"><div><span class="step">06 / AUTOMATISATION</span><h2 id="automation-title">Recettes locales</h2></div></div>
           <p class="source-footnote">Un format JSON local à opérations autorisées (mesurer, filtrer, points dans un polygone, sélection de proximité Point/MultiPoint jusqu’à 100 km, tampons indicatifs de points et de lignes, exporter). Distances approximées sur une sphère; les tampons utilisent un rayon de 1 à 5 000 m et 12 à 64 segments; les lignes donnent des capsules par segment, non dissoutes, pour des segments de 100 km maximum; aucun tampon de polygone n’est proposé. Aucun code arbitraire, plugin ou requête réseau n’est exécuté.</p>
+          <section class="recipe-composer" aria-labelledby="composerTitle">
+            <h3 id="composerTitle">Compositeur visuel</h3>
+            <p>Chaque étape lit les couches sources entières : les résultats d’une étape ne sont pas transmis à la suivante. Les couches sont retrouvées par nom : vérifiez leurs sources avant toute réexécution. Jusqu’à 20 étapes et 10 fichiers ; aperçu sans calcul. Validation complète et limites supplémentaires au lancement.</p>
+            <label class="field-label" for="composerOp">Opération<select id="composerOp"><option value="measure">Mesurer</option><option value="filter">Filtre attributaire</option><option value="within-polygon">Points dans un polygone</option><option value="within-distance">Points à proximité de points</option><option value="buffer-points">Tampons de points</option><option value="buffer-lines">Tampons de lignes</option><option value="export-layer">Exporter une couche</option><option value="export-visible">Exporter les couches visibles</option></select></label>
+            <label class="field-label" id="composerLayerWrap" for="composerLayer">Couche source<select id="composerLayer"></select></label>
+            <label class="field-label" id="composerRefWrap" for="composerRef" hidden>Couche de référence<select id="composerRef"></select></label>
+            <div id="composerFilter" hidden><label class="field-label" for="composerField">Champ<input id="composerField" type="text" maxlength="120"></label><label class="field-label" for="composerMatch">Comparaison<select id="composerMatch"><option value="equals">Égal</option><option value="contains">Contient</option><option value="not-equals">Différent</option></select></label><label class="field-label" for="composerValue">Valeur texte<input id="composerValue" type="text" maxlength="500"></label></div>
+            <label class="field-label" id="composerPolygonWrap" for="composerPolygon" hidden>Indice du polygone (première entité = 0)<input id="composerPolygon" type="number" min="0" step="1" value="0"></label>
+            <label class="field-label" id="composerDistanceWrap" for="composerDistance" hidden>Distance ou rayon en mètres<input id="composerDistance" type="number" min="0" max="100000" step="any" value="100"></label>
+            <label class="field-label" id="composerSegmentsWrap" for="composerSegments" hidden>Segments pour le tampon<input id="composerSegments" type="number" min="12" max="64" step="1" value="32"></label>
+            <button id="composerAdd" class="button-secondary full-button" type="button">Ajouter l’étape</button>
+            <div id="composerSteps" class="composer-steps"></div>
+            <p id="composerStatus" class="source-footnote" role="status">Ajoutez une étape.</p>
+            <details><summary>Aperçu de la recette JSON</summary><pre id="composerPreview"></pre></details>
+            <button id="composerSave" class="button-secondary full-button" type="button">Enregistrer la recette JSON</button>
+            <label class="project-file-label" for="composerFile">Ouvrir une recette JSON<input id="composerFile" type="file" accept=".json,application/json"></label>
+            <button id="composerRun" class="button-primary full-button" type="button">Valider et exécuter la recette visuelle</button>
+          </section>
           <label class="field-label" for="automationRecipe">Recette déterministe
             <textarea id="automationRecipe" rows="7" spellcheck="false">{
   "version": 1,
@@ -561,7 +593,7 @@
             <div><span class="step">WIDGET LOCAL · INDICATEURS</span><h2 id="dashboard-title">Tableau de bord de la couche</h2></div>
             <span class="local-badge">calcul dans le navigateur</span>
           </div>
-          <p class="dashboard-note">Cliquez sur une catégorie pour filtrer la carte, la table et les indicateurs de la couche sélectionnée. Le graphique conserve toutes les catégories après le filtre texte. Les données de la couche restent intactes ; les types sont ceux obtenus après import et peuvent dépendre du lecteur.</p>
+          <p class="dashboard-note">Cliquez sur une catégorie pour filtrer la carte, la table et les indicateurs de la couche sélectionnée. Le graphique des catégories tient compte du filtre texte et de l’intervalle numérique, mais pas de sa propre sélection. Les données de la couche restent intactes ; les types sont ceux obtenus après import et peuvent dépendre du lecteur.</p>
           <div id="dashboardKpis" class="dashboard-kpis" aria-live="polite"><p class="dashboard-empty">Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.</p></div>
           <div class="dashboard-chart-head">
             <label for="dashboardField">Répartition des entités par attribut
@@ -571,8 +603,18 @@
           </div>
           <button id="dashboardClearCategory" class="button-secondary" type="button" disabled>Effacer la sélection du graphique</button>
           <div id="dashboardChart" class="dashboard-chart" aria-label="Répartition interactive des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
+          <section class="numeric-dashboard" aria-labelledby="numericTitle">
+            <h3 id="numericTitle">Histogramme numérique</h3>
+            <p>Distribution après filtres texte, catégorie et correspondances, avant son propre intervalle. Valeurs absentes ou vides et valeurs non numériques sont comptées séparément.</p>
+            <label for="numericField">Attribut numérique<select id="numericField" disabled><option value="">Choisir un attribut</option></select></label>
+            <div id="numericChart" class="numeric-chart" aria-label="Histogramme numérique"></div>
+            <p id="numericSummary" role="status">Choisissez une couche vectorielle et un attribut.</p>
+            <div class="numeric-bounds"><label for="numericMin">Minimum inclus<input id="numericMin" type="number" step="any" placeholder="Sans minimum"></label><label for="numericMax">Maximum inclus<input id="numericMax" type="number" step="any" placeholder="Sans maximum"></label></div>
+            <div class="numeric-actions"><button id="numericApply" class="button-primary" type="button">Appliquer l’intervalle</button><button id="numericClear" class="button-secondary" type="button">Effacer l’intervalle</button></div>
+            <p id="numericStatus" role="status">Intervalle temporaire ; les sources ne sont pas modifiées.</p>
+          </section>
           <p id="dashboardMeta" class="dashboard-meta" role="status">Aucune donnée n’a été envoyée à un service externe.</p>
-          <p class="dashboard-meta"><strong>Attention aux exports :</strong> la sélection du graphique est temporaire et non enregistrée dans le projet. Pour les analyses guidées ou les exports de données, choisissez explicitement « entités après filtres » ; par défaut les couches entières sont utilisées.</p>
+          <p class="dashboard-meta"><strong>Attention aux exports :</strong> la sélection du graphique et l’intervalle numérique sont temporaires et non enregistrés dans le projet. Pour les analyses guidées ou les exports de données, choisissez explicitement « entités après filtres » ; par défaut les couches entières sont utilisées.</p>
         </section>
 
         <section class="table-panel" aria-labelledby="table-title">

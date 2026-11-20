@@ -14,6 +14,9 @@ import { runLocalRecipe } from './automation.mjs';
 import { guidedAnalysis } from './guided-analysis.mjs';
 import { scopedLayer, scopedIndex, publicScopeInfo } from './scope.mjs';
 import { listGalleryExamples, createGalleryExample } from './planning-gallery.mjs';
+import { buildNumericHistogram, matchesNumericRange, validateNumericRange } from './numeric-histogram.mjs';
+import { crossKeySet, crossMatches } from './attribute-cross-filter.mjs';
+import { validateVisualRecipe } from './recipe-composer.mjs';
 import { buildVectorRequestUrl, buildWmtsTileUrl, fetchPaginatedVectorService, MAX_REMOTE_FEATURES, MAX_REMOTE_PAGES } from './remote-services.mjs';
 import { deleteFeature, moveVertex, insertVertex, deleteVertex, setFeatureAttribute, deleteFeatureAttribute, getVertex, canDeleteVertex, canInsertVertex, recordLayerEdit, undoLayerEdit, redoLayerEdit } from './editing.mjs';
 import { parseGeoPackage } from './geopackage.mjs';
@@ -34,6 +37,8 @@ const MAX_RENDERED_FEATURES = 8_000;
 const MAX_RENDERED_SHAPES = 20_000;
 const PALETTE = ['#28734f', '#b7603e', '#3976a8', '#8761a6', '#b08a30', '#388b89'];
 const state = { layers: [], selectedLayerId: null, selectedFeature: null, pendingCsv: null, pendingCsvFileName: '', pendingShapeGroups: null, pendingMesh: null, importRequest: 0, drawMode: null, pendingCoordinates: [], basemap: null, aiPrice: null, pendingAiGeoJSON: null, surveyTemplate: defaultFieldTemplate(), surveyViewEnabled: false, surveyView: { lat: 36.2642, lon: 6.6969, spanMeters: 2000 }, gpsFix: null, geoidGrid: null, terrain: null, terrainVisible: true, terrainRequest: 0, terrainLoadedAt: '' };
+let crossRules = []; // identifiants d’onglet, jamais enregistrés dans le projet
+const numericRanges = new Map(); // temporaire, séparé de la sauvegarde projet
 const dashboardSelections = new Map(); // temporaire par couche, jamais persisté
 const FIELD_TEMPLATES_KEY = 'urbatrame:field-templates:v1';
 const MAX_SAVED_SURVEY_TEMPLATES = 20;
@@ -268,10 +273,16 @@ function layerTitle(fileName) {
   return String(fileName || 'Couche locale').replace(/\.[^.]+$/, '').slice(0, 100) || 'Couche locale';
 }
 
-function visibleFeatures(layer, { ignoreDashboard = false } = {}) {
+function visibleFeatures(layer, { ignoreDashboard = false, ignoreNumeric = false, ignoreCross = false } = {}) {
   const selection = ignoreDashboard ? null : dashboardSelections.get(layer.id);
+  const constraints = ignoreCross ? [] : crossRules.filter(rule => rule.targetId === layer.id).map(rule => {
+    const source = state.layers.find(item => item.id === rule.sourceId && item.kind !== 'raster');
+    return { field:rule.targetField, keys:crossKeySet(source ? visibleFeatures(source, { ignoreCross:true }).map(item => item.feature) : [], rule.sourceField) };
+  });
   return layer.geojson.features.map((feature, index) => ({ feature, index })).filter(({ feature }) => {
+    if (constraints.some(rule => !crossMatches(feature, rule.field, rule.keys))) return false;
     if (!matchesDashboardCategory(feature, selection)) return false;
+    if (!ignoreNumeric && !matchesNumericRange(feature, numericRanges.get(layer.id))) return false;
     if (!layer.filter?.field || !String(layer.filter.value || '').trim()) return true;
     return formatCell(feature.properties?.[layer.filter.field]).toLocaleLowerCase('fr-FR')
       .includes(String(layer.filter.value).trim().toLocaleLowerCase('fr-FR'));
@@ -280,7 +291,13 @@ function visibleFeatures(layer, { ignoreDashboard = false } = {}) {
 
 function layerInScope(layer, scope) {
   const result = scopedLayer(layer, scope, scope === 'filtered' ? visibleFeatures(layer) : null);
-  if (result && result.kind !== 'raster') result.publicScope = publicScopeInfo(result, layer.filter, dashboardSelections.get(layer.id));
+  if (result && result.kind !== 'raster') {
+    result.publicScope = publicScopeInfo(result, layer.filter, dashboardSelections.get(layer.id));
+    if (scope === 'filtered') {
+      result.publicScope.filters.numeric = numericRanges.get(layer.id) || null;
+      result.publicScope.filters.cross = describeCrossRules(layer.id);
+    }
+  }
   return result;
 }
 function layersInScope(scope) { return state.layers.map(layer => layerInScope(layer, scope)); }
@@ -302,6 +319,71 @@ $('#exportScope').addEventListener('change', updateScopeSummaries);
 $('#guidedScope').addEventListener('change', () => { renderGuidedPolygons(true); updateScopeSummaries(); });
 $('#guidedTarget').addEventListener('change', updateScopeSummaries);
 $('#guidedReference').addEventListener('change', updateScopeSummaries);
+
+function describeCrossRules(targetId) {
+  return crossRules.filter(rule => rule.targetId === targetId).map(rule => {
+    const source = state.layers.find(item => item.id === rule.sourceId);
+    const selected = source ? visibleFeatures(source, { ignoreCross:true }) : [];
+    return { sourceLayerId:rule.sourceId, sourceLayer:source?.name || '', sourceFile:source?.fileName || '', source:source?.source || '', sourceImportedAt:source?.importedAt || null,
+      sourceField:rule.sourceField, targetField:rule.targetField, comparison:'égalité exacte typée, hors valeurs manquantes et complexes',
+      sourceFeatureCount:source?.geojson.features.length || 0, sourceSelectedCount:selected.length,
+      sourceFilters:{ text:source?.filter || null, category:source ? dashboardSelections.get(source.id) || null : null, numeric:source ? numericRanges.get(source.id) || null : null }, cascade:false };
+  });
+}
+function crossFieldOptions(layerSelector, fieldSelector) {
+  const layer = state.layers.find(item => item.id === $(layerSelector).value && item.kind !== 'raster');
+  const fields = layer ? [...new Set(layer.geojson.features.flatMap(feature => Object.keys(feature.properties || {})))].slice(0,80) : [];
+  fillFieldSelect($(fieldSelector), fields, 'Choisir un attribut', $(fieldSelector).value); $(fieldSelector).disabled = !fields.length;
+}
+function renderCrossControls() {
+  const layers = state.layers.filter(item => item.kind !== 'raster');
+  for (const id of ['#crossSource','#crossTarget']) {
+    const select=$(id), previous=select.value; select.replaceChildren(new Option('Choisir une couche', ''));
+    for (const layer of layers) select.append(new Option(`${layer.name} · ${layer.source}`,layer.id));
+    select.value=previous;
+  }
+  crossFieldOptions('#crossSource','#crossSourceField'); crossFieldOptions('#crossTarget','#crossTargetField');
+  const host=$('#crossRules'); host.replaceChildren();
+  crossRules.forEach((rule,index) => {
+    const source=layers.find(layer=>layer.id===rule.sourceId),target=layers.find(layer=>layer.id===rule.targetId);
+    const card=document.createElement('div');card.className='cross-rule';
+    const text=document.createElement('div');text.textContent=`${source?.name || 'Source'} · ${rule.sourceField} → ${target?.name || 'Cible'} · ${rule.targetField}`;
+    const remove=document.createElement('button');remove.type='button';remove.className='button-secondary';remove.textContent='Retirer cette règle';
+    remove.setAttribute('aria-label',`Retirer la règle ${index+1}`);
+    remove.addEventListener('click',()=>{crossRules.splice(index,1);state.selectedFeature=null;renderCrossControls();renderLayerTools();renderMap();renderAttributes();});
+    card.append(text,remove);host.append(card);
+  });
+  $('#crossExport').disabled=!crossRules.length;
+  updateCrossStatus();
+}
+function updateCrossStatus() {
+  if (!crossRules.length) { $('#crossStatus').textContent='Aucune règle active.'; return; }
+  const targets=[...new Set(crossRules.map(rule=>rule.targetId))].map(id=>state.layers.find(layer=>layer.id===id)).filter(Boolean);
+  $('#crossStatus').textContent=`${crossRules.length} règle(s) active(s) · `+targets.map(layer=>`${layer.name}: ${visibleFeatures(layer).length}/${layer.geojson.features.length}`).join(' · ');
+}
+for (const [layer,field] of [['#crossSource','#crossSourceField'],['#crossTarget','#crossTargetField']]) $(layer).addEventListener('change',()=>crossFieldOptions(layer,field));
+$('#crossAdd').addEventListener('click',()=>{
+  const sourceId=$('#crossSource').value,targetId=$('#crossTarget').value,sourceField=$('#crossSourceField').value,targetField=$('#crossTargetField').value;
+  if (!sourceId || !targetId || !sourceField || !targetField || sourceId===targetId) { $('#crossStatus').textContent='Choisissez deux couches distinctes et leurs champs de correspondance.'; return; }
+  if (crossRules.length>=5) { $('#crossStatus').textContent='Limite de cinq règles atteinte.'; return; }
+  if (crossRules.some(rule=>rule.sourceId===sourceId && rule.targetId===targetId && rule.sourceField===sourceField && rule.targetField===targetField)) { $('#crossStatus').textContent='Cette règle existe déjà.'; return; }
+  crossRules.push({sourceId,targetId,sourceField,targetField});state.selectedFeature=null;
+  renderCrossControls();renderLayerTools();renderMap();renderAttributes();
+});
+$('#crossExport').addEventListener('click',()=>{
+  if (!crossRules.length) return;
+  const targets=[...new Set(crossRules.map(rule=>rule.targetId))];
+  const layers=state.layers.filter(layer=>targets.includes(layer.id) && layer.kind!=='raster').map(layer=>({...layerInScope(layer,'filtered'),visible:true}));
+  const collection=exportVisibleGeoJSON(layers);
+  let offset=0;
+  const selections=layers.map(layer => {
+    const selection={ ...layer.publicScope, layerId:layer.id, fileName:layer.fileName || '', source:layer.source || '', featureOffset:offset, featureCount:layer.geojson.features.length };
+    offset+=layer.geojson.features.length;return selection;
+  });
+  collection.urbatrame.selection={ mode:'cibles des filtres croisés', layers:selections, note:'Règles sans cascade ; export des cibles y compris masquées. Les offsets et effectifs identifient les plages d’entités de chaque couche dans features.' };
+  downloadBlob(new Blob([JSON.stringify(collection,null,2)],{type:'application/geo+json;charset=utf-8'}),'urbatrame-cibles-filtres-croises.geojson');
+  $('#crossStatus').textContent=`Export séparé : ${collection.features.length} entité(s) dans ${layers.length} couche(s) cible(s).`;
+});
 
 function featureColor(layer, feature) {
   if (!layer.categoryField) return layer.color;
@@ -789,7 +871,8 @@ function renderLayerList() {
     remove.type = 'button'; remove.className = 'remove-layer'; remove.textContent = '×';
     remove.setAttribute('aria-label', `Retirer ${layer.name}`);
     remove.addEventListener('click', () => {
-      dashboardSelections.delete(layer.id);
+      dashboardSelections.delete(layer.id); numericRanges.delete(layer.id);
+      crossRules = crossRules.filter(rule => rule.sourceId !== layer.id && rule.targetId !== layer.id);
       state.layers = state.layers.filter(item => item.id !== layer.id);
       if (state.selectedLayerId === layer.id) state.selectedLayerId = state.layers[0]?.id || null;
       state.selectedFeature = null; renderAll();
@@ -907,7 +990,7 @@ function renderDashboard() {
     fieldSelect.replaceChildren(new Option('Choisir une couche', '')); fieldSelect.disabled = true;
     const empty = document.createElement('p'); empty.className = 'dashboard-empty'; empty.textContent = 'Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.'; root.append(empty);
     filterState.textContent = 'Aucun filtre appliqué'; meta.textContent = 'Calcul local dans le navigateur; aucun appel à un service externe.';
-    renderDashboardChart([], '', null); return;
+    renderDashboardChart([], '', null); renderNumericDashboard(null); return;
   }
   if (layer.kind === 'raster') {
     fieldSelect.replaceChildren(new Option('Aucune statistique par attribut pour le raster', '')); fieldSelect.disabled = true;
@@ -920,7 +1003,7 @@ function renderDashboard() {
     );
     filterState.textContent = 'Aucun filtre vectoriel';
     meta.textContent = 'Résumé des métadonnées seulement : aucune agrégation ou analyse pixel par pixel n’est exécutée.';
-    renderDashboardChart([], '', null); return;
+    renderDashboardChart([], '', null); renderNumericDashboard(null); return;
   }
   const fields = [...new Set(layer.geojson.features.flatMap(feature => Object.keys(feature.properties || {})))].slice(0, 80);
   let selection = dashboardSelections.get(layer.id);
@@ -947,7 +1030,54 @@ function renderDashboard() {
   filterState.textContent = `${textFilter}${categoryFilter} · ${features.length.toLocaleString('fr-FR')}/${total.toLocaleString('fr-FR')}${hiddenNote}`;
   meta.textContent = `Couche « ${layer.name} » · EPSG:4326 · calcul local dans le navigateur. Les résultats reflètent le filtre de la couche; ils ne sont pas transmis et ne constituent pas une mesure réglementaire.`;
   renderDashboardChart(categories, fieldSelect.value, layer);
+  renderNumericDashboard(layer);
 }
+
+let numericLayerId = null;
+function renderNumericDashboard(layer) {
+  const select = $('#numericField'), chart = $('#numericChart'), summary = $('#numericSummary');
+  chart.replaceChildren();
+  if (!layer || layer.kind === 'raster') {
+    select.replaceChildren(new Option('Choisir une couche vectorielle', '')); select.disabled = true;
+    $('#numericApply').disabled = true; $('#numericClear').disabled = true;
+    summary.textContent = 'Choisissez une couche vectorielle et un attribut.'; numericLayerId = null; return;
+  }
+  const fields = [...new Set(layer.geojson.features.flatMap(feature => Object.keys(feature.properties || {})))].slice(0,80);
+  const range = numericRanges.get(layer.id);
+  const previous = numericLayerId === layer.id ? select.value : (range?.field || '');
+  fillFieldSelect(select, fields, 'Choisir un attribut', previous); select.disabled = !fields.length;
+  if (numericLayerId !== layer.id) { $('#numericMin').value = range?.min ?? ''; $('#numericMax').value = range?.max ?? ''; }
+  numericLayerId = layer.id;
+  $('#numericApply').disabled = !select.value; $('#numericClear').disabled = !range;
+  $('#numericStatus').textContent = range ? `Filtre actif : ${range.field}, ${range.min ?? '−∞'} à ${range.max ?? '+∞'} inclus. Valeurs manquantes et invalides exclues.` : 'Intervalle temporaire ; les sources ne sont pas modifiées.';
+  if (!select.value) { summary.textContent = 'Choisissez un attribut.'; return; }
+  const histogram = buildNumericHistogram(visibleFeatures(layer, { ignoreNumeric:true }).map(item => item.feature), select.value);
+  summary.textContent = `${histogram.numeric} numériques · ${histogram.missing} manquantes ou vides · ${histogram.invalid} non numériques ou invalides`;
+  const max = Math.max(1,...histogram.bins.map(bin => bin.count));
+  const format = n => Number(n.toPrecision(5)).toLocaleString('fr-FR', {maximumSignificantDigits:5});
+  for (const bin of histogram.bins) {
+    const row = document.createElement('div'); row.className = 'numeric-bin';
+    const label = document.createElement('span'); label.className = 'numeric-bin-label';
+    label.textContent = bin.min === bin.max ? format(bin.min) : `[${format(bin.min)} ; ${format(bin.max)}${bin.upperInclusive ? ']' : '['}`;
+    label.title = bin.min === bin.max ? String(bin.min) : `${bin.min} à ${bin.max} ${bin.upperInclusive ? 'inclus' : 'exclu'}`;
+    const track = document.createElement('div'); track.className = 'numeric-bin-track'; track.setAttribute('aria-hidden','true');
+    const fill = document.createElement('div'); fill.className = 'numeric-bin-fill'; fill.style.width = `${100*bin.count/max}%`; track.append(fill);
+    const count = document.createElement('strong'); count.textContent = bin.count.toLocaleString('fr-FR');
+    row.append(label,track,count); chart.append(row);
+  }
+}
+$('#numericField').addEventListener('change', () => renderNumericDashboard(selectedLayer()));
+$('#numericApply').addEventListener('click', () => {
+  const layer=selectedLayer(); if (!layer || layer.kind === 'raster') return;
+  try { numericRanges.set(layer.id, validateNumericRange($('#numericField').value, $('#numericMin').value, $('#numericMax').value)); }
+  catch { $('#numericStatus').textContent = 'Choisissez un champ et au moins une borne numérique valide ; le minimum doit être inférieur ou égal au maximum.'; return; }
+  state.selectedFeature=null; renderLayerTools(); renderMap(); renderAttributes();
+});
+$('#numericClear').addEventListener('click', () => {
+  const layer=selectedLayer(); if (!layer) return;
+  numericRanges.delete(layer.id); $('#numericMin').value=''; $('#numericMax').value='';
+  state.selectedFeature=null; renderLayerTools(); renderMap(); renderAttributes();
+});
 
 function formatLength(metres) {
   return metres < 1000 ? `${metres.toFixed(1)} m` : `${(metres / 1000).toFixed(3)} km`;
@@ -1416,7 +1546,7 @@ function buildLayoutSvg() {
   notice.textContent = `${state.basemap ? 'Fond externe exclu. ' : ''}${mapTruncated ? 'Aperçu tronqué. ' : ''}${visible.length > 12 ? '12 premières couches. ' : ''} (*) Style détaillé non représenté. Sources résumées ; échelle indicative, non cadastrale.`;
   clone.append(notice);
   const filtered = visible.filter(layer => layer.kind !== 'raster').map(layer => layerInScope(layer, 'filtered').publicScope);
-  const activeFilters = filtered.filter(item => item.filters?.text?.value || item.filters?.category);
+  const activeFilters = filtered.filter(item => item.filters?.text?.value || item.filters?.category || item.filters?.numeric || item.filters?.cross?.length);
   const filterNotice = createSvgElement('text', { x: 38, y: 729, fill: '#7d877e', 'font-size': 8, 'font-family': 'system-ui, sans-serif' });
   filterNotice.textContent = activeFilters.length ? `Filtres actifs sur ${activeFilters.length} couche(s) ; détail dans les métadonnées SVG (non inclus dans le PNG).` : 'Aucun filtre attributaire actif.';
   clone.append(filterNotice);
@@ -1498,7 +1628,7 @@ $('#projectFile').addEventListener('change', async () => {
         layer.raster = { ...raster, sourceBytes, opacity, previewDataUrl: rasterPreviewDataUrl(raster) };
       }
     }
-    dashboardSelections.clear();
+    dashboardSelections.clear(); numericRanges.clear(); crossRules = [];
     state.layers = loaded; state.selectedLayerId = loaded[0]?.id || null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
     setSurveyTemplate(project.surveyTemplate || defaultFieldTemplate());
     state.surveyViewEnabled = false;
@@ -1585,6 +1715,68 @@ $('#runGuided').addEventListener('click', () => {
   } catch (error) { $('#guidedResult').textContent = error?.code ? errorMessage(error) : 'Calcul impossible. Vérifiez les données et paramètres.'; }
 });
 updateGuidedControls();
+
+let composerSteps = [];
+function composerRecipe() { return {version:1,steps:structuredClone(composerSteps)}; }
+function composerWidgets() {
+  const op=$('#composerOp').value;
+  $('#composerLayerWrap').hidden=op==='export-visible';
+  $('#composerRefWrap').hidden=!['within-polygon','within-distance'].includes(op);
+  $('#composerPolygonWrap').hidden=op!=='within-polygon';
+  $('#composerFilter').hidden=op!=='filter';
+  $('#composerDistanceWrap').hidden=!['within-distance','buffer-points','buffer-lines'].includes(op);
+  $('#composerSegmentsWrap').hidden=!['buffer-points','buffer-lines'].includes(op);
+}
+function renderComposer() {
+  const layers=state.layers.filter(layer=>layer.kind!=='raster');
+  for (const selector of ['#composerLayer','#composerRef']) {
+    const select=$(selector), previous=select.value;select.replaceChildren(new Option('Choisir une couche',''));
+    for (const layer of layers) select.append(new Option(`${layer.name} · ${layer.source}`,layer.name));
+    select.value=previous;
+  }
+  const host=$('#composerSteps');host.replaceChildren();
+  composerSteps.forEach((step,index)=>{
+    const row=document.createElement('div');row.className='composer-step';
+    const label=document.createElement('div');label.textContent=`${index+1}. ${step.op} · ${Object.entries(step).filter(([key])=>key!=='op').map(([key,value])=>`${key}: ${value}`).join(' · ')}`;row.append(label);
+    for (const [caption,move] of [['↑',-1],['↓',1],['Retirer',0]]) {
+      const button=document.createElement('button');button.type='button';button.className='button-secondary';button.textContent=caption;
+      button.setAttribute('aria-label',`${caption} étape ${index+1}`);
+      button.disabled=(move===-1 && index===0)||(move===1 && index===composerSteps.length-1);
+      button.addEventListener('click',()=>{if (!move) composerSteps.splice(index,1);else [composerSteps[index],composerSteps[index+move]]=[composerSteps[index+move],composerSteps[index]];renderComposer();});row.append(button);
+    }
+    host.append(row);
+  });
+  const recipe=composerRecipe();$('#composerPreview').textContent=JSON.stringify(recipe,null,2);
+  try { const summary=validateVisualRecipe(recipe,layers);$('#composerStatus').textContent=`${summary.steps} étape(s), ${summary.artifacts} fichier(s) possible(s). ${summary.note}`;$('#composerRun').disabled=false;$('#composerSave').disabled=false; }
+  catch(error) { $('#composerStatus').textContent=error.message;$('#composerRun').disabled=true;$('#composerSave').disabled=true; }
+  composerWidgets();
+}
+$('#composerOp').addEventListener('change',composerWidgets);
+$('#composerAdd').addEventListener('click',()=>{
+  const op=$('#composerOp').value,layer=$('#composerLayer').value,ref=$('#composerRef').value;
+  const step={op};if(op!=='export-visible')step.layer=layer;
+  if(op==='filter')Object.assign(step,{field:$('#composerField').value.trim(),match:$('#composerMatch').value,value:$('#composerValue').value});
+  if(op==='within-polygon')Object.assign(step,{polygonLayer:ref,polygonFeature:$('#composerPolygon').value==='' ? NaN : Number($('#composerPolygon').value)});
+  if(op==='within-distance')Object.assign(step,{referenceLayer:ref,distanceMeters:$('#composerDistance').value==='' ? NaN : Number($('#composerDistance').value)});
+  if(['buffer-points','buffer-lines'].includes(op))Object.assign(step,{radiusMeters:$('#composerDistance').value==='' ? NaN : Number($('#composerDistance').value),segments:$('#composerSegments').value==='' ? NaN : Number($('#composerSegments').value)});
+  const candidate={version:1,steps:[...composerSteps,step]};
+  try {validateVisualRecipe(candidate,state.layers);composerSteps.push(step);renderComposer();}
+  catch(error){$('#composerStatus').textContent=error.message;}
+});
+$('#composerSave').addEventListener('click',()=>{
+  try { const recipe=composerRecipe();validateVisualRecipe(recipe,state.layers);downloadBlob(new Blob([JSON.stringify(recipe,null,2)],{type:'application/json;charset=utf-8'}),'urbatrame-recette.json'); }
+  catch(error){$('#composerStatus').textContent=error.message;}
+});
+$('#composerFile').addEventListener('change',async()=>{
+  const file=$('#composerFile').files?.[0];if(!file)return;
+  try {if(file.size>32000)throw new Error('Recette trop volumineuse (32 Ko).');const recipe=JSON.parse(await file.text());validateVisualRecipe(recipe);composerSteps=structuredClone(recipe.steps);renderComposer();}
+  catch(error){$('#composerStatus').textContent=error instanceof SyntaxError ? 'Fichier JSON invalide.' : error.message;}
+  finally{$('#composerFile').value='';}
+});
+$('#composerRun').addEventListener('click',()=>{
+  try {const recipe=composerRecipe();validateVisualRecipe(recipe,state.layers);$('#automationRecipe').value=JSON.stringify(recipe,null,2);$('#runAutomation').click();}
+  catch(error){$('#composerStatus').textContent=error.message;}
+});
 
 $('#runAutomation').addEventListener('click', () => {
   const text = $('#automationRecipe').value;
@@ -2322,6 +2514,7 @@ function updateActions() {
   $('#removeTerrain').disabled = !state.terrain;
   updateSurveyLayerControls();
   updateScopeSummaries();
+  updateCrossStatus();
   renderGuidedPolygons();
 }
 
@@ -2331,6 +2524,8 @@ function renderAll() {
   renderAttributes();
   renderAiLayerOptions();
   renderGuidedLayers();
+  renderCrossControls();
+  renderComposer();
   updateScopeSummaries();
 }
 
@@ -2639,7 +2834,7 @@ $('#exportGpkg').addEventListener('click', async () => {
 });
 
 $('#clearLayers').addEventListener('click', () => {
-  dashboardSelections.clear();
+  dashboardSelections.clear(); numericRanges.clear(); crossRules = [];
   state.layers = []; state.selectedLayerId = null; state.selectedFeature = null; state.pendingAiGeoJSON = null;
   $('#aiValidateResult').checked = false;
   renderAll(); status('Toutes les couches ont été retirées de cet onglet.', 'success');
