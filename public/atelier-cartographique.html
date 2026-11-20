@@ -8,9 +8,9 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png?v=20261115ud1" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011analytic1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011topology1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011analytic1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011topology1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -417,6 +417,22 @@
           <p id="guidedHelp" class="source-footnote"></p>
           <button id="runGuided" class="button-primary full-button" type="button">Calculer et ajouter la couche</button>
           <p id="guidedResult" class="source-footnote" role="status">Importez d’abord les couches nécessaires.</p>
+        </section>
+
+        <section class="panel topology-panel" aria-labelledby="topology-title">
+          <div class="panel-heading"><div><span class="step">GÉOMÉTRIE · JSTS 2.12.1</span><h2 id="topology-title">Intersection et découpage</h2></div></div>
+          <p class="source-footnote">Deux couches distinctes Polygon/MultiPolygon strictement 2D. Intersection : résultat pour chaque paire ; découpage : cible découpée par l’union des polygones de référence. Les contacts réduits à une ligne ou un point sont exclus.</p>
+          <p class="source-footnote"><strong>CRS obligatoire :</strong> les deux couches doivent tenir dans un même fuseau UTM WGS 84 et un même hémisphère ; calcul plan projeté puis retour en EPSG:4326. Seuls les sommets sont projetés : les segments ne sont pas densifiés et le calcul n’est pas géodésique. Aucun traitement cadastral ni réparation automatique. Précision et sources à vérifier.</p>
+          <label class="field-label" for="topologyOperation">Opération<select id="topologyOperation"><option value="intersection">Intersection par paires</option><option value="clip">Découpage par union du masque</option></select></label>
+          <label class="field-label" for="topologyScope">Périmètre des deux couches<select id="topologyScope"><option value="all">Toutes les entités</option><option value="filtered">Après filtres attributaires</option></select></label>
+          <label class="field-label" for="topologyTarget">Couche cible<select id="topologyTarget"></select></label>
+          <label class="field-label" for="topologyReference">Couche de référence / masque<select id="topologyReference"></select></label>
+          <label class="field-label" for="topologyCrs">CRS de calcul UTM WGS 84<input id="topologyCrs" type="text" maxlength="10" list="topologyCrsOptions" placeholder="ex. EPSG:32632" autocomplete="off"><datalist id="topologyCrsOptions"><option value="EPSG:32631"><option value="EPSG:32632"><option value="EPSG:32633"><option value="EPSG:32731"><option value="EPSG:32732"><option value="EPSG:32733"></datalist></label>
+          <p id="topologyCounts" class="source-footnote" role="status">Choisissez deux couches.</p>
+          <p class="source-footnote">Limites : 100 entités par couche, 20 000 positions en entrée, 10 000 paires potentielles, 1 000 entités, 30 000 positions et 8 Mo d’attributs en sortie. Données transmises au calcul limitées à 8 Mo. Calcul local interrompu après 20 secondes.</p>
+          <button id="topologyRun" class="button-primary full-button" type="button">Calculer et ajouter une couche</button>
+          <button id="topologyCancel" class="button-secondary full-button" type="button" disabled>Annuler le calcul</button>
+          <p id="topologyStatus" class="source-footnote" role="status">Aucun calcul lancé.</p>
         </section>
 
         <section class="panel cross-panel" aria-labelledby="cross-title">

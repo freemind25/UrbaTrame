@@ -321,3 +321,5 @@ button.dashboard-category:focus-visible{outline:3px solid #2e6b52;outline-offset
 .cross-rules{display:grid;gap:6px;margin-top:8px}.cross-rule{padding:8px;border:1px solid #dbe7dd;border-radius:7px;background:#f8fbf8;font-size:12px;overflow-wrap:anywhere}.cross-rule button{margin-top:5px}.cross-panel .full-button{margin-top:8px}
 
 .recipe-composer{margin:12px 0;padding:10px;border:1px solid #d9e7db;border-radius:8px;background:#f7fbf7}.recipe-composer h3{margin:0;font-size:14px;color:#294c38}.recipe-composer p{font-size:12px;color:#53685a}.composer-steps{display:grid;gap:7px;margin-top:9px}.composer-step{padding:8px;border:1px solid #dce8dd;border-radius:7px;background:white;font-size:12px;overflow-wrap:anywhere}.composer-step button{margin:5px 4px 0 0}.recipe-composer pre{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:11px}.recipe-composer summary{cursor:pointer;font-size:12px}.recipe-composer>.full-button{margin-top:8px}
+
+.topology-panel .full-button{margin-top:8px}.topology-panel .source-footnote strong{color:#415347}

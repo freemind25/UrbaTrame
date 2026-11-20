@@ -1,0 +1,7 @@
+JSTS 2.12.1 — https://github.com/bjornharrtell/jsts
+Distribué ici sous l'option Eclipse Distribution License 1.0 (EDL-1.0), dont le texte complet figure dans JSTS-EDL-1.0.txt. Le paquet déclare aussi une option EPL-1.0. L'archive npm 2.12.1 est identifiée par le commit amont 45f577525351960771b5ab638ddab6ec32fa8aa0 ; le fichier jsts-2.12.1.min.js est extrait sans modification de package/dist/jsts.min.js.
+SHA-256 du fichier JS : fb081a2cbe365e32fb26488ab37fa6c8758de34aa39f988f3a1d6c64f3c641ea.
+
+Le code compilé inclut une implémentation de FastPriorityQueue.js (c) ses auteurs, sous licence Apache 2.0 ; le texte de licence figure dans FASTPRIORITYQUEUE-APACHE-2.0.txt. La carte source de l'archive npm identifie ../node_modules/fastpriorityqueue/FastPriorityQueue.js. Le manifeste JSTS déclare fastpriorityqueue ^0.7.5 ; le numéro exact utilisé pour produire le fichier compilé n'est pas attesté par cette carte source. Dépôt : https://github.com/lemire/FastPriorityQueue.js.
+
+Ces composants sont fournis sans garantie ; voir leurs textes de licence respectifs. Aucun chargement CDN ni service externe n'est requis pour le moteur.
