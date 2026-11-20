@@ -8,9 +8,9 @@
   <title>UrbaTrame — Atelier cartographique</title>
   <link rel="icon" href="/urbatrame-favicon.png?v=20261115ud1" type="image/png" sizes="128x128">
   <link rel="stylesheet" href="/tokens.css?v=20261115ud1">
-  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261115ud1">
+  <link rel="stylesheet" href="/atelier-cartographique.css?v=20261011carto1">
   <script type="module" src="/js/student-auth-ui.mjs?v=20261115ud1"></script>
-  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011aino1"></script>
+  <script type="module" src="/js/atelier/local-layers-ui.mjs?v=20261011carto1"></script>
   <script type="module" src="/js/atelier/layeratlas-ui.mjs?v=20261115ud1"></script>
   <script type="module" src="/js/atelier/atlasco-ui.mjs?v=20261115ud1"></script>
 </head>
@@ -541,7 +541,7 @@
             <div><span class="step">WIDGET LOCAL · INDICATEURS</span><h2 id="dashboard-title">Tableau de bord de la couche</h2></div>
             <span class="local-badge">calcul dans le navigateur</span>
           </div>
-          <p class="dashboard-note">Les indicateurs suivent la couche sélectionnée et son filtre. Ils décrivent les entités chargées; ils ne déduisent ni accessibilité, ni zonage, ni norme d’urbanisme.</p>
+          <p class="dashboard-note">Cliquez sur une catégorie pour filtrer la carte, la table et les indicateurs de la couche sélectionnée. Le graphique conserve toutes les catégories après le filtre texte. Les données de la couche restent intactes ; les types sont ceux obtenus après import et peuvent dépendre du lecteur.</p>
           <div id="dashboardKpis" class="dashboard-kpis" aria-live="polite"><p class="dashboard-empty">Importez ou sélectionnez une couche vectorielle pour afficher ses indicateurs.</p></div>
           <div class="dashboard-chart-head">
             <label for="dashboardField">Répartition des entités par attribut
@@ -549,8 +549,10 @@
             </label>
             <span id="dashboardFilterState" class="dashboard-filter-state">Aucun filtre appliqué</span>
           </div>
-          <div id="dashboardChart" class="dashboard-chart" role="img" aria-label="Répartition des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
+          <button id="dashboardClearCategory" class="button-secondary" type="button" disabled>Effacer la sélection du graphique</button>
+          <div id="dashboardChart" class="dashboard-chart" aria-label="Répartition interactive des entités par attribut"><p class="dashboard-empty">Choisissez un attribut catégoriel pour afficher les effectifs.</p></div>
           <p id="dashboardMeta" class="dashboard-meta" role="status">Aucune donnée n’a été envoyée à un service externe.</p>
+          <p class="dashboard-meta"><strong>Attention aux exports :</strong> la sélection du graphique ne s’applique qu’à la carte, la table et ces indicateurs. Les exports de données et analyses guidées utilisent les couches entières ; seuls les exports de carte reflètent l’affichage. Sélection temporaire, non enregistrée dans le projet.</p>
         </section>
 
         <section class="table-panel" aria-labelledby="table-title">
