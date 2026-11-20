@@ -12,6 +12,7 @@ import { extractShapefileZip, extractKmlFromZip } from './zip-reader.mjs';
 import { MAX_PROJECT_BYTES, parseLocalProject, serializeLocalProject } from './project.mjs';
 import { runLocalRecipe } from './automation.mjs';
 import { guidedAnalysis } from './guided-analysis.mjs';
+import { scopedLayer, scopedIndex, publicScopeInfo } from './scope.mjs';
 import { buildVectorRequestUrl, buildWmtsTileUrl, fetchPaginatedVectorService, MAX_REMOTE_FEATURES, MAX_REMOTE_PAGES } from './remote-services.mjs';
 import { deleteFeature, moveVertex, insertVertex, deleteVertex, setFeatureAttribute, deleteFeatureAttribute, getVertex, canDeleteVertex, canInsertVertex, recordLayerEdit, undoLayerEdit, redoLayerEdit } from './editing.mjs';
 import { parseGeoPackage } from './geopackage.mjs';
@@ -275,6 +276,31 @@ function visibleFeatures(layer, { ignoreDashboard = false } = {}) {
       .includes(String(layer.filter.value).trim().toLocaleLowerCase('fr-FR'));
   });
 }
+
+function layerInScope(layer, scope) {
+  const result = scopedLayer(layer, scope, scope === 'filtered' ? visibleFeatures(layer) : null);
+  if (result && result.kind !== 'raster') result.publicScope = publicScopeInfo(result, layer.filter, dashboardSelections.get(layer.id));
+  return result;
+}
+function layersInScope(scope) { return state.layers.map(layer => layerInScope(layer, scope)); }
+function summarizeScopes(layers) {
+  const vector = layers.filter(layer => layer.kind !== 'raster');
+  if (!vector.length) return 'Aucune couche vectorielle sélectionnée.';
+  return vector.map(layer => `${layer.name} : ${layer.scopeInfo.usedCount.toLocaleString('fr-FR')} / ${layer.scopeInfo.originalCount.toLocaleString('fr-FR')} entité(s)`).join(' · ');
+}
+function updateScopeSummaries() {
+  const exportLayers = layersInScope($('#exportScope').value).filter(layer => layer.visible && layer.kind !== 'raster');
+  $('#exportScopeSummary').textContent = summarizeScopes(exportLayers);
+  const ids = [$('#guidedTarget').value];
+  if (['within-distance', 'within-polygon'].includes($('#guidedOperation').value)) ids.push($('#guidedReference').value);
+  const unique = [...new Set(ids)].filter(Boolean);
+  const analysisLayers = layersInScope($('#guidedScope').value).filter(layer => unique.includes(layer.id) && layer.kind !== 'raster');
+  $('#guidedScopeSummary').textContent = analysisLayers.length ? summarizeScopes(analysisLayers) : 'Choisissez les couches à analyser.';
+}
+$('#exportScope').addEventListener('change', updateScopeSummaries);
+$('#guidedScope').addEventListener('change', () => { renderGuidedPolygons(true); updateScopeSummaries(); });
+$('#guidedTarget').addEventListener('change', updateScopeSummaries);
+$('#guidedReference').addEventListener('change', updateScopeSummaries);
 
 function featureColor(layer, feature) {
   if (!layer.categoryField) return layer.color;
@@ -1332,8 +1358,9 @@ function buildLayoutSvg() {
   const clone = svg.cloneNode(true);
   clone.querySelectorAll('.external-basemap-image').forEach(image => image.remove());
   clone.setAttribute('xmlns', SVG_NS);
-  clone.setAttribute('width', '1600');
-  clone.setAttribute('height', '1184');
+  const paper = $('#layoutPage').value === 'a3' ? { width: 420, height: 297, name: 'A3' } : { width: 297, height: 210, name: 'A4' };
+  clone.setAttribute('width', `${paper.width}mm`);
+  clone.setAttribute('height', `${paper.height}mm`);
   clone.setAttribute('viewBox', '0 0 1000 740');
   const children = [...clone.childNodes];
   clone.replaceChildren();
@@ -1343,7 +1370,7 @@ function buildLayoutSvg() {
   clone.append(title);
   const date = new Date().toLocaleString('fr-FR');
   const subtitle = createSvgElement('text', { x: 38, y: 49, fill: '#68766b', 'font-size': 10, 'font-family': 'system-ui, sans-serif' });
-  subtitle.textContent = `Données WGS 84 / EPSG:4326 · export local · ${date}`;
+  subtitle.textContent = `Données WGS 84 / EPSG:4326 · ${paper.name} paysage · ${date} · échelle indicative`;
   clone.append(subtitle);
   const content = createSvgElement('g', { transform: 'translate(0 55)' });
   children.forEach(child => content.append(child));
@@ -1358,7 +1385,7 @@ function buildLayoutSvg() {
       const plate = createSvgElement('rect', { x: -7, y: -24, width: barWidth + 14, height: 42, rx: 4, fill: '#fff', 'fill-opacity': '.88', stroke: '#b8c2b8' });
       scale.append(plate);
       const label = createSvgElement('text', { x: 0, y: -8, fill: '#34443a', 'font-size': 10, 'font-family': 'system-ui,sans-serif', 'font-weight': 700 });
-      label.textContent = scaleLabel(target); scale.append(label);
+      label.textContent = `≈ ${scaleLabel(target)}`; scale.append(label);
       scale.append(createSvgElement('rect', { x: 0, y: 0, width: barWidth / 2, height: 5, fill: '#34443a' }));
       scale.append(createSvgElement('rect', { x: barWidth / 2, y: 0, width: barWidth / 2, height: 5, fill: '#fff', stroke: '#34443a' }));
       clone.append(scale);
@@ -1374,18 +1401,24 @@ function buildLayoutSvg() {
   const legend = createSvgElement('g', { transform: 'translate(38 680)' });
   visible.slice(0, 12).forEach((layer, index) => {
     const x = index % 6 * 155, row = Math.floor(index / 6) * 16;
-    if (layer.kind === 'raster') legend.append(createSvgElement('rect', { x: x + 1, y: row - 5, width: 10, height: 10, rx: 2, fill: layer.color, stroke: '#5b665c' }));
+    const nonUniform = layer.kind === 'raster' || Boolean(layer.categoryField);
+    if (nonUniform) legend.append(createSvgElement('rect', { x: x + 1, y: row - 5, width: 10, height: 10, fill: '#fff', stroke: '#777' }));
     else legend.append(createSvgElement('circle', { cx: x + 6, cy: row, r: 5, fill: layer.color }));
     const text = createSvgElement('text', { x: x + 17, y: row + 4, fill: '#3d4b41', 'font-size': 9, 'font-family': 'system-ui, sans-serif' });
-    text.textContent = `${layer.name} · ${layer.source}`.slice(0, 40);
+    const entry = `${nonUniform ? '(*) ' : ''}${layer.name} · ${layer.source}`;
+    text.textContent = entry.length > 34 ? `${entry.slice(0, 33)}…` : entry;
     legend.append(text);
   });
   clone.append(legend);
   const notice = createSvgElement('text', { x: 38, y: 715, fill: '#7d877e', 'font-size': 8, 'font-family': 'system-ui, sans-serif' });
-  notice.textContent = state.basemap
-    ? `Fond externe non inclus dans ce plan. Attribution du fond à consulter : ${state.basemap.attribution}. Aucune limite juridique n’est créée.`
-    : 'Les limites sont celles des données source; aucune limite cadastrale ou juridique n’est créée.';
+  const mapTruncated = !$('#renderWarning').hidden;
+  notice.textContent = `${state.basemap ? 'Fond externe exclu. ' : ''}${mapTruncated ? 'Aperçu tronqué. ' : ''}${visible.length > 12 ? '12 premières couches. ' : ''} (*) Style détaillé non représenté. Sources résumées ; échelle indicative, non cadastrale.`;
   clone.append(notice);
+  const filtered = visible.filter(layer => layer.kind !== 'raster').map(layer => layerInScope(layer, 'filtered').publicScope);
+  const activeFilters = filtered.filter(item => item.filters?.text?.value || item.filters?.category);
+  const filterNotice = createSvgElement('text', { x: 38, y: 729, fill: '#7d877e', 'font-size': 8, 'font-family': 'system-ui, sans-serif' });
+  filterNotice.textContent = activeFilters.length ? `Filtres actifs sur ${activeFilters.length} couche(s) ; détail dans les métadonnées SVG (non inclus dans le PNG).` : 'Aucun filtre attributaire actif.';
+  clone.append(filterNotice);
   const metadata = createSvgElement('metadata');
   metadata.textContent = JSON.stringify({ exportedAt: new Date().toISOString(), coordinateSystem: 'EPSG:4326', sources: visible.map(layer => ({
     name: layer.name, kind: layer.kind === 'raster' ? 'raster' : 'vector', source: layer.source,
@@ -1396,7 +1429,8 @@ function buildLayoutSvg() {
       bands: layer.raster.bands, boundsWgs84: layer.raster.boundsWgs84,
       display: 'affine-preview-no-pixel-resampling'
     } } : { aiAssistance: layer.geojson.urbatrameAi || null })
-  })), externalBackground: state.basemap ? { attribution: state.basemap.attribution, service: state.basemap.type } : null });
+  })), page: paper, previewTruncated: !$('#renderWarning').hidden, selection: filtered, externalBackground: state.basemap ? { attribution: state.basemap.attribution, service: state.basemap.type } : null });
+  clone.append(metadata);
   return new XMLSerializer().serializeToString(clone);
 }
 
@@ -1416,8 +1450,10 @@ $('#exportMapPng').addEventListener('click', () => {
   const svgText = buildLayoutSvg();
   const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }));
   const image = new Image();
+  const pixelSize = $('#layoutPage').value === 'a3' ? [2480, 1754] : [1754, 1240];
   image.onload = () => {
-    const canvas = document.createElement('canvas'); canvas.width = 1600; canvas.height = 1184;
+    const canvas = document.createElement('canvas');
+    [canvas.width, canvas.height] = pixelSize;
     const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(blob => { if (blob) downloadBlob(blob, 'urbatrame-carte-locale.png'); URL.revokeObjectURL(url); }, 'image/png');
@@ -1489,10 +1525,11 @@ function renderGuidedPolygons(reset = false) {
   const select = $('#guidedPolygon'), previous = reset ? '' : select.value;
   select.replaceChildren();
   const layer = state.layers.find(item => item.id === $('#guidedReference').value && item.kind !== 'raster');
+  const items = layer ? ($('#guidedScope').value === 'filtered' ? visibleFeatures(layer) : layer.geojson.features.map((feature, index) => ({ feature, index }))) : [];
   const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choisir une entité surfacique'; select.append(placeholder);
   let count = 0;
   const isPolygon = g => g && (g.type === 'Polygon' || g.type === 'MultiPolygon' || (g.type === 'GeometryCollection' && g.geometries.some(isPolygon)));
-  for (const [index, feature] of (layer?.geojson.features || []).entries()) {
+  for (const { index, feature } of items) {
     if (!isPolygon(feature.geometry)) continue;
     if (count++ >= 2000) break;
     const option = document.createElement('option'); option.value = String(index);
@@ -1518,16 +1555,25 @@ function updateGuidedControls() {
     'filter-number': 'Seules les valeurs numériques valides sont comparées ; les valeurs manquantes ou non numériques sont exclues.'
   })[op] || '';
 }
-$('#guidedOperation').addEventListener('change', updateGuidedControls);
+$('#guidedOperation').addEventListener('change', () => { updateGuidedControls(); updateScopeSummaries(); });
 $('#runGuided').addEventListener('click', () => {
   try {
     const op = $('#guidedOperation').value, distanceText = $('#guidedDistance').value;
-    const result = guidedAnalysis(state.layers, {
+    const scope = $('#guidedScope').value, scoped = layersInScope(scope);
+    const reference = scoped.find(layer => layer.id === $('#guidedReference').value && layer.kind !== 'raster');
+    const originalIndex = $('#guidedPolygon').value === '' ? NaN : Number($('#guidedPolygon').value);
+    const index = reference && Number.isInteger(originalIndex) ? scopedIndex(reference, originalIndex) : NaN;
+    const result = guidedAnalysis(scoped, {
       operation: op, targetId: $('#guidedTarget').value, referenceId: $('#guidedReference').value,
       distanceMeters: distanceText === '' ? NaN : Number(distanceText),
-      polygonFeature: $('#guidedPolygon').value === '' ? NaN : Number($('#guidedPolygon').value),
+      polygonFeature: index,
       field: $('#guidedField').value, comparison: $('#guidedComparison').value, threshold: $('#guidedThreshold').value
     });
+    const ids = [$('#guidedTarget').value, ...(['within-distance', 'within-polygon'].includes(op) ? [$('#guidedReference').value] : [])];
+    const inputs = scoped.filter(layer => ids.includes(layer.id) && layer.kind !== 'raster').map(layer => layer.publicScope);
+    result.collection.urbatrameDerivation.inputScope = { scope, inputs };
+    if (op === 'within-polygon') result.collection.urbatrameDerivation.inputScope.originalPolygonIndex = originalIndex;
+    result.sourceDescription += ` · périmètre ${scope === 'filtered' ? 'filtré' : 'complet'} · ${inputs.map(x => `${x.layer}: ${x.usedCount}/${x.originalCount}`).join('; ')}`;
     if (!result.collection.features.length) { $('#guidedResult').textContent = `Aucun résultat. ${result.report.note || 'Vérifiez les couches et paramètres.'}`; return; }
     if (!addLayer(result.collection, 'analyse-guidee.geojson', result.sourceDescription)) {
       $('#guidedResult').textContent = 'Couche non ajoutée : limite de l’atelier atteinte. Voir le message général.'; return;
@@ -2274,6 +2320,8 @@ function updateActions() {
   $('#showTerrain').disabled = !state.terrain;
   $('#removeTerrain').disabled = !state.terrain;
   updateSurveyLayerControls();
+  updateScopeSummaries();
+  renderGuidedPolygons();
 }
 
 function renderAll() {
@@ -2282,6 +2330,7 @@ function renderAll() {
   renderAttributes();
   renderAiLayerOptions();
   renderGuidedLayers();
+  updateScopeSummaries();
 }
 
 function addCsvOptions(table, fileName) {
@@ -2537,7 +2586,9 @@ $('#addCsvLayer').addEventListener('click', () => {
 });
 
 $('#exportGeoJSON').addEventListener('click', () => {
-  const collection = exportVisibleGeoJSON(state.layers.filter(layer => layer.kind !== 'raster'));
+  const scoped = layersInScope($('#exportScope').value).filter(layer => layer.kind !== 'raster');
+  const collection = exportVisibleGeoJSON(scoped);
+  collection.urbatrame.selection = { mode: $('#exportScope').value, layers: scoped.filter(layer => layer.visible).map(layer => layer.publicScope) };
   const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/geo+json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -2550,22 +2601,23 @@ $('#exportGeoJSON').addEventListener('click', () => {
 
 $('#exportCsv').addEventListener('click', () => {
   try {
-    const csv = exportVisibleCsv(state.layers);
+    const scoped = layersInScope($('#exportScope').value);
+    const csv = exportVisibleCsv(scoped);
     downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'urbatrame-releve.csv');
-    const count = state.layers.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
+    const count = scoped.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
     status(`${count.toLocaleString('fr-FR')} entité(s) exportée(s) en CSV avec géométrie WKT, attributs, source et date.`, 'success');
   } catch { status('Export CSV impossible; vérifiez les attributs de vos couches.', 'error'); }
 });
 $('#exportKml').addEventListener('click', () => {
   try {
-    const kml = layersToKml(state.layers);
+    const kml = layersToKml(layersInScope($('#exportScope').value));
     downloadBlob(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8' }), 'urbatrame-releve.kml');
     status('KML EPSG:4326 exporté localement; les propriétés sont incluses comme données étendues.', 'success');
   } catch { status('Export KML impossible; vérifiez les géométries et attributs.', 'error'); }
 });
 $('#exportKmz').addEventListener('click', () => {
   try {
-    const kml = layersToKml(state.layers);
+    const kml = layersToKml(layersInScope($('#exportScope').value));
     const archive = createStoredZip([{ name: 'doc.kml', data: kml }]);
     downloadBlob(new Blob([archive], { type: 'application/vnd.google-earth.kmz' }), 'urbatrame-releve.kmz');
     status('KMZ autonome créé localement avec doc.kml; aucun fichier ni fond externe n’est ajouté.', 'success');
@@ -2574,11 +2626,12 @@ $('#exportKmz').addEventListener('click', () => {
 $('#exportGpkg').addEventListener('click', async () => {
   const button = $('#exportGpkg'); button.disabled = true;
   status('Préparation du GeoPackage EPSG:4326 dans ce navigateur…');
+  const scoped = layersInScope($('#exportScope').value);
   try {
     const SQL = await loadSqlRuntime();
-    const bytes = createGeoPackage(state.layers, SQL);
+    const bytes = createGeoPackage(scoped, SQL);
     downloadBlob(new Blob([bytes], { type: 'application/geopackage+sqlite3' }), 'urbatrame-releve.gpkg');
-    const count = state.layers.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
+    const count = scoped.filter(layer => layer.visible && layer.kind !== 'raster').reduce((sum, layer) => sum + layer.geojson.features.length, 0);
     status(`GeoPackage EPSG:4326 exporté localement · ${count.toLocaleString('fr-FR')} entité(s). Les couches raster ne sont pas incluses.`, 'success');
   } catch (error) { status(error?.code ? errorMessage(error) : 'Export GeoPackage impossible.', 'error'); }
   finally { updateActions(); }
