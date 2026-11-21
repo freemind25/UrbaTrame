@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAxoAiHandler, AXO_AI_PROVIDERS } from '../server/axo-ai.mjs';
 import { buildAxoAiContext } from '../public/js/axo-ai.mjs';
+import { AXO_PROVIDERS } from '../public/js/axo-ai-providers.mjs';
 
 function response() {
   return { status: 0, headers: null, data: null,
@@ -21,6 +22,19 @@ test('résumé de site limité : sans géométries, nécessite des données à j
   assert.doesNotMatch(JSON.stringify(result), /geometry|\"g\":/);
   assert.throws(()=>buildAxoAiContext({...ctx,stale:true}),/changé/);
   assert.throws(()=>buildAxoAiContext(null),/Chargez/);
+});
+
+test('exemples de modèles distincts par fournisseur et documentation HTTPS', () => {
+  assert.deepEqual(AXO_PROVIDERS.kira.models, ['kira-2.5-flash','kira-2.5-pro']);
+  assert.deepEqual(AXO_PROVIDERS.mistral.models, ['mistral-small-latest','mistral-medium-latest','mistral-large-latest']);
+  for (const provider of Object.values(AXO_PROVIDERS)) {
+    assert.ok(provider.models.length > 0);
+    assert.equal(new URL(provider.catalog).protocol,'https:');
+    assert.ok(Object.isFrozen(provider.models));
+    for (const id of provider.models) assert.match(id,/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,119}$/);
+  }
+  assert.ok(!AXO_PROVIDERS.mistral.models.includes('agnes-2.5-flash'));
+  assert.ok(!AXO_PROVIDERS.kira.models.includes('gemma-2-2b'));
 });
 
 test('dix fournisseurs : URL fixes et distinctes, aucune redirection ni fuite de clé', async () => {
