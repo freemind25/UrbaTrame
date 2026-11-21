@@ -27,3 +27,31 @@ test('emprise personnalisée et texte du site échappé', () => {
   assert.doesNotMatch(svg,/NaN|Infinity/);
   assert.match(svg,/data-fm-watermark="true"/);
 });
+
+test('composition : sélection, ordre bas-haut, intervalle et légende du SVG', () => {
+  const config={order:['poi','bati','occupation','voirie'],visible:['poi','occupation'],gap:30};
+  const svg=render('axoexploded',{axoExploded:config,isPro:true,watermark:false});
+  assert.deepEqual([...svg.matchAll(/data-layer="([^"]+)"/g)].map(x=>x[1]),['poi','occupation']);
+  assert.equal((svg.match(/<clipPath id="utb-exploded-/g)||[]).length,2);
+  assert.match(svg,/01 · REPÈRES/);assert.match(svg,/02 · SOL/);
+  assert.doesNotMatch(svg,/03 · RÉSEAUX|data-layer="bati"|data-layer="voirie"/);
+  assert.match(svg,/2 couche\(s\) alignée\(s\)/);assert.match(svg,/© OpenStreetMap contributors/);
+  assert.doesNotMatch(svg,/NaN|Infinity/);
+  const layer=(name)=>svg.slice(svg.indexOf(`data-layer="${name}"`),svg.indexOf('</g>',svg.indexOf(`data-layer="${name}"`)));
+  assert.match(layer('poi'),/56\.00,169\.00/);assert.match(layer('occupation'),/56\.00,139\.00/);
+  assert.deepEqual(config,{order:['poi','bati','occupation','voirie'],visible:['poi','occupation'],gap:30});
+});
+
+test('configuration fermée, valeurs invalides et tous sous-ensembles non vides', () => {
+  loadKernel();const normalize=globalThis.FMAxoLayout.normalize;
+  const x=normalize({order:['poi','poi','<script>'],visible:['poi','bad'],gap:1});
+  assert.deepEqual(x,{order:['poi','occupation','voirie','bati'],visible:['poi'],gap:54});
+  assert.deepEqual(normalize({visible:[]}).visible,['occupation','voirie','bati','poi']);
+  const keys=['occupation','voirie','bati','poi'];
+  for(let mask=1;mask<16;mask++) for(const gap of [30,42,54]) {
+    const selected=keys.filter((_,i)=>mask&(1<<i));
+    const svg=render('axoexploded',{axoExploded:{order:[...keys].reverse(),visible:selected,gap}});
+    assert.deepEqual([...svg.matchAll(/data-layer="([^"]+)"/g)].map(x=>x[1]),[...selected].reverse());
+    assert.doesNotMatch(svg,/NaN|Infinity|<script>/);
+  }
+});

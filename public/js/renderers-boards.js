@@ -629,8 +629,10 @@
         '<g clip-path="url(#'+id+')">'+content+'</g>'+
         line(238,y,255,y,p.line,0.4)+text(258,y-1,label,2.5,p.ink,{weight:700})+text(258,y+3,sub,2.05,p.muted)+'</g>';
     };
+    const layout=G.FMAxoLayout.normalize(ctx.axoExploded), active=layout.order.filter(key=>layout.visible.includes(key));
+    const yAt=Object.fromEntries(active.map((key,i)=>[key,154+(active.length-1)*layout.gap/2-i*layout.gap]));
     let areas='',roads='',build='',pois='';
-    const ys={areas:235,roads:181,build:127,pois:73};
+    const ys={areas:yAt.occupation??154,roads:yAt.voirie??154,build:yAt.bati??154,pois:yAt.poi??154};
     for(const g of d.green||[]) {
       const pts=geo(g.g,ys.areas); if(pts.length<3) continue;
       areas+='<polygon points="'+ptsAttr(pts)+'" fill="'+classColor(p,landClass(g))+'" fill-opacity="0.78" stroke="'+p.panel+'" stroke-width="0.2"/>';
@@ -654,28 +656,37 @@
       pois+='<circle cx="'+x.toFixed(2)+'" cy="'+y.toFixed(2)+'" r="1.1" fill="'+classColor(p,poiClass(q))+'" stroke="'+p.panel+'" stroke-width="0.25"/>';
     }
     let body=rounded(15,43,280,230,p.map,p.line,1.5,0.3);
-    body+=line(84,73,84,235,p.accent,0.28,'1.5 1.5')+line(218,73,218,235,p.accent,0.28,'1.5 1.5');
-    body+=plane('occupation',ys.areas,tr(ctx,'01 · SOL','01 · LAND'),tr(ctx,'usages OSM','OSM uses'),areas);
-    body+=plane('voirie',ys.roads,tr(ctx,'02 · RÉSEAUX','02 · NETWORK'),tr(ctx,'voirie et rail','roads and rail'),roads);
-    body+=plane('bati',ys.build,tr(ctx,'03 · BÂTI','03 · BUILDINGS'),tr(ctx,'emprises','footprints'),build);
-    body+=plane('poi',ys.pois,tr(ctx,'04 · REPÈRES','04 · PLACES'),tr(ctx,'points OSM','OSM points'),pois);
+    const bottom=yAt[active[0]],top=yAt[active[active.length-1]];
+    body+=line(84,top,84,bottom,p.accent,0.28,'1.5 1.5')+line(218,top,218,bottom,p.accent,0.28,'1.5 1.5');
+    const definitions={
+      occupation:{title:tr(ctx,'SOL','LAND'),sub:tr(ctx,'usages OSM','OSM uses'),content:areas,legend:[
+        [p.green,tr(ctx,'Vert','Green')],[p.water,tr(ctx,'Eau','Water')],[p.civic,tr(ctx,'Équipement','Civic')],
+        [p.retail,tr(ctx,'Commerce','Retail')],[p.industry,tr(ctx,'Industrie','Industry')],[p.land,tr(ctx,'Autre usage','Other use')]]},
+      voirie:{title:tr(ctx,'RÉSEAUX','NETWORK'),sub:tr(ctx,'voirie et rail','roads and rail'),content:roads,legend:[
+        [p.hot,tr(ctx,'Principale','Major')],[p.road,tr(ctx,'Autre voie','Other road')],[p.accent,tr(ctx,'Rail','Rail')]]},
+      bati:{title:tr(ctx,'BÂTI','BUILDINGS'),sub:tr(ctx,'emprises sans hauteur','footprints, no height'),content:build,legend:[
+        [p.civic,tr(ctx,'Équipement','Civic')],[p.retail,tr(ctx,'Commerce','Retail')],[p.industry,tr(ctx,'Industrie','Industry')],
+        [p.building,tr(ctx,'Habitat','Housing')],[p.other,tr(ctx,'Autre','Other')]]},
+      poi:{title:tr(ctx,'REPÈRES','PLACES'),sub:tr(ctx,'points OSM','OSM points'),content:pois,legend:[
+        [p.hot,tr(ctx,'Transport','Transit')],[p.civic,tr(ctx,'Équipement','Civic')],[p.retail,tr(ctx,'Commerce','Retail')],
+        [p.green,tr(ctx,'Vert','Green')],[p.other,tr(ctx,'Autre','Other')]]}
+    };
+    for (const [i,key] of active.entries()) {
+      const item=definitions[key],number=String(i+1).padStart(2,'0');
+      body+=plane(key,yAt[key],number+' · '+item.title,item.sub,item.content);
+    }
     body+=sideBox(p);
     body+=panelTitle(309,51,93,tr(ctx,'Lecture des couches','Reading the layers'),p);
-    body+=text(309,63,tr(ctx,'01  Sol · usages cartographiés','01  Land · mapped uses'),2.7,p.ink,{weight:700});
-    body+=legendItem(309,71,p.green,tr(ctx,'Vert / loisirs','Green / leisure'),p);
-    body+=legendItem(354,71,p.water,tr(ctx,'Eau','Water'),p);
-    body+=legendItem(309,79,p.civic,tr(ctx,'Équipements','Civic'),p);
-    body+=legendItem(354,79,p.retail,tr(ctx,'Commerce','Retail'),p);
-    body+=legendItem(309,86,p.industry,tr(ctx,'Industrie / militaire','Industry / military'),p);
-    body+=text(309,94,tr(ctx,'Fond clair : usage non renseigné.','Pale background: use not recorded.'),2.25,p.muted);
-    body+=text(309,103,tr(ctx,'02  Voirie et rail','02  Roads and rail'),2.7,p.ink,{weight:700});
-    body+=legendItem(309,111,p.hot,tr(ctx,'Voie principale','Major road'),p,'line');
-    body+=legendItem(357,111,p.road,tr(ctx,'Autre voie','Other road'),p,'line');
-    body+=text(309,126,tr(ctx,'03  Emprises bâties','03  Building footprints'),2.7,p.ink,{weight:700});
-    body+=text(309,134,tr(ctx,'Couleurs : types OSM indicatifs.','Colors: indicative OSM types.'),2.25,p.muted);
-    body+=text(309,141,tr(ctx,'Aucune hauteur représentée.','No building heights shown.'),2.25,p.muted);
-    body+=text(309,155,tr(ctx,'04  Points d’intérêt','04  Points of interest'),2.7,p.ink,{weight:700});
-    body+=text(309,163,tr(ctx,'Services et lieux cartographiés.','Mapped services and places.'),2.25,p.muted);
+    for (const [i,key] of active.entries()) {
+      const item=definitions[key],y=63+i*27,number=String(i+1).padStart(2,'0');
+      body+=text(309,y,number+'  '+item.title,2.65,p.ink,{weight:700});
+      item.legend.forEach(([color,label],j)=>{
+        const x=309+(j%3)*30,yy=y+7+Math.floor(j/3)*7;
+        body+='<rect x="'+x+'" y="'+(yy-2.2)+'" width="3.6" height="2.8" fill="'+color+'"/>';
+        body+=text(x+5,yy,label,1.95,p.ink);
+      });
+      if(key==='bati') body+=text(309,y+20,tr(ctx,'Emprises sans hauteur.','Footprints without heights.'),2.0,p.muted);
+    }
     body+=line(309,174,399,174,p.line,0.35);
     body+=text(309,184,tr(ctx,'INTERPRÉTATION À COMPLÉTER','INTERPRETATION TO BE ADDED'),2.3,p.accent,{weight:700});
     body+=text(309,193,tr(ctx,'Barrières, axes civiques et directions','Barriers, civic spines and development'),2.15,p.ink);
@@ -687,7 +698,7 @@
     body+=text(314,241,tr(ctx,'Classement indicatif, non réglementaire.','Indicative classes, not zoning.'),2.15,p.ink);
     body+=text(314,248,tr(ctx,'Écart entre couches purement graphique.','Layer spacing is purely graphical.'),2.15,p.ink);
     body+=text(314,255,tr(ctx,'Projection schématique, non cadastrale.','Schematic projection, not cadastral.'),2.15,p.ink);
-    return page(ctx,'axoexploded',p,{title:'Analyse axonométrique éclatée',en:'Exploded axonometric analysis',sub:'Quatre couches alignées · données OpenStreetMap',subEn:'Four aligned layers · OpenStreetMap data'},body);
+    return page(ctx,'axoexploded',p,{title:'Analyse axonométrique éclatée',en:'Exploded axonometric analysis',sub:active.length+' couche(s) alignée(s) · données OpenStreetMap',subEn:active.length+' aligned layer(s) · OpenStreetMap data'},body);
   };
 
   /* 5 · Planche d’insertion : vue générale, repère et fenêtre de détail. */

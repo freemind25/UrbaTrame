@@ -536,3 +536,11 @@ button.report-trigger:hover{background:rgba(224,168,58,.16)}
 .axo-ai textarea{resize:vertical}.axo-ai .axo-consent{display:block;margin:9px 0;font-weight:400}
 .axo-ai button{padding:7px 12px;background:#27665a;color:#fff;border:0;border-radius:5px;cursor:pointer}.axo-ai button:disabled{opacity:.5}
 .axo-ai pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;background:white;padding:10px;border:1px solid #d8dcd3;font:inherit}
+
+/* Composition de la planche : options locales, hors de l'export imprimé. */
+.axo-layout{padding:12px 14px;background:#f8f8f4;color:#243b36;border-top:1px solid #d8dcd3;font-size:13px;line-height:1.4}
+.axo-layout summary{cursor:pointer;font-weight:700;color:#245d52}.axo-layout p{margin:8px 0}.axo-layout-list{display:grid;gap:5px}
+.axo-layout-row{display:flex;align-items:center;gap:6px}.axo-layout-row label{flex:1;min-width:0;display:flex;align-items:center;gap:4px}
+.axo-layout-row button{min-width:36px;min-height:34px;color:#245d52;background:#fff;border:1px solid #9baba4;border-radius:5px;cursor:pointer}.axo-layout-row button:disabled{opacity:.4;cursor:default}
+.axo-layout-gap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.axo-layout-gap select{padding:6px;color:#172d29;background:#fff;border:1px solid #9baba4;border-radius:5px}.axo-layout-status{color:#52635a;font-size:12px}
+@media print{.axo-layout,.axo-ai{display:none!important}}
