@@ -24,7 +24,7 @@ import { createAtelierHandlers } from './atelier-api.mjs';
 import { createLayerAtlasSearchHandler } from './layeratlas.mjs';
 import { createAtlasCoHandlers } from './atlasco.mjs';
 import { createQuota } from './quota.mjs';
-import { createAxoAiHandler } from './axo-ai.mjs';
+import { createAxoAiHandler, createAxoKeyTestHandler } from './axo-ai.mjs';
 import { createStudentAuthHandlers, requireStudentSession } from './student-auth-http.mjs';
 
 function mapSourceUnavailable(res, error) {
@@ -448,8 +448,9 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
   const authHandlers = createStudentAuthHandlers(studentAuth);
   const codecraftRelay = createCodecraftRelay();
   const axoAi = createAxoAiHandler();
+  const axoKeyTest = createAxoKeyTestHandler();
   const protectedPaths = new Set([
-    '/api/util', '/analysis/2d', '/api/ai/interpret',
+    '/api/util', '/analysis/2d', '/api/ai/interpret', '/api/ai/test-key',
     '/api/atelier/health', '/api/atelier/geocode', '/api/atelier/extract',
     '/api/atelier/cadrage-extract', '/api/atelier/gadm', '/api/atelier/terrain',
     '/api/atelier/archi', '/api/layeratlas/search',
@@ -493,6 +494,7 @@ export function createApi({ licence, quota, runs, publicDir, studentAuth = null 
     if (req.method === 'POST' && url.pathname.startsWith('/api/util/codecraft'))
       return codecraftRelay(req, res, clientIp(req));
     if (req.method === 'POST' && url.pathname === '/api/ai/interpret') return axoAi(req, res, ip);
+    if (req.method === 'POST' && url.pathname === '/api/ai/test-key') return axoKeyTest(req, res, ip);
     if (req.method === 'POST' && url.pathname === '/analysis/2d') return analysis(req, res, ip, studentUser);
     if (req.method === 'GET') return serveStatic(req, res, url.pathname + url.search, publicDir); // search transmis : ?v= pilote le cache immutable (règle 27)
 

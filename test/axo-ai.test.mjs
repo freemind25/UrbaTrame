@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAxoAiHandler, AXO_AI_PROVIDERS } from '../server/axo-ai.mjs';
+import { createAxoAiHandler, createAxoKeyTestHandler, AXO_AI_PROVIDERS, AXO_KEY_ENDPOINTS } from '../server/axo-ai.mjs';
 import { buildAxoAiContext } from '../public/js/axo-ai.mjs';
 import { AXO_PROVIDERS } from '../public/js/axo-ai-providers.mjs';
 
@@ -29,7 +29,8 @@ test('exemples de modèles distincts par fournisseur et documentation HTTPS', ()
   assert.ok(AXO_PROVIDERS.openrouter.models.includes('nvidia/nemotron-3-ultra-550b-a55b:free'));
   assert.ok(AXO_PROVIDERS.groq.models.includes('openai/gpt-oss-20b'));
   assert.deepEqual(AXO_PROVIDERS.kira.models, ['kira-2.5-flash','kira-2.5-pro']);
-  assert.deepEqual(AXO_PROVIDERS.mistral.models, ['mistral-small-latest','mistral-medium-latest','mistral-large-latest']);
+  assert.ok(AXO_PROVIDERS.mistral.models.includes('labs-mistral-small-creative'));
+  assert.ok(AXO_PROVIDERS.mistral.models.includes('ministral-3b-latest'));
   for (const provider of Object.values(AXO_PROVIDERS)) {
     assert.ok(provider.models.length > 0);
     assert.equal(new URL(provider.catalog).protocol,'https:');
@@ -114,4 +115,47 @@ test('les erreurs amont ne répercutent pas la clé ou le contenu amont', async 
   const res=response(); await h(request({provider:'agnes',model:'agnes-2.5-flash',context:{}}),res,'x');
   assert.equal(res.data.error,'UPSTREAM_ERROR'); assert.equal(res.data.upstreamStatus,401);
   assert.doesNotMatch(JSON.stringify(res.data),/private-fake-test-key|secret/);
+});
+
+
+test('test de clé : endpoints fixes, GET sans génération ni données de site et catalogue Mistral filtré', async () => {
+  for (const provider of Object.keys(AXO_KEY_ENDPOINTS)) {
+    const handler=createAxoKeyTestHandler({cooldownMs:0,fetchImpl:async (url,opts)=>{
+      assert.equal(url,AXO_KEY_ENDPOINTS[provider]); assert.equal(opts.method,'GET');
+      assert.equal(opts.redirect,'error'); assert.equal(opts.headers.Authorization,'Bearer private-fake-test-key');
+      assert.equal(opts.body,undefined);
+      return new Response(JSON.stringify(provider==='openrouter' ? {data:{label:'private-fake-test-key'}} : {data:[
+        {id:'chat',capabilities:{completion_chat:true}}, {id:'nonchat',capabilities:{completion_chat:false}},
+        {id:'unknown'}, {id:'archived',archived:true,capabilities:{completion_chat:true}},
+        {id:'chat',capabilities:{completion_chat:true}}, {id:'private-fake-test-key',capabilities:{completion_chat:true}}
+      ]}));
+    }});
+    const res=response(); await handler(request({provider}),res,'x');
+    assert.equal(res.status,200); assert.equal(res.headers['Cache-Control'],'no-store');
+    assert.doesNotMatch(JSON.stringify(res.data),/private-fake-test-key/);
+    if(provider==='mistral') assert.deepEqual(res.data.models,['chat']);
+    if(provider==='openrouter') assert.equal(res.data.models,null);
+    if(provider==='groq') assert.deepEqual(res.data.models,['chat','unknown']);
+  }
+});
+
+test('test de clé : refuse accès arbitraire, clés absentes, gros corps et erreurs amont sans fuite', async () => {
+  const handler=createAxoKeyTestHandler({cooldownMs:0,fetchImpl:async()=>new Response('private-fake-test-key secret',{status:401})});
+  for (const [body,key,error] of [
+    [{provider:'__proto__'},'x','TEST_UNSUPPORTED'],[{provider:'kira'},'x','TEST_UNSUPPORTED'],
+    [{provider:'mistral'},'','API_KEY_REQUIRED'],[{provider:'mistral',long:'x'.repeat(3000)},'x','INVALID_BODY']
+  ]) {const res=response();await handler(request(body,key),res,'x');assert.equal(res.data.error,error);}
+  const res=response(); await handler(request({provider:'mistral'}),res,'x');
+  assert.equal(res.data.error,'UPSTREAM_ERROR');assert.equal(res.data.upstreamStatus,401);
+  assert.doesNotMatch(JSON.stringify(res.data),/private-fake-test-key|secret/);
+});
+
+test('test de clé : quotas, JSON et réponses trop grandes sont contrôlés', async () => {
+  let done;const wait=new Promise(resolve=>done=resolve);
+  const handler=createAxoKeyTestHandler({cooldownMs:10000,fetchImpl:async()=>{await wait;return new Response('{}')}});
+  const first=response(),second=response(); const inflight=handler(request({provider:'groq'}),first,'ip');
+  await new Promise(resolve=>setTimeout(resolve,0)); await handler(request({provider:'groq'}),second,'ip');
+  assert.equal(second.data.error,'GENERATION_IN_PROGRESS');done();await inflight;assert.equal(first.data.error,'INVALID_RESPONSE');
+  const large=createAxoKeyTestHandler({cooldownMs:0,fetchImpl:async()=>new Response('x'.repeat(2_000_001))});
+  const res=response();await large(request({provider:'mistral'}),res,'ip');assert.equal(res.data.error,'UPSTREAM_UNAVAILABLE');
 });

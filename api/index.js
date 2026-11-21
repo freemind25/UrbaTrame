@@ -15,6 +15,7 @@ const api = createApi({
 const API_PATHS = new Set([
   '/api/status',
   '/api/ai/interpret',
+  '/api/ai/test-key',
   '/api/auth/request-otp',
   '/api/auth/verify-otp',
   '/api/auth/session',
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
   if (!isKnownPath(route)) return send(res, 404, { error: 'NOT_FOUND' });
 
   if (req.method !== 'OPTIONS' &&
-      (route === '/api/util' || route === '/api/ai/interpret' || route.startsWith('/api/util/codecraft') || route === '/analysis/2d') &&
+      (route === '/api/util' || route === '/api/ai/interpret' || route === '/api/ai/test-key' || route.startsWith('/api/util/codecraft') || route === '/analysis/2d') &&
       req.method !== 'POST') {
     return send(res, 405, { error: 'POST_ONLY' });
   }
