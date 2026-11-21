@@ -22,7 +22,7 @@ import { studentAuthReady } from './student-auth-ui.mjs';
 import {
   createWorkspaceProject, createWorkspaceTemplate, makeWorkspaceId,
   parseWorkspaceFile, removeWorkspaceRecord, serializeWorkspaceRecord, upsertWorkspaceRecord, validateWorkspaceRecord
-} from './workspace.mjs';
+} from './workspace.mjs?v=20261011layout1';
 import { normalizeGeocodeResults, parseCoordinateQuery } from './site-search.mjs';
 import { olmPoint, OLM_LAYERS, OLM_LV1_LABELS, OLM_LV1_COLORS, OLM_LV2_TO_LV1, OLM_LV2_LABELS_EN, OLM_COLORMAP, OLM_MSZ_COLORMAP, OLM_ATTRIBUTION } from './openlandmap.mjs';
 import { createMap } from './atelier/map.mjs';
@@ -71,6 +71,7 @@ const S = {
   pal: store.get('pal', {}),                   // id → index de palette
   names: store.get('names', {}),               // id → titre personnalisé
   noText: new Set(store.get('noText', [])),
+  axoExploded: globalThis.FMAxoLayout.normalize(store.get('axoExploded', null)),
   time: store.get('time', 12),
   sunDate: validISODate(storedSunDate) ? storedSunDate : todayISO(),
   busy: false,
@@ -545,7 +546,7 @@ function ctxFor(id) {
     olmColor: S.olm && S.olm.ok ? (OLM_COLORMAP[String(Math.round(S.olm.value))] || '#B8B5AE') : null,
     msz: (S.olmEnv || []).find(r => r.layer === 'mszGhs' && r.ok) || null,
     mszColor: ((S.olmEnv || []).find(r => r.layer === 'mszGhs' && r.ok) ? OLM_MSZ_COLORMAP[String(Math.round(S.olmEnv.find(r => r.layer === 'mszGhs' && r.ok).value))] : null) || '#D5D5D5',
-    noSiteMark: false
+    noSiteMark: false, axoExploded: S.axoExploded
   };
 }
 function renderOne(id) {
@@ -612,6 +613,7 @@ function renderCards() {
     if (b3d) b3d.addEventListener('click', () => vue3D());
     card.querySelector('[data-svg]').addEventListener('click', () => downloadSVG(id, card));
     card.querySelector('[data-png]').addEventListener('click', () => downloadPNG(id, card));
+    if (id === 'axoexploded') mountAxoLayout(card);
     if (id === 'axoexploded') mountAxoAssistant(card, () => ({
       site: S.dataSite, buckets: S.D,
       stale: !S.dataSite || reportDataOutOfDate(S.dataSite) ||
@@ -621,6 +623,48 @@ function renderCards() {
   });
   renderMiniMap();
 }
+/* Mise en page locale de la planche existante ; du bas vers le haut.
+   Les boutons sont utilisables au clavier et ne modifient pas les données. */
+function mountAxoLayout(card) {
+  const panel=document.createElement('details'); panel.className='axo-layout';
+  const summary=document.createElement('summary'); summary.textContent=T('Composer les couches de la planche','Compose the diagram layers');panel.append(summary);
+  const intro=document.createElement('p');intro.textContent=T('Ordre du bas vers le haut. Masquer une couche ne supprime pas ses données. Au moins une couche reste affichée.','Order from bottom to top. Hiding a layer does not delete data. At least one layer remains visible.');panel.append(intro);
+  const list=document.createElement('div');list.className='axo-layout-list';panel.append(list);
+  const label=document.createElement('label');label.className='axo-layout-gap';label.textContent=T('Espacement graphique','Graphic spacing');
+  const gap=document.createElement('select');gap.setAttribute('aria-label',T('Espacement graphique','Graphic spacing'));
+  for (const [value,fr,en] of [[30,'Rapproché','Compact'],[42,'Moyen','Medium'],[54,'Éclaté','Exploded']]) gap.add(new Option(T(fr,en),String(value)));
+  gap.value=String(S.axoExploded.gap);label.append(gap);panel.append(label);
+  const status=document.createElement('p');status.className='axo-layout-status';status.setAttribute('role','status');status.textContent=T('Données OSM indicatives · écart graphique, pas une altitude.','Indicative OSM data · spacing is graphical, not altitude.');panel.append(status);
+  const names={occupation:T('Sol et usages','Land and uses'),voirie:T('Voirie et rail','Roads and rail'),bati:T('Emprises bâties','Building footprints'),poi:T('Points d’intérêt','Points of interest')};
+  const redraw=()=>{store.set('axoExploded',S.axoExploded);card.querySelector('.body').innerHTML=renderOne('axoexploded');};
+  const rows=(focusKey=null,focusAction=null)=>{
+    list.replaceChildren();
+    S.axoExploded.order.forEach((key,index)=>{
+      const row=document.createElement('div');row.className='axo-layout-row';row.dataset.layer=key;
+      const checkLabel=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=S.axoExploded.visible.includes(key);
+      check.disabled=check.checked && S.axoExploded.visible.length===1;
+      check.setAttribute('aria-label',T('Afficher ','Show ')+names[key]);
+      check.addEventListener('change',()=>{
+        const visible=check.checked?[...S.axoExploded.visible,key]:S.axoExploded.visible.filter(x=>x!==key);
+        S.axoExploded=globalThis.FMAxoLayout.normalize({...S.axoExploded,visible});redraw();rows(key,'check');status.textContent=T('Visibilité de la planche mise à jour.','Diagram visibility updated.');
+      });
+      const position=check.checked ? String(S.axoExploded.visible.indexOf(key)+1).padStart(2,'0') : '—';
+      checkLabel.append(check,document.createTextNode(` ${position} · ${names[key]}`));row.append(checkLabel);
+      for (const [dir,icon,fr,en] of [[-1,'↓','Descendre','Move down'],[1,'↑','Monter','Move up']]) {
+        const button=document.createElement('button');button.type='button';button.textContent=icon;button.dataset.action=dir<0?'down':'up';
+        button.title=T(fr,en)+' · '+names[key];button.setAttribute('aria-label',button.title);button.disabled=index+dir<0 || index+dir>=S.axoExploded.order.length;
+        button.addEventListener('click',()=>{const order=[...S.axoExploded.order];[order[index],order[index+dir]]=[order[index+dir],order[index]];
+          S.axoExploded=globalThis.FMAxoLayout.normalize({...S.axoExploded,order});redraw();rows(key,button.dataset.action);status.textContent=T('Ordre de la planche mis à jour.','Diagram order updated.');});
+        row.append(button);
+      }
+      list.append(row);
+    });
+    if(focusKey && focusAction) {const row=[...list.children].find(x=>x.dataset.layer===focusKey);const button=row?.querySelector(`[data-action="${focusAction}"]`);if(button && !button.disabled) button.focus();else row?.querySelector('input')?.focus();}
+  };
+  gap.addEventListener('change',()=>{S.axoExploded=globalThis.FMAxoLayout.normalize({...S.axoExploded,gap:Number(gap.value)});redraw();status.textContent=T('Espacement graphique mis à jour.','Graphic spacing updated.');});
+  rows();card.append(panel);
+}
+
 function refreshSolarCards() {
   for (const id of ['sun', 'volumes']) {
     const body = $('#card_' + id + ' .body');
@@ -1823,7 +1867,7 @@ function currentWorkspaceFields(name) {
   return {
     name, selectedIds: [...S.sel], shape: S.shape, radius: S.site.R,
     time: S.time, sunDate: S.sunDate, scenario: store.get('siteScenario', {}),
-    appearance: { palettes: S.pal, names: S.names, noText: [...S.noText] }
+    appearance: { palettes: S.pal, names: S.names, noText: [...S.noText], axoExploded: S.axoExploded }
   };
 }
 function saveWorkspaceProject() {
@@ -1892,6 +1936,8 @@ function setWorkspaceControls(record) {
     S.noText = new Set(record.appearance.noText);
     store.set('pal', S.pal); store.set('names', S.names); store.set('noText', [...S.noText]);
   }
+  S.axoExploded = globalThis.FMAxoLayout.normalize(record.appearance?.axoExploded);
+  store.set('axoExploded', S.axoExploded);
   $('#radius').value = S.site.R; $('#radiusOut').textContent = S.site.R + ' m';
   $('#shape').value = S.shape; $('#time').value = S.time; $('#sunDate').value = S.sunDate;
   $('#timeOut').textContent = `${String(Math.floor(S.time)).padStart(2, '0')}:${String(Math.round((S.time % 1) * 60)).padStart(2, '0')}`;

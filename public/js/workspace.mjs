@@ -2,6 +2,7 @@
    Le fichier décrit la configuration (site, analyses, hypothèses, apparence),
    pas les données OSM ni les résultats rendus. Aucun compte ou synchronisation serveur. */
 import { DEPS } from './plan-2d.mjs';
+import './axo-layout.js';
 
 const VALID_IDS = new Set(Object.keys(DEPS));
 const SHAPES = new Set(['circle', 'rect', 'square']);
@@ -43,7 +44,8 @@ function cleanAppearance(value) {
       if (text) names[id] = text;
     }
   }
-  return { palettes, names, noText: cleanIds(source.noText) };
+  return { palettes, names, noText: cleanIds(source.noText),
+    ...(Object.hasOwn(source, 'axoExploded') ? { axoExploded: globalThis.FMAxoLayout.normalize(source.axoExploded) } : {}) };
 }
 function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

@@ -98,3 +98,14 @@ describe('espace de travail local', () => {
     assert.deepEqual(removeWorkspaceRecord(records, 'second').map(item => item.id), ['first']);
   });
 });
+
+test('projets et modèles conservent une composition bornée et les anciens restent lisibles', () => {
+  const axoExploded={order:['poi','voirie','bati','occupation'],visible:['poi','bati'],gap:42};
+  const project=createWorkspaceProject({...projectInput,appearance:{...projectInput.appearance,axoExploded}});
+  assert.deepEqual(parseWorkspaceFile(serializeWorkspaceRecord(project)).appearance.axoExploded,axoExploded);
+  const template=createWorkspaceTemplate({name:'Planche',sunDate:'2026-01-01',appearance:{axoExploded}});
+  assert.deepEqual(parseWorkspaceFile(serializeWorkspaceRecord(template)).appearance.axoExploded,axoExploded);
+  const bad=createWorkspaceProject({...projectInput,appearance:{axoExploded:{order:['<script>','bati','bati'],visible:['<script>','bati'],gap:999}}});
+  assert.deepEqual(bad.appearance.axoExploded,{order:['bati','occupation','voirie','poi'],visible:['bati'],gap:54});
+  assert.equal('axoExploded' in createWorkspaceProject(projectInput).appearance,false);
+});
