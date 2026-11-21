@@ -31,6 +31,7 @@ test('exemples de modèles distincts par fournisseur et documentation HTTPS', ()
   assert.deepEqual(AXO_PROVIDERS.kira.models, ['kira-2.5-flash','kira-2.5-pro']);
   assert.ok(AXO_PROVIDERS.mistral.models.includes('labs-mistral-small-creative'));
   assert.ok(AXO_PROVIDERS.mistral.models.includes('ministral-3b-latest'));
+  assert.ok(AXO_PROVIDERS.mistral.models.includes('voxtral-small-latest'));
   for (const provider of Object.values(AXO_PROVIDERS)) {
     assert.ok(provider.models.length > 0);
     assert.equal(new URL(provider.catalog).protocol,'https:');
@@ -77,6 +78,7 @@ test('routeur gratuit OpenRouter et modèle Groq : identifiants exacts, sans bas
     ['openrouter','openrouter/free'],
     ['openrouter','nvidia/nemotron-3-ultra-550b-a55b:free'],
     ['groq','openai/gpt-oss-20b'],
+    ['mistral','voxtral-small-latest'],
     ['gemini','gemini-2.5-flash']
   ]) {
     let payload;

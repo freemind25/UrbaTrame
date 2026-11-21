@@ -1,4 +1,4 @@
-import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011keytest1';
+import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011voxtral1';
 
 /* Assistance textuelle pour la planche éclatée. Aucune clé n'est persistée,
    aucune modification de carte n'est appliquée automatiquement. */
