@@ -2,7 +2,8 @@
    d'identifiants ci-dessous sont indicatifs et ne garantissent ni accès ni prix. */
 const entry=(label,endpoint,placeholder,routed,models,catalog)=>Object.freeze({label,endpoint,placeholder,routed,models:Object.freeze(models),catalog});
 export const AXO_PROVIDERS = Object.freeze({
-  openrouter: entry('OpenRouter','https://openrouter.ai/api/v1/chat/completions','fournisseur/modèle',true,['openai/gpt-4o-mini','openai/gpt-4o'],'https://openrouter.ai/models'),
+  openrouter: entry('OpenRouter','https://openrouter.ai/api/v1/chat/completions','openrouter/free',true,['openrouter/free','nvidia/nemotron-3-ultra-550b-a55b:free','openai/gpt-4o-mini','openai/gpt-4o'],'https://openrouter.ai/models'),
+  groq: entry('Groq · API','https://api.groq.com/openai/v1/chat/completions','openai/gpt-oss-20b',false,['openai/gpt-oss-20b','openai/gpt-oss-120b'],'https://console.groq.com/docs/models'),
   agnes: entry('Agnes AI','https://apihub.agnes-ai.com/v1/chat/completions','agnes-2.5-flash',false,['agnes-2.5-flash'],'https://agnes-ai.com/en/docs/agnes-25-flash'),
   mistral: entry('Mistral AI','https://api.mistral.ai/v1/chat/completions','mistral-small-latest',false,['mistral-small-latest','mistral-medium-latest','mistral-large-latest'],'https://docs.mistral.ai/getting-started/models/'),
   codecraft: entry('CodeCraft API','https://codecraftapi.com/v1/chat/completions','identifiant CodeCraft',true,['gemma-2-2b'],'https://codecraftapi.com/models'),

@@ -1,6 +1,14 @@
 # Assistance IA de la planche axonométrique éclatée
 
-La carte « Analyse axonométrique éclatée » contient un panneau optionnel d'assistance **textuelle**. Le registre partagé `public/js/axo-ai-providers.mjs` énumère explicitement les destinations HTTPS de dix fournisseurs : OpenRouter, Agnes AI, Mistral AI, CodeCraft API, Z.ai (API standard), AgentRouter, Gemini (compatibilité OpenAI), Kira AI, APInex et RoutesMe (API standard /v1). Pour chaque fournisseur, une liste d'exemples d'identifiants textuels est proposée ; on peut aussi saisir un autre ID exact. Ces exemples sont statiques, non exhaustifs, et ne sont pas le catalogue personnel du compte. Ils peuvent devenir obsolètes ou payants : vérifier disponibilité, droits et tarifs sur le lien du fournisseur. Aucun modèle n'est sélectionné automatiquement et aucun catalogue en ligne n'est interrogé par le panneau. Le module ne vérifie pas les modèles ni les tarifs en direct, ne sélectionne pas automatiquement un modèle gratuit et ne bascule pas vers un autre fournisseur.
+La carte « Analyse axonométrique éclatée » contient un panneau optionnel d'assistance **textuelle**. Le registre partagé `public/js/axo-ai-providers.mjs` énumère explicitement les destinations HTTPS de onze fournisseurs : OpenRouter, Groq, Agnes AI, Mistral AI, CodeCraft API, Z.ai (API standard), AgentRouter, Gemini (compatibilité OpenAI), Kira AI, APInex et RoutesMe (API standard /v1). Pour chaque fournisseur, une liste d'exemples d'identifiants textuels est proposée ; on peut aussi saisir un autre ID exact. Ces exemples sont statiques, non exhaustifs, et ne sont pas le catalogue personnel du compte. Ils peuvent devenir obsolètes ou payants : vérifier disponibilité, droits et tarifs sur le lien du fournisseur. Aucun modèle n'est sélectionné automatiquement et aucun catalogue en ligne n'est interrogé par le panneau. Le module ne vérifie pas les modèles ni les tarifs en direct, ne sélectionne pas automatiquement un modèle gratuit et ne bascule pas vers un autre fournisseur.
+
+## Offres gratuites : à vérifier avant usage
+
+OpenRouter propose `openrouter/free`, un routeur vers un modèle gratuit variable, et des variantes `:free`, dont `nvidia/nemotron-3-ultra-550b-a55b:free` (catalogue susceptible de changer). La version sans `:free` peut être payante. Le relais transmet seulement l'identifiant choisi, sans liste de repli payant. Les quotas et la politique de données de son compte s'appliquent ; https://openrouter.ai/docs/guides/routing/routers/free-router.
+
+Groq propose un plan gratuit avec quota, différent du plan Developer payant ; consulter https://console.groq.com/settings/billing et https://console.groq.com/docs/rate-limits. Gemini propose un niveau gratuit sur certains modèles et comptes, distinct du plan payant : https://ai.google.dev/gemini-api/docs/pricing. Un exemple affiché ne garantit ni éligibilité, ni service, ni gratuité, et aucun tarif n'est vérifié en direct. L'application ne fournit pas de clé et ne stocke pas la clé dans le panneau.
+
+Cloudflare Workers AI n'est pas intégré ici : ses URL d'API dépendent du compte ; le relais n'autorise que des destinations fixes et ne doit pas accepter une URL arbitraire. Kira et Mistral nécessitent une vérification du plan et de la disponibilité de l'API. Les réponses sont purement textuelles ; les IA ne produisent pas ici une planche ni des géométries.
 
 Z.ai est configuré sur son endpoint API standard. Les conditions et l'endpoint du GLM Coding Plan sont distincts : ce prototype ne les utilise pas. Les accès CodeCraft via un relais hébergé ont déjà rencontré un blocage WAF (403) dans le projet ; il est signalé et n'est pas contourné automatiquement. Les routeurs peuvent transmettre les données à un fournisseur d'inférence tiers : examiner leurs conditions avant l'envoi. Gemini est branché via son interface de compatibilité OpenAI, pas son API native.
 
@@ -19,6 +27,7 @@ Le modèle est invité à distinguer faits et hypothèses, sans inventer de trac
 ## Références des endpoints
 
 - OpenRouter : https://openrouter.ai/docs
+- Groq : https://console.groq.com/docs/openai
 - Agnes : https://agnes-ai.com/en/docs/overview
 - Mistral : https://docs.mistral.ai/inference/conversations/function-calling (exemples d’identifiants)
 - CodeCraft : https://codecraftapi.com/docs/getting-started

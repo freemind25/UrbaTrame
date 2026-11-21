@@ -1,4 +1,4 @@
-import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011models1';
+import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011free1';
 
 /* Assistance textuelle pour la planche éclatée. Aucune clé n'est persistée,
    aucune modification de carte n'est appliquée automatiquement. */
@@ -29,6 +29,7 @@ export function mountAxoAssistant(card, getSnapshot) {
     <label>Exemples de modèles pour ce fournisseur <select data-model-choice></select></label>
     <label>Identifiant du modèle <input data-model type="text" maxlength="120" placeholder="fournisseur/modèle" autocomplete="off" spellcheck="false"></label>
     <p data-model-hint>Exemples indicatifs, non vérifiés en direct : disponibilité et tarifs à confirmer chez le fournisseur. Vous pouvez saisir un autre identifiant.</p>
+    <p data-free-hint></p>
     <p><a data-catalog target="_blank" rel="noopener noreferrer">Consulter la documentation ou le catalogue du fournisseur ↗</a></p>
     <label>Votre clé API personnelle <input data-key type="password" maxlength="512" autocomplete="off"></label>
     <label>Observations facultatives <textarea data-notes maxlength="2000" rows="3" placeholder="Vos observations et sources à vérifier"></textarea></label>
@@ -42,10 +43,19 @@ export function mountAxoAssistant(card, getSnapshot) {
     const selected = AXO_PROVIDERS[el('provider').value];
     const choice=el('model-choice');
     choice.replaceChildren(new Option('— Choisir un exemple ou saisir un identifiant —',''));
-    for (const id of selected.models) choice.add(new Option(id,id));
+    for (const id of selected.models) {
+      const free = el('provider').value==='openrouter' && (id==='openrouter/free' || id.endsWith(':free'));
+      choice.add(new Option(id + (free ? ' — gratuit annoncé, à vérifier' : ''),id));
+    }
     choice.add(new Option('Autre identifiant (saisie manuelle)','__custom__'));
     el('model').placeholder=selected.placeholder;
     el('catalog').href=selected.catalog;
+    const hints={
+      openrouter:'OpenRouter : openrouter/free choisit un modèle gratuit variable ; les variantes :free sont annoncées gratuites sous quota. Ne retirez pas :free. Les autres modèles peuvent être payants.',
+      gemini:'Gemini : certains modèles sont accessibles sur le plan gratuit ; un projet avec facturation peut être payant. Vérifiez modèle, compte et quota.',
+      groq:'Groq : un plan gratuit limité est annoncé ; vérifiez votre plan, les modèles et le quota. Le plan Developer est payant.'
+    };
+    el('free-hint').textContent=hints[el('provider').value] || 'La gratuité dépend du compte, du modèle et des conditions du fournisseur.';
   }
   updateModelExamples();
   el('model-choice').addEventListener('change',()=>{

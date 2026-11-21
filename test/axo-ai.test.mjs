@@ -25,6 +25,9 @@ test('résumé de site limité : sans géométries, nécessite des données à j
 });
 
 test('exemples de modèles distincts par fournisseur et documentation HTTPS', () => {
+  assert.ok(AXO_PROVIDERS.openrouter.models.includes('openrouter/free'));
+  assert.ok(AXO_PROVIDERS.openrouter.models.includes('nvidia/nemotron-3-ultra-550b-a55b:free'));
+  assert.ok(AXO_PROVIDERS.groq.models.includes('openai/gpt-oss-20b'));
   assert.deepEqual(AXO_PROVIDERS.kira.models, ['kira-2.5-flash','kira-2.5-pro']);
   assert.deepEqual(AXO_PROVIDERS.mistral.models, ['mistral-small-latest','mistral-medium-latest','mistral-large-latest']);
   for (const provider of Object.values(AXO_PROVIDERS)) {
@@ -37,9 +40,9 @@ test('exemples de modèles distincts par fournisseur et documentation HTTPS', ()
   assert.ok(!AXO_PROVIDERS.kira.models.includes('gemma-2-2b'));
 });
 
-test('dix fournisseurs : URL fixes et distinctes, aucune redirection ni fuite de clé', async () => {
+test('onze fournisseurs : URL fixes et distinctes, aucune redirection ni fuite de clé', async () => {
   const expected = {
-    openrouter:'https://openrouter.ai/api/v1/chat/completions', agnes:'https://apihub.agnes-ai.com/v1/chat/completions',
+    openrouter:'https://openrouter.ai/api/v1/chat/completions', groq:'https://api.groq.com/openai/v1/chat/completions', agnes:'https://apihub.agnes-ai.com/v1/chat/completions',
     mistral:'https://api.mistral.ai/v1/chat/completions', codecraft:'https://codecraftapi.com/v1/chat/completions',
     zai:'https://api.z.ai/api/paas/v4/chat/completions', agentrouter:'https://agentrouter.org/v1/chat/completions',
     gemini:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
@@ -65,6 +68,30 @@ test('dix fournisseurs : URL fixes et distinctes, aucune redirection ni fuite de
     assert.equal(called,1); assert.equal(res.status,200); assert.equal(res.data.text,'Hypothèse à vérifier');
     assert.doesNotMatch(JSON.stringify(res.data),/private-fake-test-key/);
     assert.equal(res.headers['Cache-Control'],'no-store');
+  }
+});
+
+test('routeur gratuit OpenRouter et modèle Groq : identifiants exacts, sans bascule payante', async () => {
+  for (const [provider,model] of [
+    ['openrouter','openrouter/free'],
+    ['openrouter','nvidia/nemotron-3-ultra-550b-a55b:free'],
+    ['groq','openai/gpt-oss-20b'],
+    ['gemini','gemini-2.5-flash']
+  ]) {
+    let payload;
+    const handler=createAxoAiHandler({cooldownMs:0,fetchImpl:async (url,opts)=>{
+      assert.equal(url,AXO_AI_PROVIDERS[provider]);
+      assert.equal(opts.redirect,'error');
+      payload=JSON.parse(opts.body);
+      return new Response(JSON.stringify({choices:[{message:{content:'Essai simulé'}}]}));
+    }});
+    const res=response();
+    await handler(request({provider,model,context:buildAxoAiContext(ctx)}),res,'x');
+    assert.equal(res.status,200);
+    assert.equal(payload.model,model);
+    assert.equal(Object.hasOwn(payload,'models'),false);
+    assert.equal(Object.hasOwn(payload,'provider'),false);
+    assert.equal(res.data.model,model);
   }
 });
 
