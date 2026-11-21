@@ -65,6 +65,15 @@ describe('consolidation des fonctions Vercel', () => {
     assert.equal(analysis.json.tier, 'free');
   });
 
+  test('le test de clé IA est routé et réservé à POST', async () => {
+    const get = response();
+    await handler(request('GET', '/api?__path=%2Fai%2Ftest-key'), get);
+    assert.equal(get.statusCode, 405); assert.equal(get.json.error, 'POST_ONLY');
+    const post = response();
+    await handler(request('POST', '/api?__path=%2Fai%2Ftest-key', {provider:'mistral'}), post);
+    assert.equal(post.statusCode, 400); assert.equal(post.json.error, 'API_KEY_REQUIRED');
+  });
+
   test('les paramètres d’origine survivent au rewrite imbriqué', async () => {
     const res = response();
     await handler(request('GET', '/api?__path=%2Fatelier%2Fgadm&country=..%2FDZA&level=1'), res);
