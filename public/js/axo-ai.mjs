@@ -1,4 +1,4 @@
-import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011providers3';
+import { AXO_PROVIDERS } from './axo-ai-providers.mjs?v=20261011models1';
 
 /* Assistance textuelle pour la planche éclatée. Aucune clé n'est persistée,
    aucune modification de carte n'est appliquée automatiquement. */
@@ -26,7 +26,10 @@ export function mountAxoAssistant(card, getSnapshot) {
   box.innerHTML = `<summary>Assistance IA · hypothèses à vérifier</summary>
     <p>Un résumé du site sera envoyé au fournisseur choisi, via le serveur UrbaTrame. Aucun tracé ne sera ajouté automatiquement. Tarifs et quota à vérifier avant chaque appel.</p>
     <label>Fournisseur <select data-provider>${Object.entries(AXO_PROVIDERS).map(([id, item]) => `<option value="${id}">${item.label}</option>`).join('')}</select></label>
-    <label>Identifiant du modèle <input data-model type="text" maxlength="120" placeholder="ex. openai/gpt-4o-mini" autocomplete="off"></label>
+    <label>Exemples de modèles pour ce fournisseur <select data-model-choice></select></label>
+    <label>Identifiant du modèle <input data-model type="text" maxlength="120" placeholder="fournisseur/modèle" autocomplete="off" spellcheck="false"></label>
+    <p data-model-hint>Exemples indicatifs, non vérifiés en direct : disponibilité et tarifs à confirmer chez le fournisseur. Vous pouvez saisir un autre identifiant.</p>
+    <p><a data-catalog target="_blank" rel="noopener noreferrer">Consulter la documentation ou le catalogue du fournisseur ↗</a></p>
     <label>Votre clé API personnelle <input data-key type="password" maxlength="512" autocomplete="off"></label>
     <label>Observations facultatives <textarea data-notes maxlength="2000" rows="3" placeholder="Vos observations et sources à vérifier"></textarea></label>
     <label class="axo-consent"><input data-consent type="checkbox"> J’accepte l’envoi du résumé et le coût éventuel du modèle choisi.</label>
@@ -35,10 +38,28 @@ export function mountAxoAssistant(card, getSnapshot) {
     <pre data-output aria-live="polite" hidden></pre>`;
   card.querySelector('.body').after(box);
   const el = name => box.querySelector('[data-' + name + ']');
-  el('provider').addEventListener('change', () => {
+  function updateModelExamples() {
     const selected = AXO_PROVIDERS[el('provider').value];
+    const choice=el('model-choice');
+    choice.replaceChildren(new Option('— Choisir un exemple ou saisir un identifiant —',''));
+    for (const id of selected.models) choice.add(new Option(id,id));
+    choice.add(new Option('Autre identifiant (saisie manuelle)','__custom__'));
+    el('model').placeholder=selected.placeholder;
+    el('catalog').href=selected.catalog;
+  }
+  updateModelExamples();
+  el('model-choice').addEventListener('change',()=>{
+    const id=el('model-choice').value;
+    if(id && id!=='__custom__') el('model').value=id;
+    else if(id==='__custom__') {el('model').value='';el('model').focus();}
+  });
+  el('model').addEventListener('input',()=>{
+    const value=el('model').value.trim(),examples=AXO_PROVIDERS[el('provider').value].models;
+    el('model-choice').value=!value?'':examples.includes(value)?value:'__custom__';
+  });
+  el('provider').addEventListener('change', () => {
     el('model').value = '';
-    el('model').placeholder = selected.placeholder;
+    updateModelExamples();
     el('key').value = '';
     el('consent').checked = false;
     el('output').textContent = '';

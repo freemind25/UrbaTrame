@@ -1,6 +1,6 @@
 # Assistance IA de la planche axonométrique éclatée
 
-La carte « Analyse axonométrique éclatée » contient un panneau optionnel d'assistance **textuelle**. Le registre partagé `public/js/axo-ai-providers.mjs` énumère explicitement les destinations HTTPS de dix fournisseurs : OpenRouter, Agnes AI, Mistral AI, CodeCraft API, Z.ai (API standard), AgentRouter, Gemini (compatibilité OpenAI), Kira AI, APInex et RoutesMe (API standard /v1). Pour chaque appel, saisir l'ID exact d'un modèle textuel disponible sur son compte. Le module ne vérifie pas les modèles ni les tarifs en direct, ne sélectionne pas automatiquement un modèle gratuit et ne bascule pas vers un autre fournisseur.
+La carte « Analyse axonométrique éclatée » contient un panneau optionnel d'assistance **textuelle**. Le registre partagé `public/js/axo-ai-providers.mjs` énumère explicitement les destinations HTTPS de dix fournisseurs : OpenRouter, Agnes AI, Mistral AI, CodeCraft API, Z.ai (API standard), AgentRouter, Gemini (compatibilité OpenAI), Kira AI, APInex et RoutesMe (API standard /v1). Pour chaque fournisseur, une liste d'exemples d'identifiants textuels est proposée ; on peut aussi saisir un autre ID exact. Ces exemples sont statiques, non exhaustifs, et ne sont pas le catalogue personnel du compte. Ils peuvent devenir obsolètes ou payants : vérifier disponibilité, droits et tarifs sur le lien du fournisseur. Aucun modèle n'est sélectionné automatiquement et aucun catalogue en ligne n'est interrogé par le panneau. Le module ne vérifie pas les modèles ni les tarifs en direct, ne sélectionne pas automatiquement un modèle gratuit et ne bascule pas vers un autre fournisseur.
 
 Z.ai est configuré sur son endpoint API standard. Les conditions et l'endpoint du GLM Coding Plan sont distincts : ce prototype ne les utilise pas. Les accès CodeCraft via un relais hébergé ont déjà rencontré un blocage WAF (403) dans le projet ; il est signalé et n'est pas contourné automatiquement. Les routeurs peuvent transmettre les données à un fournisseur d'inférence tiers : examiner leurs conditions avant l'envoi. Gemini est branché via son interface de compatibilité OpenAI, pas son API native.
 
@@ -20,12 +20,12 @@ Le modèle est invité à distinguer faits et hypothèses, sans inventer de trac
 
 - OpenRouter : https://openrouter.ai/docs
 - Agnes : https://agnes-ai.com/en/docs/overview
-- Mistral : https://docs.mistral.ai/api/endpoint/chat
+- Mistral : https://docs.mistral.ai/inference/conversations/function-calling (exemples d’identifiants)
 - CodeCraft : https://codecraftapi.com/docs/getting-started
 - Z.ai : https://docs.z.ai/api-reference/introduction
 - AgentRouter : https://agentrouter.org/docs/hermes.html
 - Gemini : https://ai.google.dev/gemini-api/docs/openai
-- Kira : https://kiraai.vn/gioi-thieu/
+- Kira : https://kiraai.vn/models/kira-2.5-flash/ et https://kiraai.vn/models/kira-2.5-pro/ (exemples d’identifiants)
 - APInex : https://apinex.bond/models/drex-v2-0
 - RoutesMe : https://routesme.online/
 

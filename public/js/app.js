@@ -16,7 +16,7 @@ import { summarizeSite, calculateFeasibility, siteReading, climateChartSVG } fro
 import { buildConceptMassing, conceptMeshScene, renderConceptMassingSvg } from './concept-massing.mjs';
 import { objDeScene, stlDeScene } from './exports.mjs';
 import { analyzeSpatialQuestion } from './local-assistant.mjs';
-import { mountAxoAssistant } from './axo-ai.mjs?v=20261011providers3';
+import { mountAxoAssistant } from './axo-ai.mjs?v=20261011models1';
 import { verifyIssuedLicenseToken } from './licence-client.mjs';
 import { studentAuthReady } from './student-auth-ui.mjs';
 import {
